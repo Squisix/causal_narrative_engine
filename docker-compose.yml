@@ -1,0 +1,67 @@
+# docker-compose.yml — Infraestructura para Fase 2
+
+services:
+  # PostgreSQL 16 con soporte para JSON y CTEs recursivas
+  postgres:
+    image: postgres:16-alpine
+    container_name: cne_postgres
+    environment:
+      POSTGRES_DB: cne_db
+      POSTGRES_USER: cne_user
+      POSTGRES_PASSWORD: cne_password_dev
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cne_user -d cne_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis para caché de estado (opcional, Fase 4+)
+  redis:
+    image: redis:7-alpine
+    container_name: cne_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Adminer para explorar la DB durante desarrollo
+  adminer:
+    image: adminer:latest
+    container_name: cne_adminer
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Uso:
+#   docker-compose up -d          Levantar servicios
+#   docker-compose logs -f        Ver logs
+#   docker-compose down           Detener servicios
+#   docker-compose down -v        Detener y borrar volúmenes (resetea DB)
+#
+# Acceso:
+#   PostgreSQL: localhost:5433 (5433 en host, 5432 en contenedor)
+#   Adminer:    http://localhost:8080
+#   Redis:      localhost:6379
+#
+# Conexión string:
+#   postgresql+asyncpg://cne_user@localhost:5433/cne_db

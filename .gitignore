@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmyp.json
+
+# Ruff
+.ruff_cache/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker volumes (los datos persisten fuera del repo)
+# Solo commiteamos docker-compose.yml, no los volúmenes
+
+# Alembic — NO ignorar migrations/versions/*.py
+# Esos archivos deben estar en el repo
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# PyPI
+.pypirc
+
+# Claude Code memory (local)
+.claude/
+
+# Secrets y configuración local
+config.local.json
+secrets.json
+
+# Coverage reports
+.coverage.*
+coverage.xml
+*.cover
+
+# Profiling
+*.prof
