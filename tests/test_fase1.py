@@ -39,9 +39,9 @@ def make_choice(text: str, t: int = 0, h: int = 0) -> NarrativeChoice:
     )
 
 def separator(title: str):
-    print(f"\n{'═' * 60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'═' * 60}")
+    print(f"{'=' * 60}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -59,44 +59,44 @@ def test_causal_validator():
     validator.add_event("e3")
     validator.add_event("e4")
 
-    # Crear cadena causal: e1 → e2 → e3
+    # Crear cadena causal: e1 -> e2 -> e3
     validator.add_edge("e1", "e2")
     validator.add_edge("e2", "e3")
     validator.add_edge("e1", "e4")   # Bifurcación: e1 también causa e4
 
-    print("✅ Aristas válidas añadidas: e1→e2, e2→e3, e1→e4")
+    print("[OK] Aristas válidas añadidas: e1->e2, e2->e3, e1->e4")
 
     # Verificar que el grafo es un DAG
     assert validator.is_dag(), "El grafo debe ser un DAG"
-    print("✅ is_dag() = True")
+    print("[OK] is_dag() = True")
 
     # Verificar orden topológico (e1 siempre antes que e2, e2 antes que e3)
     assert validator.get_topo_order("e1") < validator.get_topo_order("e2")
     assert validator.get_topo_order("e2") < validator.get_topo_order("e3")
-    print(f"✅ Orden topológico correcto: e1={validator.get_topo_order('e1')}, "
+    print(f"[OK] Orden topológico correcto: e1={validator.get_topo_order('e1')}, "
           f"e2={validator.get_topo_order('e2')}, e3={validator.get_topo_order('e3')}")
 
     # Verificar que se detectan ciclos
     cycle_detected = False
     try:
-        # Intentar: e3 → e1 crearía el ciclo e1→e2→e3→e1
+        # Intentar: e3 -> e1 crearía el ciclo e1->e2->e3->e1
         validator.add_edge("e3", "e1")
-        print("❌ ERROR: Debería haber detectado el ciclo")
+        print("[FAIL] ERROR: Debería haber detectado el ciclo")
     except CausalCycleError as err:
         cycle_detected = True
-        print(f"✅ Ciclo detectado correctamente: {err}")
+        print(f"[OK] Ciclo detectado correctamente: {err}")
 
-    assert cycle_detected, "Debe detectar el ciclo e3→e1"
+    assert cycle_detected, "Debe detectar el ciclo e3->e1"
 
     # Verificar ancestros
     ancestors = validator.get_all_ancestors("e3")
     assert "e1" in ancestors and "e2" in ancestors
-    print(f"✅ Ancestros de e3: {ancestors}")
+    print(f"[OK] Ancestros de e3: {ancestors}")
 
     stats = validator.get_stats()
-    print(f"✅ Stats: {stats}")
+    print(f"[OK] Stats: {stats}")
 
-    print("\n🌟 P1 CAUSALIDAD: VERIFICADA")
+    print("\n[***] P1 CAUSALIDAD: VERIFICADA")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -113,37 +113,37 @@ def test_dramatic_engine():
 
     print(f"Estado inicial: {engine.vector}")
 
-    # Sin umbrales cruzados → None
+    # Sin umbrales cruzados -> None
     constraint = engine.evaluate_thresholds()
     assert constraint is None, "No debe haber eventos forzados al inicio"
-    print("✅ Sin umbrales cruzados → None")
+    print("[OK] Sin umbrales cruzados -> None")
 
-    # Subir tensión a 90 → debe forzar CLÍMAX
+    # Subir tensión a 90 -> debe forzar CLÍMAX
     engine.apply_delta_from_dict({"tension": 60, "hope": -10})
     print(f"Después de +60 tensión: {engine.vector}")
 
     constraint = engine.evaluate_thresholds()
     assert constraint is not None, "Debe haber un evento forzado"
-    print(f"✅ Umbral cruzado → {constraint.event_type.value}: {constraint.description[:60]}...")
+    print(f"[OK] Umbral cruzado -> {constraint.event_type.value}: {constraint.description[:60]}...")
 
     # Verificar que la instrucción para la IA es clara
     prompt_text = constraint.to_prompt_constraint()
     assert "CONSTRAINT DRAMÁTICO" in prompt_text
-    print(f"✅ Prompt constraint generado correctamente")
+    print(f"[OK] Prompt constraint generado correctamente")
 
-    # Test: misterio + tensión alta → revelación
+    # Test: misterio + tensión alta -> revelación
     engine2 = DramaticEngine({"tension": 70, "hope": 40, "chaos": 30,
                                "rhythm": 50, "saturation": 0,
                                "connection": 40, "mystery": 70})
     constraint2 = engine2.evaluate_thresholds()
     assert constraint2 is not None
-    print(f"✅ Misterio+Tensión alto → {constraint2.event_type.value}")
+    print(f"[OK] Misterio+Tensión alto -> {constraint2.event_type.value}")
 
     # Test análisis de arco
     analysis = engine.get_arc_analysis()
-    print(f"✅ Análisis de arco: {analysis}")
+    print(f"[OK] Análisis de arco: {analysis}")
 
-    print("\n🌟 DRAMATIC ENGINE: VERIFICADO")
+    print("\n[***] DRAMATIC ENGINE: VERIFICADO")
     
 
 
@@ -187,7 +187,7 @@ def test_full_story():
     )
 
     engine = StateMachine(world)
-    print(f"🌱 Semilla creada: {world}")
+    print(f"[SEED] Semilla creada: {world}")
 
     # ── Capítulo 0: Inicio ─────────────────────────────────────────────────────
     result = engine.start(
@@ -270,7 +270,7 @@ def test_full_story():
     # Verificar P1: el grafo causal es válido
     stats = engine.get_causal_stats()
     assert stats["is_valid_dag"], "P1 FALLIDA: El grafo causal debe ser un DAG"
-    print(f"\n✅ P1 CAUSALIDAD: {stats}")
+    print(f"\n[OK] P1 CAUSALIDAD: {stats}")
 
     # ── Capítulo 3: Huir y buscar aliados ─────────────────────────────────────
     result3 = engine.advance_story(
@@ -298,7 +298,7 @@ def test_full_story():
     separator("TEST P3: Versionado — Regresar a Capítulo 1 y explorar otra rama")
 
     engine.go_to_commit(commit_1_id)
-    print(f"✅ Regresado al commit del Capítulo 1 (depth={engine._current_depth})")
+    print(f"[OK] Regresado al commit del Capítulo 1 (depth={engine._current_depth})")
     print(f"   Vector dramático restaurado: {engine._dramatic_engine.vector}")
 
     # Tomar otra decisión desde el mismo punto
@@ -320,7 +320,7 @@ def test_full_story():
     )
 
     print(result_alt.display())
-    print(f"✅ P3 VERSIONADO: Nueva rama explorada desde Capítulo 1")
+    print(f"[OK] P3 VERSIONADO: Nueva rama explorada desde Capítulo 1")
     print(f"   Commit padre: {commit_1_id[:8]}...")
     print(f"   Nuevo commit: {result_alt.commit.id[:8]}...")
 
@@ -358,34 +358,34 @@ def test_full_story():
     # P1: DAG válido
     final_stats = engine.get_causal_stats()
     assert final_stats["is_valid_dag"]
-    print(f"✅ P1 CAUSALIDAD: DAG válido con {final_stats['total_events']} eventos")
+    print(f"[OK] P1 CAUSALIDAD: DAG válido con {final_stats['total_events']} eventos")
 
     # P2: Reconstrucción (verificar que el estado de Lyra es correcto)
     lyra_state = engine._entities[lyra.id]
     assert lyra_state.attributes["is_queen"] == True
-    print(f"✅ P2 DETERMINISMO: Lyra.is_queen = {lyra_state.attributes['is_queen']}")
+    print(f"[OK] P2 DETERMINISMO: Lyra.is_queen = {lyra_state.attributes['is_queen']}")
 
     malachar_state = engine._entities[malachar.id]
     assert malachar_state.attributes["alive"] == False
-    print(f"✅ P4 CONSISTENCIA: Malachar.alive = {malachar_state.attributes['alive']}")
+    print(f"[OK] P4 CONSISTENCIA: Malachar.alive = {malachar_state.attributes['alive']}")
 
     # P3: Árbol de ramas
     total_commits = len(engine._commits)
-    print(f"✅ P3 VERSIONADO: {total_commits} commits totales (incluye ramas)")
+    print(f"[OK] P3 VERSIONADO: {total_commits} commits totales (incluye ramas)")
 
     # Análisis dramático (paper)
     arc_analysis = engine.get_dramatic_arc_analysis()
-    print(f"\n📊 Análisis de arco dramático:")
+    print(f"\n[ANALYSIS] Análisis de arco dramático:")
     for k, v in arc_analysis.items():
         print(f"   {k}: {v:.1f}" if isinstance(v, float) else f"   {k}: {v}")
 
     # Tronco activo (lo que se mandaría a la IA)
-    print(f"\n📜 Tronco activo (contexto para IA):")
+    print(f"\n[TRUNK] Tronco activo (contexto para IA):")
     print(engine.get_trunk_summary())
 
-    print("\n" + "═" * 60)
-    print("  🌳 FASE 1 COMPLETADA — TODAS LAS PROPIEDADES VERIFICADAS")
-    print("═" * 60)
+    print("\n" + "=" * 60)
+    print("  [***] FASE 1 COMPLETADA - TODAS LAS PROPIEDADES VERIFICADAS")
+    print("=" * 60)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -393,7 +393,7 @@ def test_full_story():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    print("🌳 CAUSAL NARRATIVE ENGINE — Test de Fase 1")
+    print("=== CAUSAL NARRATIVE ENGINE - Test de Fase 1 ===")
     print("   Verificando propiedades P1, P2, P3, P4\n")
 
     try:
@@ -401,13 +401,13 @@ if __name__ == "__main__":
         test_dramatic_engine()
         test_full_story()
 
-        print("\n✅ TODOS LOS TESTS PASARON")
+        print("\n[SUCCESS] TODOS LOS TESTS PASARON")
 
     except AssertionError as e:
-        print(f"\n❌ TEST FALLIDO: {e}")
+        print(f"\n[FAIL] TEST FALLIDO: {e}")
         raise
     except Exception as e:
-        print(f"\n💥 ERROR INESPERADO: {e}")
+        print(f"\n[ERROR] ERROR INESPERADO: {e}")
         import traceback
         traceback.print_exc()
         raise

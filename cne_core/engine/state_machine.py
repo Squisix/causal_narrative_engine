@@ -44,19 +44,19 @@ class StoryAdvanceResult:
     def display(self) -> str:
         """Representación para terminal (útil durante desarrollo)."""
         lines = [
-            f"\n{'═' * 60}",
-            f"📖 CAPÍTULO {self.commit.depth}",
-            f"{'─' * 60}",
+            f"\n{'=' * 60}",
+            f"[CAPITULO {self.commit.depth}]",
+            f"{'-' * 60}",
             self.narrative_text,
-            f"\n{'─' * 60}",
-            f"🎭 Estado dramático: {self._drama_str()}",
+            f"\n{'-' * 60}",
+            f"[DRAMA] Estado dramatico: {self._drama_str()}",
         ]
 
         if self.forced_event:
-            lines.append(f"⚠️  Evento forzado: {self.forced_event.event_type.value}")
+            lines.append(f"[!] Evento forzado: {self.forced_event.event_type.value}")
 
         if not self.is_ending:
-            lines.append(f"\n🌿 OPCIONES:")
+            lines.append(f"\n[OPCIONES]:")
             for i, choice in enumerate(self.available_choices, 1):
                 preview = choice.get_preview_str()
                 preview_str = f"  [{preview}]" if preview else ""

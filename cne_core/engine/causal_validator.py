@@ -33,10 +33,10 @@ class CausalCycleError(Exception):
         self.cause_id  = cause_id
         self.effect_id = effect_id
         self.cycle_path = cycle_path
-        path_str = " → ".join(p[:8] + "..." for p in cycle_path)
+        path_str = " -> ".join(p[:8] + "..." for p in cycle_path)
         super().__init__(
-            f"Ciclo causal detectado: añadir {cause_id[:8]}→{effect_id[:8]} "
-            f"crearía el ciclo: {path_str}"
+            f"Ciclo causal detectado: aniadir {cause_id[:8]}->{effect_id[:8]} "
+            f"crearia el ciclo: {path_str}"
         )
 
 

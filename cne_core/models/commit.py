@@ -100,14 +100,14 @@ class NarrativeCommit:
         """
         prefix = ""
         if self.choice_text:
-            prefix = f'→ "{self.choice_text}" | '
+            prefix = f'-> "{self.choice_text}" | '
 
         tension = self.get_dramatic_meter("tension")
         hope    = self.get_dramatic_meter("hope")
 
         return (
             f"[Cap.{self.depth}] {prefix}{self.summary} "
-            f"(tensión={tension}, esperanza={hope})"
+            f"(tension={tension}, esperanza={hope})"
         )
 
     def __str__(self) -> str:
@@ -174,8 +174,8 @@ class NarrativeChoice:
         for meter, delta in self.dramatic_preview.items():
             if delta != 0:
                 sign  = "+" if delta > 0 else ""
-                emoji = "📈" if delta > 0 else "📉"
-                parts.append(f"{emoji}{meter}{sign}{delta}")
+                arrow = "^" if delta > 0 else "v"
+                parts.append(f"{arrow}{meter}{sign}{delta}")
         return "  ".join(parts[:3])   # Mostrar máximo 3 para no saturar la UI
 
     def __str__(self) -> str:

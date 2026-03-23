@@ -1,0 +1,73 @@
+flowchart TD
+    Start([Usuario inicia historia]) --> CreateWorld[Crear WorldDefinition]
+    CreateWorld --> |WorldDefinition| InitMachine[StateMachine.__init__]
+
+    InitMachine --> InitComponents[Inicializar Componentes]
+    InitComponents --> |dramatic_config| InitDramatic[DramaticEngine]
+    InitComponents --> InitCausal[CausalValidator]
+    InitComponents --> InitState[Estado en memoria:<br/>entities, world_variables]
+
+    InitDramatic --> CallStart[StateMachine.start]
+    InitCausal --> CallStart
+    InitState --> CallStart
+
+    CallStart --> CreateInitEvent[Crear NarrativeEvent inicial]
+    CreateInitEvent --> |event.id| RegisterEvent[CausalValidator.add_event]
+    RegisterEvent --> CreateInitCommit[Crear NarrativeCommit raíz]
+    CreateInitCommit --> ReturnStart[Retornar StoryAdvanceResult]
+
+    ReturnStart --> DisplayChoice{Usuario ve<br/>narrativa + opciones}
+
+    DisplayChoice --> |Elige opción| Advance[StateMachine.advance_story]
+    DisplayChoice --> |Volver atrás| GoTo[StateMachine.go_to_commit]
+
+    %% ADVANCE STORY FLOW
+    Advance --> ApplyEntity[Aplicar EntityDeltas]
+    ApplyEntity --> ApplyWorld[Aplicar WorldVariableDeltas]
+    ApplyWorld --> ApplyDrama[DramaticEngine.apply_delta]
+
+    ApplyDrama --> ApplyInteractions[Aplicar interacciones<br/>entre medidores]
+    ApplyInteractions --> ClampValues[Clampear valores 0-100]
+    ClampValues --> EvalThresholds{DramaticEngine<br/>.evaluate_thresholds}
+
+    EvalThresholds --> |Umbral cruzado| ForcedEvent[ForcedEventConstraint]
+    EvalThresholds --> |Sin umbral| NoForced[constraint = None]
+
+    ForcedEvent --> CreateEvent[Crear NarrativeEvent]
+    NoForced --> CreateEvent
+
+    CreateEvent --> AddEventCausal[CausalValidator.add_event]
+    AddEventCausal --> AddEdge[CausalValidator.add_edge<br/>parent → current]
+
+    AddEdge --> CheckCycle{Detectar ciclo<br/>con BFS}
+    CheckCycle --> |Ciclo detectado| ThrowError[Lanzar CausalCycleError]
+    CheckCycle --> |DAG válido| CreateCommit[Crear NarrativeCommit]
+
+    CreateCommit --> UpdateParent[Parent.add_child]
+    UpdateParent --> UpdatePointer[Actualizar current_commit_id]
+    UpdatePointer --> ReturnResult[Retornar StoryAdvanceResult]
+
+    ReturnResult --> DisplayChoice
+
+    %% GO TO COMMIT FLOW
+    GoTo --> FindCommit{Commit existe?}
+    FindCommit --> |No| ErrorNotFound[ValueError]
+    FindCommit --> |Sí| RestoreDramatic[Restaurar DramaticVector<br/>desde snapshot]
+    RestoreDramatic --> RestoreWorld[Restaurar world_variables]
+    RestoreWorld --> RestoreEntities[Restaurar entity_states]
+    RestoreEntities --> UpdateCurrent[Actualizar current_commit_id<br/>y depth]
+    UpdateCurrent --> ReturnRestore[Retornar StoryAdvanceResult]
+    ReturnRestore --> DisplayChoice
+
+    ThrowError --> End([Error])
+    ErrorNotFound --> End
+
+    style CreateWorld fill:#e1f5ff
+    style InitMachine fill:#e1f5ff
+    style DramaticEngine fill:#ffe1f5
+    style CausalValidator fill:#ffe1f5
+    style ApplyDrama fill:#fff4e1
+    style EvalThresholds fill:#fff4e1
+    style CheckCycle fill:#e1ffe1
+    style CreateCommit fill:#f0e1ff
+    style StoryAdvanceResult fill:#ffe1e1
