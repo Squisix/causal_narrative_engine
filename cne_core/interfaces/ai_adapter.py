@@ -26,18 +26,21 @@ class NarrativeContext:
     Esto es lo que el motor construye y pasa al AIAdapter.
     El adapter lo convierte en el prompt específico de cada LLM.
     """
-    world_definition_str: str               # WorldDefinition.to_context_string()
-    dramatic_state: dict[str, int]          # Vector actual
-    trunk_summary: str                      # Historia comprimida
-    recent_events: list[str]                # Últimos 3-6 eventos con detalle
+    # Importamos WorldDefinition y otros types aquí para evitar circular imports
+    world_definition: Any                   # WorldDefinition completo
     current_depth: int                      # Profundidad narrativa actual
+    current_dramatic_state: dict[str, int]  # Vector dramático actual
+    current_entity_states: dict[str, Any]   # Estado actual de entidades
+    current_world_vars: dict[str, Any]      # Variables globales actuales
+
+    # Historia hasta ahora
+    commit_chain: list[Any] = field(default_factory=list)  # Lista de NarrativeCommit
+
+    # Decisión del jugador (si hay)
+    player_choice: str | None = None
 
     # Si hay constraint por umbral dramático
-    forced_event_constraint: str | None = None
-
-    # Estado de entidades y mundo (opcional, para contexto adicional)
-    entity_states: dict[str, Any] = field(default_factory=dict)
-    world_variables: dict[str, Any] = field(default_factory=dict)
+    forced_constraint: Any | None = None  # ForcedEventConstraint
 
 
 @dataclass
@@ -53,20 +56,18 @@ class NarrativeProposal:
     """
     narrative_text: str                      # 150-250 palabras inmersivas
     summary: str                             # 1 oración para el tronco
-    choices: list[str]                       # 2-4 opciones
+    choices: list[Any]                       # Lista de NarrativeChoice
 
     # Efectos propuestos del evento
-    entity_deltas: list[EntityDelta] = field(default_factory=list)
-    world_deltas: list[WorldVariableDelta] = field(default_factory=list)
-    dramatic_delta: DramaticDelta = field(default_factory=DramaticDelta)
-
-    # Preview dramático por opción (opcional pero recomendado)
-    choice_dramatic_preview: list[dict[str, Any]] = field(default_factory=list)
+    entity_deltas: list[Any] = field(default_factory=list)  # list[EntityDelta]
+    world_deltas: list[Any] = field(default_factory=list)   # list[WorldVariableDelta]
+    dramatic_delta: Any = None                               # DramaticDelta
 
     # Metadata
     causal_reason: str | None = None         # Por qué ocurre este evento
     is_ending: bool = False                  # ¿Es un final?
     forced_event_type: str | None = None     # Si fue forzado por umbral
+    raw_response: dict[str, Any] | None = None  # Respuesta cruda del LLM (para logging)
 
 
 class AIAdapter(ABC):

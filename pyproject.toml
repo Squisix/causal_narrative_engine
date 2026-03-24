@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cne-core"
-version = "0.2.0"  # Fase 2
+version = "0.3.0"  # Fase 3
 description = "Causal Narrative Engine — Motor narrativo independiente basado en causalidad formal"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -85,7 +85,7 @@ Issues = "https://github.com/usuario/cne-core/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["cne_core*", "persistence*"]
+include = ["cne_core*", "persistence*", "adapters*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]
@@ -100,6 +100,7 @@ addopts = [
     "-ra",
     "--cov=cne_core",
     "--cov=persistence",
+    "--cov=adapters",
     "--cov-report=term-missing",
     "--cov-report=html",
 ]
@@ -108,6 +109,7 @@ markers = [
     "fase2: Tests de Fase 2 (Persistencia con PostgreSQL)",
     "fase3: Tests de Fase 3 (AI Adapter)",
     "integration: Tests de integración (requieren servicios externos)",
+    "anthropic_api: Tests que requieren API key de Anthropic (consumen tokens)",
 ]
 
 [tool.black]
