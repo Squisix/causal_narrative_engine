@@ -24,6 +24,13 @@ except ImportError:
     AnthropicAdapter = None
     ANTHROPIC_AVAILABLE = False
 
+try:
+    from adapters.ollama_adapter import OllamaAdapter
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OllamaAdapter = None
+    OLLAMA_AVAILABLE = False
+
 
 # ── Repository ──────────────────────────────────────────────────────────────
 
@@ -89,13 +96,33 @@ def get_anthropic_adapter() -> AnthropicAdapter:
     return _anthropic_adapter_instance
 
 
+_ollama_adapter_instance = None
+
+
+def get_ollama_adapter() -> OllamaAdapter:
+    """Retorna una instancia singleton del OllamaAdapter."""
+    if not OLLAMA_AVAILABLE:
+        raise ValueError("Ollama adapter not available. Install: pip install httpx")
+
+    global _ollama_adapter_instance
+    if _ollama_adapter_instance is None:
+        settings = get_settings()
+        _ollama_adapter_instance = OllamaAdapter(
+            model=settings.ollama_model,
+            base_url=settings.ollama_base_url,
+            temperature=settings.ollama_temperature,
+        )
+
+    return _ollama_adapter_instance
+
+
 def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
     """
     Factory para obtener un AI adapter.
 
     Args:
-        adapter_type: "mock" o "anthropic"
-        adapter_config: Configuración específica (opcional)
+        adapter_type: "mock", "anthropic", o "ollama"
+        adapter_config: Configuracion especifica (opcional)
 
     Returns:
         AIAdapter instancia
@@ -104,7 +131,6 @@ def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
         return get_mock_adapter()
 
     elif adapter_type == "anthropic":
-        # Si hay config específica (ej: API key custom), crear nueva instancia
         if adapter_config and "api_key" in adapter_config:
             if not ANTHROPIC_AVAILABLE:
                 raise ValueError("Anthropic not available. Install: pip install anthropic")
@@ -115,11 +141,22 @@ def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
                 temperature=adapter_config.get("temperature", 0.7),
             )
 
-        # Usar singleton con config de .env
         return get_anthropic_adapter()
 
+    elif adapter_type == "ollama":
+        if adapter_config:
+            if not OLLAMA_AVAILABLE:
+                raise ValueError("Ollama adapter not available. Install: pip install httpx")
+            return OllamaAdapter(
+                model=adapter_config.get("model", "gemma3:4b"),
+                base_url=adapter_config.get("base_url", "http://localhost:11434"),
+                temperature=adapter_config.get("temperature", 0.7),
+            )
+
+        return get_ollama_adapter()
+
     else:
-        raise ValueError(f"Unknown adapter type: {adapter_type}")
+        raise ValueError(f"Unknown adapter type: {adapter_type}. Valid: mock, anthropic, ollama")
 
 
 # ── Narrative Service V2 ────────────────────────────────────────────────────

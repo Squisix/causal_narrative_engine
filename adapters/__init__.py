@@ -21,6 +21,13 @@ try:
 except ImportError:
     pass
 
+# OllamaAdapter se importa solo si httpx esta instalado
+try:
+    from adapters.ollama_adapter import OllamaAdapter
+    __all__.append("OllamaAdapter")
+except ImportError:
+    pass
+
 # OpenAIAdapter se importa solo si openai esta instalado
 try:
     from adapters.openai_adapter import OpenAIAdapter

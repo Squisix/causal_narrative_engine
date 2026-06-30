@@ -36,7 +36,12 @@ class Settings(BaseSettings):
     anthropic_max_tokens: int = 2048
     anthropic_temperature: float = 0.7
 
-    # Default adapter ("mock" o "anthropic")
+    # Ollama (local LLMs)
+    ollama_model: str = "gemma3:4b"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_temperature: float = 0.7
+
+    # Default adapter ("mock", "anthropic", o "ollama")
     default_ai_adapter: str = "mock"
 
     # Session management
