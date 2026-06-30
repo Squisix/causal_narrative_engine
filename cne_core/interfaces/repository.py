@@ -16,7 +16,7 @@ from typing import Any
 
 from cne_core.models.world import WorldDefinition, Entity
 from cne_core.models.event import NarrativeEvent, CausalEdge
-from cne_core.models.commit import NarrativeCommit, Branch
+from cne_core.models.commit import NarrativeCommit, NarrativeChoice, Branch
 
 
 class NarrativeRepository(ABC):
@@ -113,6 +113,23 @@ class NarrativeRepository(ABC):
         """Retorna todos los eventos asociados a un commit."""
         pass
 
+    @abstractmethod
+    async def get_latest_commit_id(self, world_id: str) -> str | None:
+        """Retorna el ID del commit más reciente de un mundo, o None si no hay."""
+        pass
+
+    # ── Choices ────────────────────────────────────────────────────────────────
+
+    @abstractmethod
+    async def save_choices(self, commit_id: str, choices: list[NarrativeChoice]) -> None:
+        """Persiste las opciones disponibles para un commit."""
+        pass
+
+    @abstractmethod
+    async def get_choices(self, commit_id: str) -> list[NarrativeChoice]:
+        """Recupera las opciones disponibles para un commit."""
+        pass
+
     # ── Causal Graph ───────────────────────────────────────────────────────────
 
     @abstractmethod
@@ -170,6 +187,11 @@ class NarrativeRepository(ABC):
     @abstractmethod
     async def get_dramatic_state(self, commit_id: str) -> dict[str, int] | None:
         """Recupera el vector dramático de un commit."""
+        pass
+
+    @abstractmethod
+    async def get_forced_event_type(self, commit_id: str) -> str | None:
+        """Recupera el tipo de evento forzado para un commit (si existe)."""
         pass
 
     @abstractmethod
@@ -242,6 +264,28 @@ class NarrativeRepository(ABC):
     @abstractmethod
     async def list_branches(self, world_id: str) -> list[Branch]:
         """Lista todas las ramas de un mundo."""
+        pass
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+
+    @abstractmethod
+    async def count_commits(self, world_id: str) -> int:
+        """Cuenta el total de commits para un mundo."""
+        pass
+
+    @abstractmethod
+    async def count_all_commits(self) -> int:
+        """Cuenta el total de commits en todos los mundos."""
+        pass
+
+    @abstractmethod
+    async def count_worlds(self) -> int:
+        """Cuenta el total de mundos."""
+        pass
+
+    @abstractmethod
+    async def count_events(self) -> int:
+        """Cuenta el total de eventos."""
         pass
 
     # ── State Snapshots ────────────────────────────────────────────────────────

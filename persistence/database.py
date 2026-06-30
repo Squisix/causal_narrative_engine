@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from typing import AsyncGenerator
+import os
 
 
 class Base(DeclarativeBase):
@@ -91,3 +92,68 @@ class DatabaseConfig:
     async def dispose(self) -> None:
         """Cierra el engine y libera recursos."""
         await self.engine.dispose()
+
+
+# ── Global Session Factory ────────────────────────────────────────────────────
+
+# Engine global (singleton)
+_global_engine = None
+_global_session_maker = None
+
+
+def get_engine():
+    """Obtiene o crea el engine global."""
+    global _global_engine, _global_session_maker
+
+    if _global_engine is None:
+        # Leer DATABASE_URL del entorno (seteado por .env)
+        database_url = os.getenv(
+            "DATABASE_URL",
+            "postgresql+asyncpg://cne_user:cne_password@localhost:5433/cne_db"
+        )
+
+        _global_engine = create_async_engine(
+            database_url,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+        )
+
+        _global_session_maker = async_sessionmaker(
+            _global_engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+
+    return _global_engine
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency para FastAPI que retorna una sesión async.
+
+    Maneja transacciones automáticamente:
+    - Commit al finalizar exitosamente
+    - Rollback en caso de excepción
+
+    Uso en routers:
+        @router.get("/endpoint")
+        async def endpoint(session: AsyncSession = Depends(get_session)):
+            result = await session.execute(...)
+    """
+    # Asegurar que el engine esté creado
+    get_engine()
+
+    async with _global_session_maker() as session:
+        try:
+            yield session
+            # Commit automático si todo salió bien
+            await session.commit()
+        except Exception:
+            # Rollback en caso de error
+            await session.rollback()
+            raise
+        finally:
+            # Cerrar la sesión
+            await session.close()

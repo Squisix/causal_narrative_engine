@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "CNE Contributors"}
+    {name = "Marco Guerrero", email = "mvsquisix@gmail.com"}
 ]
 keywords = [
     "narrative",
@@ -76,16 +76,16 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/usuario/cne-core"
-Documentation = "https://cne-core.readthedocs.io"
-Repository = "https://github.com/usuario/cne-core"
-Issues = "https://github.com/usuario/cne-core/issues"
+Homepage = "https://github.com/Squisix/causal_narrative_engine"
+Documentation = "https://github.com/Squisix/causal_narrative_engine/blob/main/docs/integration_guide.md"
+Repository = "https://github.com/Squisix/causal_narrative_engine"
+Issues = "https://github.com/Squisix/causal_narrative_engine/issues"
 
 # ── Configuración de herramientas ──────────────────────────────────────────────
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["cne_core*", "persistence*", "adapters*"]
+include = ["cne_core*", "persistence*", "adapters*", "api*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]

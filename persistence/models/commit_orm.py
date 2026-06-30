@@ -81,6 +81,14 @@ class CommitORM(Base):
         cascade="all, delete-orphan"
     )
 
+    # Choices disponibles para el jugador en este commit
+    choices: Mapped[list["ChoiceORM"]] = relationship(
+        "ChoiceORM",
+        back_populates="commit",
+        cascade="all, delete-orphan",
+        order_by="ChoiceORM.display_order"
+    )
+
     # Commits hijos (para navegación del árbol)
     # Self-referential relationship: parent_id → id
     children: Mapped[list["CommitORM"]] = relationship(
@@ -246,3 +254,34 @@ class DramaticDeltaORM(Base):
     def __repr__(self) -> str:
         sign = "+" if self.delta > 0 else ""
         return f"<DramaticDeltaORM({self.meter}{sign}{self.delta})>"
+
+
+class ChoiceORM(Base):
+    """
+    Tabla: choices
+
+    Mapea NarrativeChoice. Opciones disponibles para el jugador en cada commit.
+    """
+    __tablename__ = "choices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    commit_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("commits.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    dramatic_preview: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    tone_hint: Mapped[str] = mapped_column(String(100), default="")
+    estimated_depth_until_ending: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
+
+    # Relaciones
+    commit: Mapped["CommitORM"] = relationship("CommitORM", back_populates="choices")
+
+    def __repr__(self) -> str:
+        return f"<ChoiceORM(commit={self.commit_id[:8]}..., text='{self.text[:30]}...')>"

@@ -15,7 +15,7 @@ Interfaces:
 - AIAdapter (para generación narrativa)
 """
 
-__version__ = "0.2.0"  # Fase 2
+__version__ = "0.3.0"
 
 # Models
 from cne_core.models.world import WorldDefinition, Entity, EntityType, NarrativeTone

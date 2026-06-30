@@ -21,6 +21,7 @@ from persistence.models.commit_orm import (
     BranchORM,
     DramaticStateORM,
     DramaticDeltaORM,
+    ChoiceORM,
 )
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "BranchORM",
     "DramaticStateORM",
     "DramaticDeltaORM",
+    "ChoiceORM",
 ]

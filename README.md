@@ -28,17 +28,33 @@ Un framework reutilizable que cualquier proyecto puede integrar — un juego, un
 |------|--------|-------------|
 | **Fase 1** | ✅ **COMPLETADA** | Core Engine en memoria (sin dependencias) |
 | **Fase 2** | ✅ **COMPLETADA** | Persistencia con PostgreSQL + SQLAlchemy async |
-| **Fase 3** | 🔲 Pendiente | AI Adapter (Anthropic/Claude) |
-| **Fase 4** | 🔲 Pendiente | FastAPI REST + SDK Python |
-| **Fase 5** | 🔲 Pendiente | Release público + docs |
+| **Fase 3** | ✅ **COMPLETADA** | AI Adapter (Anthropic/Claude + Mock) |
+| **Fase 4** | ✅ **COMPLETADA** | FastAPI REST API |
+| **Fase 5** | 🔲 Pendiente | Release público en PyPI |
 
 ---
 
-## Quickstart — 5 minutos
+## Quickstart — Solo Core Engine (sin dependencias)
 
 ```bash
-# 1. Instalar dependencias
-pip install -e ".[persistence,dev]"
+# Instalar solo el core (cero dependencias externas)
+pip install -e .
+
+# Verificar
+python -c "import cne_core; print(cne_core.__version__)"
+
+# Ejecutar tests del core
+python tests/test_fase1.py
+
+# Ejecutar ejemplo mínimo
+python docs/examples/minimal_example.py
+```
+
+## Quickstart — Con PostgreSQL + API REST
+
+```bash
+# 1. Instalar todas las dependencias
+pip install -e ".[all]"
 
 # 2. Levantar PostgreSQL
 docker-compose up -d
@@ -49,17 +65,18 @@ alembic upgrade head
 # 4. Ejecutar ejemplo
 python examples/fase2_example.py
 
-# 5. Ejecutar tests
-pytest tests/test_fase2.py -v
-```
+# 5. Levantar API REST
+uvicorn api.main:app --reload
 
-**Ver:** [QUICKSTART_FASE2.md](QUICKSTART_FASE2.md) para instrucciones detalladas.
+# 6. Ejecutar tests
+pytest tests/ -v
+```
 
 ---
 
 ## Conceptos Core
 
-### 1️⃣ Modelo Formal
+### 1. Modelo Formal
 
 ```
 CNE = (W, E, S, D, T, C, Φ)
@@ -68,47 +85,51 @@ CNE = (W, E, S, D, T, C, Φ)
 - **W** = WorldDefinition (semilla inmutable)
 - **E** = Espacio de eventos narrativos
 - **S(t)** = Estado del mundo en tiempo t
-- **D(t)** = Vector Dramático de 7 medidores
-- **T** = Función de transición (IA propone → motor valida)
+- **D(t)** = Vector Dramatico de 7 medidores
+- **T** = Funcion de transicion (IA propone -> motor valida)
 - **C** = Grafo causal (DAG sin ciclos)
-- **Φ** = Evaluador dramático (umbrales → eventos forzados)
+- **Φ** = Evaluador dramatico (umbrales -> eventos forzados)
 
-**4 garantías:**
-- ✅ **Causalidad**: El grafo es siempre un DAG válido
+**4 garantias:**
+- ✅ **Causalidad**: El grafo es siempre un DAG valido
 - ✅ **Determinismo**: El estado es reconstruible desde snapshots
-- ✅ **Versionado**: Tipo Git, puedes volver atrás en decisiones
-- ✅ **Consistencia**: Entidades muertas no actúan, variables en rango
+- ✅ **Versionado**: Tipo Git, puedes volver atras en decisiones
+- ✅ **Consistencia**: Entidades muertas no actuan, variables en rango
 
-### 2️⃣ Sistema Dramático Multi-Medidor (SDMM)
+### 2. Sistema Dramatico Multi-Medidor (SDMM)
 
 7 medidores independientes en vez de un solo indicador:
 
 | Medidor | Qué mide |
 |---------|----------|
 | `tension` | Nivel de conflicto activo |
-| `hope` | Percepción de que las cosas pueden mejorar |
-| `chaos` | Entropía del mundo |
+| `hope` | Percepcion de que las cosas pueden mejorar |
+| `chaos` | Entropia del mundo |
 | `rhythm` | Velocidad narrativa |
 | `saturation` | Agotamiento del arco actual |
-| `connection` | Vínculo emocional con personajes |
+| `connection` | Vinculo emocional con personajes |
 | `mystery` | Preguntas sin resolver |
 
-**Umbrales → Eventos Forzados:**
+**Umbrales -> Eventos Forzados:**
 ```
-tension > 85        →  CLIMAX forzado
-hope < 10           →  TRAGEDIA forzada
-saturation > 95     →  CIERRE DE ARCO forzado
-mystery + tension > 130  →  REVELACIÓN CLIMÁTICA
+tension > 85        ->  CLIMAX forzado
+hope < 10           ->  TRAGEDIA forzada
+saturation > 95     ->  CIERRE DE ARCO forzado
+mystery + tension > 130  ->  REVELACION CLIMATICA
 ```
 
-### 3️⃣ Arquitectura Independiente
+### 3. Arquitectura Independiente
 
 ```
 ┌────────────────────────────────┐
 │  Cualquier cliente externo     │
 │  (juego, web, CLI...)          │
 └───────────┬────────────────────┘
-            │ import cne_core
+            │ import cne_core / HTTP
+┌───────────▼────────────────────┐
+│  FastAPI REST API         ✅   │
+└───────────┬────────────────────┘
+            │
 ┌───────────▼────────────────────┐
 │     Core Engine                │
 │  CausalValidator │ DramaticEngine
@@ -120,17 +141,16 @@ mystery + tension > 130  →  REVELACIÓN CLIMÁTICA
 │              │  │              │
 │ Interface    │  │ Interface    │
 │ ─────────    │  │ ─────────    │
-│ PostgreSQL ✅│  │ Anthropic 🔲 │
-│ SQLite       │  │ OpenAI       │
+│ PostgreSQL ✅│  │ Anthropic ✅ │
 │ InMemory ✅  │  │ Mock ✅      │
 └──────────────┘  └──────────────┘
 ```
 
 ---
 
-## Instalación
+## Instalacion
 
-### Fase 1: Core Engine (sin dependencias)
+### Solo Core Engine (sin dependencias externas)
 
 ```bash
 pip install -e .
@@ -138,7 +158,7 @@ pip install -e .
 
 **Solo Python 3.11+ stdlib** — tests sin PostgreSQL, sin API keys, sin Docker.
 
-### Fase 2: Con PostgreSQL
+### Con PostgreSQL
 
 ```bash
 pip install -e ".[persistence,dev]"
@@ -146,66 +166,24 @@ docker-compose up -d
 alembic upgrade head
 ```
 
-### Fase 3+: Con IA
+### Con IA (Anthropic/OpenAI)
 
 ```bash
 pip install -e ".[ai,persistence,dev]"
 export ANTHROPIC_API_KEY="sk-..."
 ```
 
----
-
-## Tests
+### Todo junto
 
 ```bash
-# Fase 1: Core Engine en memoria
-python tests/test_fase1.py
-
-# Fase 2: Persistencia (requiere Docker)
-pytest tests/test_fase2.py -v
-
-# Todos los tests con coverage
-pytest --cov=cne_core --cov=persistence --cov-report=term-missing
+pip install -e ".[all]"
 ```
 
 ---
 
-## Estructura del proyecto
+## Uso programatico
 
-```
-cne_core/                          # ✅ Fase 1
-├── models/                        # Dataclasses (WorldDefinition, NarrativeEvent, etc.)
-├── engine/                        # CausalValidator, DramaticEngine, StateMachine
-└── interfaces/                    # ✅ Fase 2 - Contratos abstractos
-
-persistence/                       # ✅ Fase 2
-├── database.py                    # Config SQLAlchemy 2.0 async
-├── models/                        # ORM models (WorldORM, EventORM, etc.)
-├── repositories/                  # PostgreSQLRepository
-├── queries/                       # CTEs recursivas (validación causal en SQL)
-└── state_rebuilder.py             # Reconstrucción de estado desde deltas
-
-migrations/                        # ✅ Fase 2
-└── versions/
-    └── 001_initial_schema.py      # Schema completo (10 tablas)
-
-tests/
-├── test_fase1.py                  # ✅ Tests Core Engine
-└── test_fase2.py                  # ✅ Tests Persistencia
-
-examples/
-└── fase2_example.py               # ✅ Ejemplo completo
-
-docker-compose.yml                 # ✅ PostgreSQL + Adminer + Redis
-alembic.ini                        # ✅ Migraciones
-pyproject.toml                     # ✅ Dependencias por fase
-```
-
----
-
-## Uso programático
-
-### Ejemplo básico (Fase 1 — en memoria)
+### Ejemplo basico (Core Engine en memoria)
 
 ```python
 from cne_core import WorldDefinition, Entity, EntityType, NarrativeTone
@@ -222,7 +200,7 @@ world = WorldDefinition(
     name="El Reino de las Sombras",
     context="Un reino medieval donde la magia oscura amenaza...",
     protagonist="Aldric, un caballero desterrado",
-    era="Medieval fantástico",
+    era="Medieval fantastico",
     tone=NarrativeTone.DARK,
     initial_entities=[hero]
 )
@@ -232,10 +210,10 @@ engine = StateMachine(world)
 
 # 3. Comenzar historia
 result = engine.start(
-    initial_narrative="El reino está en peligro...",
+    initial_narrative="El reino esta en peligro...",
     initial_choices=[
         NarrativeChoice(text="Ir al palacio"),
-        NarrativeChoice(text="Huir a las montañas"),
+        NarrativeChoice(text="Huir a las montanas"),
     ]
 )
 
@@ -243,15 +221,15 @@ result = engine.start(
 result = engine.advance_story(
     choice_text="Ir al palacio",
     narrative_text="Aldric cabalga hacia la capital...",
-    summary="Aldric acepta la misión.",
-    choices=[...],
+    summary="Aldric acepta la mision.",
+    choices=[NarrativeChoice(text="Entrar por la puerta principal")],
     dramatic_delta=DramaticDelta(tension=10, hope=-5)
 )
 
 print(result.display())
 ```
 
-### Ejemplo con PostgreSQL (Fase 2)
+### Con PostgreSQL
 
 ```python
 import asyncio
@@ -259,19 +237,12 @@ from persistence.database import DatabaseConfig
 from persistence.repositories.postgresql_repository import PostgreSQLRepository
 
 async def main():
-    # Configurar DB
     db_config = DatabaseConfig(
         "postgresql+asyncpg://cne_user:cne_password_dev@localhost:5432/cne_db"
     )
     repo = PostgreSQLRepository(db_config)
-
-    # Guardar mundo
     await repo.save_world(world)
-
-    # Guardar commits
     await repo.save_commit(commit)
-
-    # Recuperar historia
     trunk = await repo.get_trunk(commit.id)
 
 asyncio.run(main())
@@ -279,45 +250,85 @@ asyncio.run(main())
 
 ---
 
-## Documentación
+## API REST
 
-- **[CLAUDE.md](CLAUDE.md)** — Documentación completa del proyecto (punto de entrada)
-- **[QUICKSTART_FASE2.md](QUICKSTART_FASE2.md)** — Instalación rápida en 5 minutos
-- **[FASE2_README.md](FASE2_README.md)** — Guía detallada de Fase 2
-- **[examples/fase2_example.py](examples/fase2_example.py)** — Ejemplo funcional completo
+Levantar el servidor:
+```bash
+uvicorn api.main:app --reload --port 8000
+```
 
----
+### Endpoints principales
 
-## Tablas de la base de datos
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| `POST` | `/worlds` | Crear WorldDefinition |
+| `GET` | `/worlds/{world_id}` | Obtener mundo |
+| `POST` | `/worlds/{world_id}/start` | Iniciar historia |
+| `POST` | `/commits/{commit_id}/advance` | Tomar decision |
+| `GET` | `/commits/{commit_id}` | Estado de un commit |
+| `GET` | `/commits/{commit_id}/dramatic` | Vector dramatico |
+| `GET` | `/health` | Estado del servidor |
 
-| Tabla | Descripción |
-|-------|-------------|
-| `worlds` | WorldDefinition (semilla del mundo) |
-| `entities` | Personajes, objetos, locaciones |
-| `branches` | Metadata de ramas narrativas |
-| `commits` | Árbol de decisiones (tipo Git) |
-| `events` | Eventos narrativos (unidad atómica) |
-| `event_edges` | **DAG causal** (sin ciclos) |
-| `entity_deltas` | Cambios en atributos de entidades |
-| `world_variable_deltas` | Cambios en variables globales |
-| `dramatic_states` | Vector de 7 medidores por commit |
-| `dramatic_deltas` | Historial de cambios dramáticos |
-
-**Índices críticos:**
-- `event_edges(cause_event_id, effect_event_id)` — Unique
-- `commits(parent_id)` — Navegación de ramas
-- `events(topo_order)` — Orden causal
+Documentacion interactiva en `http://localhost:8000/docs` (Swagger UI).
 
 ---
 
-## Contribuciones Académicas (para el paper)
+## Integracion
 
-1. **Literary Tree Model** — Formalización matemática del Árbol Literario
-2. **Dramatic Vector Formalism (DVF)** — Vector de 7 dimensiones como elemento formal del estado
-3. **Threshold-Driven Narrative Control** — Eventos forzados por umbrales integrados causalmente
-4. **Active Trunk Compression** — Compresión de contexto para LLMs preservando coherencia
-5. **Coherence as Structural Property** — La coherencia es del motor, no del LLM
-6. **Narrative Git Versioning** — Versionado tipo Git de decisiones con reconstrucción determinista
+Para conectar tu propio sistema de persistencia o tu propio LLM al motor, consulta la **[Guia de Integracion](docs/integration_guide.md)**.
+
+Cubre:
+- Como implementar `NarrativeRepository` (tu base de datos)
+- Como implementar `AIAdapter` (tu LLM)
+- Uso directo del SDK Python
+- Uso via API REST
+
+---
+
+## Tests
+
+```bash
+# Core Engine en memoria (sin dependencias)
+python tests/test_fase1.py
+
+# Persistencia (requiere Docker)
+pytest tests/test_fase2.py -v
+
+# Todos los tests
+pytest tests/ -v
+```
+
+---
+
+## Estructura del proyecto
+
+```
+cne_core/                          # Core Engine
+├── models/                        # Dataclasses (WorldDefinition, NarrativeEvent, etc.)
+├── engine/                        # CausalValidator, DramaticEngine, StateMachine
+├── interfaces/                    # Contratos abstractos (NarrativeRepository, AIAdapter)
+└── ai/                            # ResponseValidator, ResponseSchema
+
+adapters/                          # Implementaciones de AIAdapter
+├── mock_adapter.py                # Mock para tests
+└── anthropic_adapter.py           # Anthropic Claude
+
+persistence/                       # Persistencia PostgreSQL
+├── database.py                    # Config SQLAlchemy 2.0 async
+├── models/                        # ORM models
+├── repositories/                  # PostgreSQLRepository
+└── queries/                       # CTEs recursivas (validacion causal en SQL)
+
+api/                               # FastAPI REST API
+├── routers/                       # Endpoints (worlds, narrative, health)
+├── services/                      # NarrativeServiceV2
+├── models/                        # Request/Response schemas
+└── dependencies.py                # Inyeccion de dependencias
+
+migrations/                        # Alembic
+tests/                             # Tests por fase
+docs/                              # Documentacion
+```
 
 ---
 
@@ -334,35 +345,30 @@ asyncio.run(main())
 - [x] Interfaces abstractas (Repository pattern)
 - [x] ORM models (SQLAlchemy 2.0 async)
 - [x] PostgreSQLRepository
-- [x] CTEs recursivas (validación causal en SQL)
-- [x] StateRebuilder (estructura base)
+- [x] CTEs recursivas (validacion causal en SQL)
 - [x] Migraciones (Alembic)
 - [x] Docker Compose
-- [x] Tests async
 
-### 🔲 Fase 3 — AI Adapter
-- [ ] AnthropicAdapter (Claude)
-- [ ] MockAIAdapter (tests sin API key)
-- [ ] ContextBuilder (tronco activo)
-- [ ] ResponseValidator (validar JSON)
-- [ ] Integración completa
+### ✅ Fase 3 — AI Adapter
+- [x] AnthropicAdapter (Claude)
+- [x] MockAIAdapter (tests sin API key)
+- [x] ContextBuilder (tronco activo)
+- [x] ResponseValidator (validar JSON)
 
-### 🔲 Fase 4 — API REST
-- [ ] FastAPI endpoints
-- [ ] SDK Python
-- [ ] Documentación OpenAPI
-- [ ] Auth & rate limiting
+### ✅ Fase 4 — API REST
+- [x] FastAPI endpoints
+- [x] NarrativeServiceV2 con persistencia
+- [x] Choices persistidas en BD
+- [x] Engine reconstruction desde BD
 
 ### 🔲 Fase 5 — Release
-- [ ] PyPI release
-- [ ] Docker image público
-- [ ] Docs completas (Sphinx)
-- [ ] Ejemplos copy-paste
+- [ ] PyPI release (`pip install cne-core`)
+- [ ] Docker image publico
+- [ ] Documentacion completa
 
-### 🔲 Fase 6 — Paper
+### 🔲 Fase 6 — Paper Academico
 - [ ] Draft inicial
-- [ ] Experimentos
-- [ ] Métricas formales
+- [ ] Experimentos y metricas formales
 - [ ] Submit a AIIDE / IEEE CoG
 
 ---
@@ -375,12 +381,6 @@ MIT — Ver [LICENSE](LICENSE) para detalles.
 
 ## Contacto
 
-**¿Problemas?** Abre un issue en GitHub.
-
-**¿Contribuir?** Lee [CONTRIBUTING.md](CONTRIBUTING.md).
-
-**Paper:** TBD (Fase 6)
-
----
-
-**Hecho con ❤️ para la comunidad de narrativa interactiva.**
+- **Repositorio**: [github.com/Squisix/causal_narrative_engine](https://github.com/Squisix/causal_narrative_engine)
+- **Issues**: [Reportar un problema](https://github.com/Squisix/causal_narrative_engine/issues)
+- **Autor**: Marco Guerrero (mvsquisix@gmail.com)

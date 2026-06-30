@@ -30,7 +30,7 @@ except ImportError:
 from cne_core.interfaces.ai_adapter import AIAdapter, NarrativeContext, NarrativeProposal
 from cne_core.ai.response_schema import NarrativeResponse
 from cne_core.ai.context_builder import ContextBuilder
-from cne_core.ai.response_validator import ResponseValidator, ValidationLogger
+from cne_core.ai.response_validator import ResponseValidator
 
 
 class AnthropicAdapter(AIAdapter):
@@ -81,7 +81,6 @@ class AnthropicAdapter(AIAdapter):
 
         # Componentes
         self.context_builder = ContextBuilder()
-        self.validation_logger = ValidationLogger()
 
         # Stats
         self.total_calls = 0
@@ -121,13 +120,6 @@ class AnthropicAdapter(AIAdapter):
                     current_world_vars=context.current_world_vars,
                 )
                 validation_result = validator.validate(response)
-
-                # Log validacion
-                self.validation_logger.log_validation(
-                    response,
-                    validation_result,
-                    metadata={"attempt": attempt, "model": self.model}
-                )
 
                 # Si es valida, retornar
                 if validation_result.is_valid:
@@ -311,12 +303,7 @@ Asegurate de:
                 else 0
             ),
             "model": self.model,
-            "validation_stats": self.validation_logger.get_error_stats(),
         }
-
-    def export_validation_log(self, filepath: str):
-        """Exporta el log de validaciones a un archivo."""
-        self.validation_logger.export_to_file(filepath)
 
 
 class AnthropicConfig:

@@ -8,7 +8,7 @@ Convierte entre:
 - ORM models de SQLAlchemy (WorldORM, EventORM, etc.)
 """
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Any, List
@@ -20,14 +20,14 @@ from cne_core.models.event import (
     NarrativeEvent, CausalEdge, EventType, EntityDelta,
     WorldVariableDelta, DramaticDelta, CausalRelationType
 )
-from cne_core.models.commit import NarrativeCommit, Branch
+from cne_core.models.commit import NarrativeCommit, NarrativeChoice, Branch
 
 from persistence.database import DatabaseConfig
 from persistence.models.world_orm import WorldORM, EntityORM
 from persistence.models.event_orm import (
     EventORM, CausalEdgeORM, EntityDeltaORM, WorldVariableDeltaORM
 )
-from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM
+from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM, ChoiceORM
 from persistence.queries.causal_queries import CausalGraphQueries
 
 
@@ -38,119 +38,112 @@ class PostgreSQLRepository(NarrativeRepository):
     Usa SQLAlchemy 2.0 async para todas las operaciones.
     """
 
-    def __init__(self, db_config: DatabaseConfig):
+    def __init__(self, session: AsyncSession):
         """
         Args:
-            db_config: Configuración de la base de datos.
+            session: Sesión de SQLAlchemy async (inyectada por FastAPI).
         """
-        self.db_config = db_config
-
-    async def _get_session(self):
-        """Helper para obtener una sesión async."""
-        async with self.db_config.get_session() as session:
-            yield session
+        self.session = session
 
     # ── WorldDefinition ────────────────────────────────────────────────────────
 
     async def save_world(self, world: WorldDefinition) -> None:
-        async with self.db_config.get_session() as session:
-            # Convertir WorldDefinition a WorldORM
-            world_orm = WorldORM(
-                id=world.id,
-                name=world.name,
-                context=world.context,
-                protagonist=world.protagonist,
-                era=world.era,
-                tone=world.tone.value,
-                antagonist=world.antagonist,
-                rules=world.rules,
-                constraints=world.constraints,
-                dramatic_config=world.dramatic_config,
-                max_depth=world.max_depth,
-                created_at=world.created_at,
+        # Convertir WorldDefinition a WorldORM
+        world_orm = WorldORM(
+            id=world.id,
+            name=world.name,
+            context=world.context,
+            protagonist=world.protagonist,
+            era=world.era,
+            tone=world.tone.value,
+            antagonist=world.antagonist,
+            rules=world.rules,
+            constraints=world.constraints,
+            dramatic_config=world.dramatic_config,
+            max_depth=world.max_depth,
+            created_at=world.created_at,
+        )
+
+        # Convertir entidades iniciales
+        for entity in world.initial_entities:
+            entity_orm = EntityORM(
+                id=entity.id,
+                world_id=world.id,
+                name=entity.name,
+                entity_type=entity.entity_type.value,
+                attributes=entity.attributes,
+                created_at_depth=entity.created_at_depth,
+                destroyed_at_depth=entity.destroyed_at_depth,
             )
+            self.session.add(entity_orm)
 
-            # Convertir entidades iniciales
-            for entity in world.initial_entities:
-                entity_orm = EntityORM(
-                    id=entity.id,
-                    world_id=world.id,
-                    name=entity.name,
-                    entity_type=entity.entity_type.value,
-                    attributes=entity.attributes,
-                    created_at_depth=entity.created_at_depth,
-                    destroyed_at_depth=entity.destroyed_at_depth,
-                )
-                session.add(entity_orm)
-
-            session.add(world_orm)
-            await session.commit()
+        self.session.add(world_orm)
+        # Flush para asegurar que los datos se escriban antes de retornar
+        await self.session.flush()
+        # El commit se hace automáticamente en get_session() al finalizar
 
     async def get_world(self, world_id: str) -> WorldDefinition | None:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(WorldORM)
-                .options(selectinload(WorldORM.entities))
-                .where(WorldORM.id == world_id)
-            )
-            world_orm = result.scalar_one_or_none()
+        result = await self.session.execute(
+            select(WorldORM)
+            .options(selectinload(WorldORM.entities))
+            .where(WorldORM.id == world_id)
+        )
+        world_orm = result.scalar_one_or_none()
 
-            if world_orm is None:
-                return None
+        if world_orm is None:
+            return None
 
-            # Convertir ORM → Dataclass
-            return self._world_orm_to_dataclass(world_orm)
+        # Convertir ORM → Dataclass
+        return self._world_orm_to_dataclass(world_orm)
 
     async def list_worlds(self, limit: int = 50) -> list[WorldDefinition]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(WorldORM)
-                .options(selectinload(WorldORM.entities))
-                .order_by(WorldORM.created_at.desc())
-                .limit(limit)
-            )
-            worlds_orm = result.scalars().all()
+        result = await self.session.execute(
+            select(WorldORM)
+            .options(selectinload(WorldORM.entities))
+            .order_by(WorldORM.created_at.desc())
+            .limit(limit)
+        )
+        worlds_orm = result.scalars().all()
 
-            return [self._world_orm_to_dataclass(w) for w in worlds_orm]
+        return [self._world_orm_to_dataclass(w) for w in worlds_orm]
 
     # ── NarrativeCommit ────────────────────────────────────────────────────────
 
     async def save_commit(self, commit: NarrativeCommit) -> None:
-        async with self.db_config.get_session() as session:
-            commit_orm = CommitORM(
-                id=commit.id,
-                world_id=commit.world_id,
-                branch_id=commit.branch_id,
-                parent_id=commit.parent_id,
-                choice_text=commit.choice_text,
-                narrative_text=commit.narrative_text,
-                summary=commit.summary,
-                depth=commit.depth,
-                is_ending=commit.is_ending,
-                world_state_snapshot=commit.world_state_snapshot,
-                entity_states_snapshot=commit.entity_states,
-                created_at=commit.created_at,
-            )
+        commit_orm = CommitORM(
+            id=commit.id,
+            world_id=commit.world_id,
+            branch_id=commit.branch_id,
+            parent_id=commit.parent_id,
+            choice_text=commit.choice_text,
+            narrative_text=commit.narrative_text,
+            summary=commit.summary,
+            depth=commit.depth,
+            is_ending=commit.is_ending,
+            world_state_snapshot=commit.world_state_snapshot,
+            entity_states_snapshot=commit.entity_states,
+            created_at=commit.created_at,
+        )
 
-            session.add(commit_orm)
-            await session.commit()
+        self.session.add(commit_orm)
+        # Commit manejado por get_session() context manager
 
     async def get_commit(self, commit_id: str) -> NarrativeCommit | None:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(CommitORM)
-                .options(
-                    selectinload(CommitORM.dramatic_state),
-                    selectinload(CommitORM.events)
-                )
-                .where(CommitORM.id == commit_id)
+        result = await self.session.execute(
+            select(CommitORM)
+            .options(
+                selectinload(CommitORM.dramatic_state),
+                selectinload(CommitORM.events),
+                selectinload(CommitORM.choices),
             )
-            commit_orm = result.scalar_one_or_none()
+            .where(CommitORM.id == commit_id)
+        )
+        commit_orm = result.scalar_one_or_none()
 
-            if commit_orm is None:
-                return None
+        if commit_orm is None:
+            return None
 
-            return self._commit_orm_to_dataclass(commit_orm)
+        return self._commit_orm_to_dataclass(commit_orm)
 
     async def get_trunk(
         self,
@@ -161,192 +154,224 @@ class PostgreSQLRepository(NarrativeRepository):
         Recupera la cadena de commits desde commit_id hacia atrás.
         Retorna en orden cronológico (del más antiguo al más reciente).
         """
-        async with self.db_config.get_session() as session:
-            commits = []
-            current_id = commit_id
-            depth = 0
+        commits = []
+        current_id = commit_id
+        depth = 0
 
-            while current_id and depth < max_depth:
-                result = await session.execute(
-                    select(CommitORM)
-                    .options(
-                        selectinload(CommitORM.dramatic_state),
-                        selectinload(CommitORM.events)
-                    )
-                    .where(CommitORM.id == current_id)
-                )
-                commit_orm = result.scalar_one_or_none()
-
-                if commit_orm is None:
-                    break
-
-                commits.append(self._commit_orm_to_dataclass(commit_orm))
-                current_id = commit_orm.parent_id
-                depth += 1
-
-            # Revertir para tener orden cronológico
-            commits.reverse()
-            return commits
-
-    async def get_children_commits(self, commit_id: str) -> list[NarrativeCommit]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
+        while current_id and depth < max_depth:
+            result = await self.session.execute(
                 select(CommitORM)
                 .options(
                     selectinload(CommitORM.dramatic_state),
-                    selectinload(CommitORM.events)
+                    selectinload(CommitORM.events),
+                    selectinload(CommitORM.choices),
                 )
-                .where(CommitORM.parent_id == commit_id)
+                .where(CommitORM.id == current_id)
             )
-            commits_orm = result.scalars().all()
+            commit_orm = result.scalar_one_or_none()
 
-            return [self._commit_orm_to_dataclass(c) for c in commits_orm]
+            if commit_orm is None:
+                break
+
+            commits.append(self._commit_orm_to_dataclass(commit_orm))
+            current_id = commit_orm.parent_id
+            depth += 1
+
+        # Revertir para tener orden cronológico
+        commits.reverse()
+        return commits
+
+    async def get_children_commits(self, commit_id: str) -> list[NarrativeCommit]:
+        result = await self.session.execute(
+            select(CommitORM)
+            .options(
+                selectinload(CommitORM.dramatic_state),
+                selectinload(CommitORM.events)
+            )
+            .where(CommitORM.parent_id == commit_id)
+        )
+        commits_orm = result.scalars().all()
+
+        return [self._commit_orm_to_dataclass(c) for c in commits_orm]
+
+    async def get_latest_commit_id(self, world_id: str) -> str | None:
+        result = await self.session.execute(
+            select(CommitORM.id)
+            .where(CommitORM.world_id == world_id)
+            .order_by(CommitORM.depth.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    # ── Choices ────────────────────────────────────────────────────────────────
+
+    async def save_choices(self, commit_id: str, choices: list[NarrativeChoice]) -> None:
+        for i, choice in enumerate(choices):
+            choice_orm = ChoiceORM(
+                commit_id=commit_id,
+                text=choice.text,
+                dramatic_preview=choice.dramatic_preview,
+                tone_hint=choice.tone_hint,
+                estimated_depth_until_ending=choice.estimated_depth_until_ending,
+                display_order=i,
+            )
+            self.session.add(choice_orm)
+
+    async def get_choices(self, commit_id: str) -> list[NarrativeChoice]:
+        result = await self.session.execute(
+            select(ChoiceORM)
+            .where(ChoiceORM.commit_id == commit_id)
+            .order_by(ChoiceORM.display_order)
+        )
+        choices_orm = result.scalars().all()
+        return [
+            NarrativeChoice(
+                text=c.text,
+                dramatic_preview=c.dramatic_preview or {},
+                tone_hint=c.tone_hint or "",
+                estimated_depth_until_ending=c.estimated_depth_until_ending,
+            )
+            for c in choices_orm
+        ]
 
     # ── NarrativeEvent ─────────────────────────────────────────────────────────
 
     async def save_event(self, event: NarrativeEvent) -> None:
-        async with self.db_config.get_session() as session:
-            event_orm = EventORM(
-                id=event.id,
-                commit_id=event.commit_id,
-                event_type=event.event_type.value,
-                narrative_text=event.narrative_text,
-                summary=event.summary,
-                triggered_by_decision=event.triggered_by_decision,
-                forced_by_meter=event.forced_by_meter,
-                depth=event.depth,
-                topo_order=event.topo_order,
-                created_at=event.created_at,
+        event_orm = EventORM(
+            id=event.id,
+            commit_id=event.commit_id,
+            event_type=event.event_type.value,
+            narrative_text=event.narrative_text,
+            summary=event.summary,
+            triggered_by_decision=event.triggered_by_decision,
+            forced_by_meter=event.forced_by_meter,
+            depth=event.depth,
+            topo_order=event.topo_order,
+            created_at=event.created_at,
+        )
+
+        # Agregar event_orm PRIMERO para que los deltas puedan referenciar
+        self.session.add(event_orm)
+        await self.session.flush()  # Force immediate INSERT of event
+
+        # Guardar entity deltas
+        for delta in event.entity_deltas:
+            delta_orm = EntityDeltaORM(
+                event_id=event.id,
+                entity_id=delta.entity_id,
+                entity_name=delta.entity_name,
+                attribute=delta.attribute,
+                old_value=delta.old_value,
+                new_value=delta.new_value,
             )
+            self.session.add(delta_orm)
 
-            # Agregar event_orm PRIMERO para que los deltas puedan referenciar
-            session.add(event_orm)
-            await session.flush()  # Force immediate INSERT of event
+        # Guardar world deltas
+        for delta in event.world_deltas:
+            delta_orm = WorldVariableDeltaORM(
+                event_id=event.id,
+                variable=delta.variable,
+                old_value=delta.old_value,
+                new_value=delta.new_value,
+            )
+            self.session.add(delta_orm)
 
-            # Guardar entity deltas
-            for delta in event.entity_deltas:
-                delta_orm = EntityDeltaORM(
-                    event_id=event.id,
-                    entity_id=delta.entity_id,
-                    entity_name=delta.entity_name,
-                    attribute=delta.attribute,
-                    old_value=delta.old_value,
-                    new_value=delta.new_value,
-                )
-                session.add(delta_orm)
+        # Guardar dramatic deltas
+        if not event.dramatic_delta.is_empty():
+            for meter, value in event.dramatic_delta.to_dict().items():
+                if value != 0:
+                    delta_orm = DramaticDeltaORM(
+                        event_id=event.id,
+                        meter=meter,
+                        delta=value,
+                    )
+                    self.session.add(delta_orm)
 
-            # Guardar world deltas
-            for delta in event.world_deltas:
-                delta_orm = WorldVariableDeltaORM(
-                    event_id=event.id,
-                    variable=delta.variable,
-                    old_value=delta.old_value,
-                    new_value=delta.new_value,
-                )
-                session.add(delta_orm)
-
-            # Guardar dramatic deltas
-            if not event.dramatic_delta.is_empty():
-                for meter, value in event.dramatic_delta.to_dict().items():
-                    if value != 0:
-                        delta_orm = DramaticDeltaORM(
-                            event_id=event.id,
-                            meter=meter,
-                            delta=value,
-                        )
-                        session.add(delta_orm)
-
-            await session.commit()
+        # Commit manejado por get_session() context manager
 
     async def get_event(self, event_id: str) -> NarrativeEvent | None:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(EventORM)
-                .options(
-                    selectinload(EventORM.entity_deltas),
-                    selectinload(EventORM.world_deltas),
-                    selectinload(EventORM.causal_parents),
-                )
-                .where(EventORM.id == event_id)
+        result = await self.session.execute(
+            select(EventORM)
+            .options(
+                selectinload(EventORM.entity_deltas),
+                selectinload(EventORM.world_deltas),
+                selectinload(EventORM.causal_parents),
             )
-            event_orm = result.scalar_one_or_none()
+            .where(EventORM.id == event_id)
+        )
+        event_orm = result.scalar_one_or_none()
 
-            if event_orm is None:
-                return None
+        if event_orm is None:
+            return None
 
-            return await self._event_orm_to_dataclass(session, event_orm)
+        return await self._event_orm_to_dataclass(self.session, event_orm)
 
     async def get_events_for_commit(self, commit_id: str) -> list[NarrativeEvent]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(EventORM)
-                .options(
-                    selectinload(EventORM.entity_deltas),
-                    selectinload(EventORM.world_deltas),
-                    selectinload(EventORM.causal_parents),
-                )
-                .where(EventORM.commit_id == commit_id)
+        result = await self.session.execute(
+            select(EventORM)
+            .options(
+                selectinload(EventORM.entity_deltas),
+                selectinload(EventORM.world_deltas),
+                selectinload(EventORM.causal_parents),
             )
-            events_orm = result.scalars().all()
+            .where(EventORM.commit_id == commit_id)
+        )
+        events_orm = result.scalars().all()
 
-            return [await self._event_orm_to_dataclass(session, e) for e in events_orm]
+        return [await self._event_orm_to_dataclass(self.session, e) for e in events_orm]
 
     # ── Causal Graph ───────────────────────────────────────────────────────────
 
     async def save_causal_edge(self, edge: CausalEdge) -> None:
-        async with self.db_config.get_session() as session:
-            # PRIMERO: verificar que no exista ciclo
-            path_exists = await CausalGraphQueries.check_causal_path_exists(
-                session,
-                edge.effect_event_id,  # Desde el efecto
-                edge.cause_event_id    # Hacia la causa
+        # PRIMERO: verificar que no exista ciclo
+        path_exists = await CausalGraphQueries.check_causal_path_exists(
+            self.session,
+            edge.effect_event_id,  # Desde el efecto
+            edge.cause_event_id    # Hacia la causa
+        )
+
+        if path_exists:
+            raise ValueError(
+                f"No se puede crear la arista {edge.cause_event_id[:8]}... -> "
+                f"{edge.effect_event_id[:8]}... porque crearia un ciclo."
             )
 
-            if path_exists:
-                raise ValueError(
-                    f"No se puede crear la arista {edge.cause_event_id[:8]}... -> "
-                    f"{edge.effect_event_id[:8]}... porque crearia un ciclo."
-                )
+        # OK, no hay ciclo. Guardar la arista.
+        edge_orm = CausalEdgeORM(
+            id=edge.id,
+            cause_event_id=edge.cause_event_id,
+            effect_event_id=edge.effect_event_id,
+            relation_type=edge.relation_type.value,
+            strength=edge.strength,
+        )
 
-            # OK, no hay ciclo. Guardar la arista.
-            edge_orm = CausalEdgeORM(
-                id=edge.id,
-                cause_event_id=edge.cause_event_id,
-                effect_event_id=edge.effect_event_id,
-                relation_type=edge.relation_type.value,
-                strength=edge.strength,
-            )
-
-            session.add(edge_orm)
-            await session.commit()
+        self.session.add(edge_orm)
+        # Commit manejado por get_session() context manager
 
     async def check_causal_path_exists(
         self,
         from_event_id: str,
         to_event_id: str
     ) -> bool:
-        async with self.db_config.get_session() as session:
-            return await CausalGraphQueries.check_causal_path_exists(
-                session,
-                from_event_id,
-                to_event_id
-            )
+        return await CausalGraphQueries.check_causal_path_exists(
+            self.session,
+            from_event_id,
+            to_event_id
+        )
 
     async def get_causal_parents(self, event_id: str) -> list[str]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(CausalEdgeORM.cause_event_id)
-                .where(CausalEdgeORM.effect_event_id == event_id)
-            )
-            return [row[0] for row in result.fetchall()]
+        result = await self.session.execute(
+            select(CausalEdgeORM.cause_event_id)
+            .where(CausalEdgeORM.effect_event_id == event_id)
+        )
+        return [row[0] for row in result.fetchall()]
 
     async def get_causal_children(self, event_id: str) -> list[str]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(CausalEdgeORM.effect_event_id)
-                .where(CausalEdgeORM.cause_event_id == event_id)
-            )
-            return [row[0] for row in result.fetchall()]
+        result = await self.session.execute(
+            select(CausalEdgeORM.effect_event_id)
+            .where(CausalEdgeORM.cause_event_id == event_id)
+        )
+        return [row[0] for row in result.fetchall()]
 
     # ── Dramatic State ─────────────────────────────────────────────────────────
 
@@ -357,36 +382,41 @@ class PostgreSQLRepository(NarrativeRepository):
         forced_event: str | None = None,
         trigger_meter: str | None = None
     ) -> None:
-        async with self.db_config.get_session() as session:
-            dramatic_state = DramaticStateORM(
-                id=str(uuid.uuid4()),
-                commit_id=commit_id,
-                tension=vector.get("tension", 30),
-                hope=vector.get("hope", 60),
-                chaos=vector.get("chaos", 20),
-                rhythm=vector.get("rhythm", 50),
-                saturation=vector.get("saturation", 0),
-                connection=vector.get("connection", 40),
-                mystery=vector.get("mystery", 50),
-                forced_event=forced_event,
-                trigger_meter=trigger_meter,
-            )
+        dramatic_state = DramaticStateORM(
+            id=str(uuid.uuid4()),
+            commit_id=commit_id,
+            tension=vector.get("tension", 30),
+            hope=vector.get("hope", 60),
+            chaos=vector.get("chaos", 20),
+            rhythm=vector.get("rhythm", 50),
+            saturation=vector.get("saturation", 0),
+            connection=vector.get("connection", 40),
+            mystery=vector.get("mystery", 50),
+            forced_event=forced_event,
+            trigger_meter=trigger_meter,
+        )
 
-            session.add(dramatic_state)
-            await session.commit()
+        self.session.add(dramatic_state)
+        # Commit manejado por get_session() context manager
 
     async def get_dramatic_state(self, commit_id: str) -> dict[str, int] | None:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(DramaticStateORM)
-                .where(DramaticStateORM.commit_id == commit_id)
-            )
-            state = result.scalar_one_or_none()
+        result = await self.session.execute(
+            select(DramaticStateORM)
+            .where(DramaticStateORM.commit_id == commit_id)
+        )
+        state = result.scalar_one_or_none()
 
-            if state is None:
-                return None
+        if state is None:
+            return None
 
-            return state.to_dict()
+        return state.to_dict()
+
+    async def get_forced_event_type(self, commit_id: str) -> str | None:
+        result = await self.session.execute(
+            select(DramaticStateORM.forced_event)
+            .where(DramaticStateORM.commit_id == commit_id)
+        )
+        return result.scalar_one_or_none()
 
     async def save_dramatic_delta(
         self,
@@ -395,15 +425,41 @@ class PostgreSQLRepository(NarrativeRepository):
         delta: int,
         reason: str | None = None
     ) -> None:
-        async with self.db_config.get_session() as session:
-            delta_orm = DramaticDeltaORM(
-                event_id=event_id,
-                meter=meter,
-                delta=delta,
-                reason=reason,
-            )
-            session.add(delta_orm)
-            await session.commit()
+        delta_orm = DramaticDeltaORM(
+            event_id=event_id,
+            meter=meter,
+            delta=delta,
+            reason=reason,
+        )
+        self.session.add(delta_orm)
+        # Commit manejado por get_session() context manager
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+
+    async def count_commits(self, world_id: str) -> int:
+        result = await self.session.execute(
+            select(func.count(CommitORM.id))
+            .where(CommitORM.world_id == world_id)
+        )
+        return result.scalar_one()
+
+    async def count_all_commits(self) -> int:
+        result = await self.session.execute(
+            select(func.count(CommitORM.id))
+        )
+        return result.scalar_one()
+
+    async def count_worlds(self) -> int:
+        result = await self.session.execute(
+            select(func.count(WorldORM.id))
+        )
+        return result.scalar_one()
+
+    async def count_events(self) -> int:
+        result = await self.session.execute(
+            select(func.count(EventORM.id))
+        )
+        return result.scalar_one()
 
     # ── Entity State ───────────────────────────────────────────────────────────
 
@@ -436,60 +492,57 @@ class PostgreSQLRepository(NarrativeRepository):
     # ── Branches ───────────────────────────────────────────────────────────────
 
     async def save_branch(self, branch: Branch) -> None:
-        async with self.db_config.get_session() as session:
-            branch_orm = BranchORM(
-                id=branch.id,
-                world_id=branch.world_id,
-                origin_commit_id=branch.origin_commit_id,
-                leaf_commit_id=branch.leaf_commit_id,
-                name=branch.name,
-                description=branch.description,
-                created_at=branch.created_at,
-            )
-            session.add(branch_orm)
-            await session.commit()
+        branch_orm = BranchORM(
+            id=branch.id,
+            world_id=branch.world_id,
+            origin_commit_id=branch.origin_commit_id,
+            leaf_commit_id=branch.leaf_commit_id,
+            name=branch.name,
+            description=branch.description,
+            created_at=branch.created_at,
+        )
+        self.session.add(branch_orm)
+        # Commit manejado por get_session() context manager
 
     async def get_branch(self, branch_id: str) -> Branch | None:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(BranchORM).where(BranchORM.id == branch_id)
-            )
-            branch_orm = result.scalar_one_or_none()
+        result = await self.session.execute(
+            select(BranchORM).where(BranchORM.id == branch_id)
+        )
+        branch_orm = result.scalar_one_or_none()
 
-            if branch_orm is None:
-                return None
+        if branch_orm is None:
+            return None
 
-            return Branch(
-                id=branch_orm.id,
-                world_id=branch_orm.world_id,
-                origin_commit_id=branch_orm.origin_commit_id,
-                leaf_commit_id=branch_orm.leaf_commit_id,
-                name=branch_orm.name,
-                description=branch_orm.description,
-                created_at=branch_orm.created_at,
-            )
+        return Branch(
+            id=branch_orm.id,
+            world_id=branch_orm.world_id,
+            origin_commit_id=branch_orm.origin_commit_id,
+            leaf_commit_id=branch_orm.leaf_commit_id,
+            name=branch_orm.name,
+            description=branch_orm.description,
+            created_at=branch_orm.created_at,
+        )
 
     async def list_branches(self, world_id: str) -> list[Branch]:
-        async with self.db_config.get_session() as session:
-            result = await session.execute(
-                select(BranchORM)
-                .where(BranchORM.world_id == world_id)
-                .order_by(BranchORM.created_at.desc())
-            )
-            branches_orm = result.scalars().all()
+        result = await self.session.execute(
+            select(BranchORM)
+            .where(BranchORM.world_id == world_id)
+            .order_by(BranchORM.created_at.desc())
+        )
+        branches_orm = result.scalars().all()
 
-            return [
-                Branch(
-                    id=b.id,
-                    world_id=b.world_id,
-                    origin_commit_id=b.origin_commit_id,
-                    leaf_commit_id=b.leaf_commit_id,
-                    name=b.name,
-                    description=b.description,
-                    created_at=b.created_at,
-                )
-                for b in branches_orm
-            ]
+        return [
+            Branch(
+                id=b.id,
+                world_id=b.world_id,
+                origin_commit_id=b.origin_commit_id,
+                leaf_commit_id=b.leaf_commit_id,
+                name=b.name,
+                description=b.description,
+                created_at=b.created_at,
+            )
+            for b in branches_orm
+        ]
 
     # ── State Snapshots ────────────────────────────────────────────────────────
 

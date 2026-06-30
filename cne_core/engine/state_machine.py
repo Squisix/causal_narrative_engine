@@ -337,6 +337,53 @@ class StateMachine:
             dramatic_state    = commit.dramatic_snapshot.copy(),
         )
 
+    # ── Reconstrucción desde BD ──────────────────────────────────────────────
+
+    def rebuild_from_commits(self, commits: list[NarrativeCommit]) -> None:
+        """
+        Reconstruye el estado del engine desde una lista de commits (cargados de BD).
+
+        Registra cada commit en el árbol, reconstruye el grafo causal,
+        y restaura el estado del mundo desde el último commit.
+
+        Args:
+            commits: Lista de NarrativeCommit en orden cronológico (más antiguo primero).
+        """
+        if not commits:
+            return
+
+        for commit in commits:
+            self._commits[commit.id] = commit
+
+            if commit.event_id:
+                self._causal_validator.add_event(commit.event_id)
+
+            if commit.parent_id and commit.parent_id in self._commits:
+                parent = self._commits[commit.parent_id]
+                if commit.id not in parent.children_ids:
+                    parent.add_child(commit.id)
+                if parent.event_id and commit.event_id:
+                    try:
+                        self._causal_validator.add_edge(
+                            parent.event_id,
+                            commit.event_id
+                        )
+                    except CausalCycleError:
+                        pass
+
+        latest = commits[-1]
+        self._current_commit_id = latest.id
+        self._current_depth = latest.depth
+
+        if latest.dramatic_snapshot:
+            self._dramatic_engine.vector.from_dict(latest.dramatic_snapshot)
+
+        if latest.world_state_snapshot:
+            self._world_variables = latest.world_state_snapshot.copy()
+
+        if latest.entity_states:
+            self._restore_entity_states(latest.entity_states)
+
     # ── Queries ────────────────────────────────────────────────────────────────
 
     def get_current_commit(self) -> NarrativeCommit | None:
