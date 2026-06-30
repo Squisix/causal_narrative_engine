@@ -531,9 +531,9 @@ El motor viene con implementaciones de referencia intercambiables:
 | Repository | `PostgreSQLRepository` | Producción, historias largas |
 | Repository | `SQLiteRepository` | Desarrollo local sin Docker |
 | AIAdapter | `MockAIAdapter` ✅ | Tests sin API key |
-| AIAdapter | `AnthropicAdapter` | Producción con Claude |
+| AIAdapter | `AnthropicAdapter` ✅ | Producción con Claude |
+| AIAdapter | `OllamaAdapter` ✅ | LLMs locales gratuitos (gemma3, llama, etc.) |
 | AIAdapter | `OpenAIAdapter` | Alternativa GPT |
-| AIAdapter | `LocalLLMAdapter` | Ollama / LLMs locales |
 
 ---
 

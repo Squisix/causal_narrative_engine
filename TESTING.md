@@ -11,6 +11,7 @@ Este documento explica cómo ejecutar los diferentes tipos de tests y cuáles re
 | **Fase 1** (Core Engine) | ❌ No | Gratis | `pytest tests/test_fase1.py -v` |
 | **MockAdapter** | ❌ No | Gratis | `pytest tests/test_mock_adapter.py -v` |
 | **Fase 3 Integration** | ❌ No | Gratis | `pytest tests/test_fase3.py -v` |
+| **OllamaAdapter** | ❌ No (local) | Gratis | Ver seccion Ollama abajo |
 | **AnthropicAdapter** | ✅ Sí | ~$0.01 | `pytest -m anthropic_api -v` |
 
 ---
@@ -70,6 +71,79 @@ pytest tests/test_fase1.py tests/test_mock_adapter.py tests/test_fase3.py -v
 # Más corto
 pytest -v
 ```
+
+---
+
+## Tests con Ollama (Gratis, requiere Ollama instalado)
+
+Estos tests usan **OllamaAdapter** — ejecuta LLMs localmente sin API keys ni costos.
+
+### Requisitos
+
+```bash
+# 1. Instalar Ollama: https://ollama.com
+# 2. Descargar modelo
+ollama pull gemma3:4b
+
+# 3. Verificar que Ollama esta corriendo
+curl http://localhost:11434/api/tags
+```
+
+### Test manual
+
+```python
+python -c "
+import asyncio
+from adapters.ollama_adapter import OllamaAdapter
+from cne_core import WorldDefinition, NarrativeTone, Entity, EntityType
+from cne_core.interfaces.ai_adapter import NarrativeContext
+
+async def test():
+    adapter = OllamaAdapter(model='gemma3:4b')
+    hero = Entity(name='Kael', entity_type=EntityType.CHARACTER, attributes={'health': 100})
+    world = WorldDefinition(
+        name='Test', context='Medieval fantasy', protagonist='Kael',
+        era='Medieval', tone=NarrativeTone.DARK, initial_entities=[hero],
+    )
+    ctx = NarrativeContext(
+        world_definition=world, current_depth=0,
+        current_dramatic_state={'tension':30,'hope':60,'chaos':20,'rhythm':50,'saturation':0,'connection':40,'mystery':50},
+        current_entity_states={}, current_world_vars={}, commit_chain=[],
+    )
+    result = await adapter.generate_narrative(ctx)
+    print('Narrativa:', result.narrative_text[:200])
+    print('Opciones:', [c.text for c in result.choices])
+    print('[OK] OllamaAdapter funciona!')
+
+asyncio.run(test())
+"
+```
+
+### Test via API REST
+
+```bash
+# 1. Levantar servidor
+uvicorn api.main:app --reload
+
+# 2. Crear mundo
+curl -X POST http://localhost:8000/worlds \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test", "context": "Fantasy", "protagonist": "Hero", "era": "Medieval", "tone": "dark"}'
+
+# 3. Iniciar narrativa con Ollama
+curl -X POST http://localhost:8000/worlds/{world_id}/start \
+  -H "Content-Type: application/json" \
+  -d '{"adapter_type": "ollama"}'
+```
+
+### Modelos recomendados
+
+| Modelo | RAM | Notas |
+|--------|-----|-------|
+| `gemma3:4b` (default) | ~3GB | Buen balance calidad/velocidad |
+| `qwen3:4b` | ~3GB | Muy bueno siguiendo instrucciones JSON |
+| `llama3.2:3b` | ~2GB | Intermedio, mas ligero |
+| `mistral:7b` | ~4GB | Mejor calidad, requiere mas RAM |
 
 ---
 
@@ -247,7 +321,9 @@ tests/
 ├── test_fase1.py              # Core Engine (gratis)
 ├── test_mock_adapter.py       # MockAdapter (gratis)
 ├── test_fase3.py              # Integration con Mock (gratis)
-└── test_anthropic_adapter.py  # API real (cuesta dinero)
+├── test_anthropic_adapter.py  # API real (cuesta dinero)
+adapters/
+└── ollama_adapter.py          # OllamaAdapter (test manual, gratis)
 ```
 
 ---
@@ -277,11 +353,14 @@ R: Sí. Usa MockAdapter para todo. Es determinista y gratis.
 **P: ¿Cuánto cuestan los tests de Anthropic?**
 R: ~$0.01 USD por ejecución completa (4 tests). Cada test usa ~500-1000 tokens.
 
-**P: ¿Qué modelo usa por defecto?**
+**P: ¿Puedo probar con IA gratis?**
+R: Sí. Instala [Ollama](https://ollama.com), descarga `gemma3:4b`, y usa `adapter_type: "ollama"`. Corre localmente sin API key.
+
+**P: ¿Qué modelo de Anthropic usa por defecto?**
 R: `claude-3-5-sonnet-20241022` (balance calidad/precio)
 
 **P: ¿Puedo usar otro modelo?**
-R: Sí. Edita `ANTHROPIC_MODEL` en `.env` o pasa `model=` al constructor.
+R: Sí. Para Anthropic: edita `ANTHROPIC_MODEL` en `.env`. Para Ollama: edita `OLLAMA_MODEL` en `.env` o pasa `model=` al constructor.
 
 **P: ¿Los tests de Anthropic se ejecutan automáticamente?**
 R: No. Solo si ejecutas `pytest -m anthropic_api` explícitamente.

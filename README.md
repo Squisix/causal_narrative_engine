@@ -28,7 +28,7 @@ Un framework reutilizable que cualquier proyecto puede integrar — un juego, un
 |------|--------|-------------|
 | **Fase 1** | ✅ **COMPLETADA** | Core Engine en memoria (sin dependencias) |
 | **Fase 2** | ✅ **COMPLETADA** | Persistencia con PostgreSQL + SQLAlchemy async |
-| **Fase 3** | ✅ **COMPLETADA** | AI Adapter (Anthropic/Claude + Mock) |
+| **Fase 3** | ✅ **COMPLETADA** | AI Adapter (Anthropic + Ollama + Mock) |
 | **Fase 4** | ✅ **COMPLETADA** | FastAPI REST API |
 | **Fase 5** | 🔲 Pendiente | Release público en PyPI |
 
@@ -142,8 +142,9 @@ mystery + tension > 130  ->  REVELACION CLIMATICA
 │ Interface    │  │ Interface    │
 │ ─────────    │  │ ─────────    │
 │ PostgreSQL ✅│  │ Anthropic ✅ │
-│ InMemory ✅  │  │ Mock ✅      │
-└──────────────┘  └──────────────┘
+│ InMemory ✅  │  │ Ollama ✅    │
+└──────────────┘  │ Mock ✅      │
+                  └──────────────┘
 ```
 
 ---
@@ -166,7 +167,17 @@ docker-compose up -d
 alembic upgrade head
 ```
 
-### Con IA (Anthropic/OpenAI)
+### Con IA local (Ollama — gratis, sin API key)
+
+```bash
+pip install -e ".[ai,persistence,dev]"
+
+# Instalar Ollama: https://ollama.com
+# Descargar modelo (3GB):
+ollama pull gemma3:4b
+```
+
+### Con IA cloud (Anthropic)
 
 ```bash
 pip install -e ".[ai,persistence,dev]"
@@ -311,7 +322,8 @@ cne_core/                          # Core Engine
 
 adapters/                          # Implementaciones de AIAdapter
 ├── mock_adapter.py                # Mock para tests
-└── anthropic_adapter.py           # Anthropic Claude
+├── anthropic_adapter.py           # Anthropic Claude
+└── ollama_adapter.py              # Ollama (LLMs locales gratuitos)
 
 persistence/                       # Persistencia PostgreSQL
 ├── database.py                    # Config SQLAlchemy 2.0 async
@@ -351,6 +363,7 @@ docs/                              # Documentacion
 
 ### ✅ Fase 3 — AI Adapter
 - [x] AnthropicAdapter (Claude)
+- [x] OllamaAdapter (LLMs locales gratuitos)
 - [x] MockAIAdapter (tests sin API key)
 - [x] ContextBuilder (tronco activo)
 - [x] ResponseValidator (validar JSON)

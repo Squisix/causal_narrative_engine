@@ -51,9 +51,10 @@ Y dos interfaces extensibles:
 │                  │      │                  │
 │Implementaciones: │      │Implementaciones: │
 │- PostgreSQL ✅   │      │- Anthropic ✅    │
-│- InMemory ✅     │      │- Mock ✅         │
-│- Tu propia BD    │      │- Tu propio LLM   │
-└─────────────────┘       └─────────────────┘
+│- InMemory ✅     │      │- Ollama ✅       │
+│- Tu propia BD    │      │- Mock ✅         │
+└─────────────────┘       │- Tu propio LLM   │
+                          └─────────────────┘
 ```
 
 **Principio clave**: la IA propone eventos, el motor valida coherencia causal. La coherencia es propiedad estructural del motor, no del LLM.
@@ -407,11 +408,12 @@ Los metodos de grafo causal (`save_causal_edge`, `check_causal_path_exists`) son
 
 ## Implementar AIAdapter
 
-Si quieres conectar tu propio LLM (OpenAI, Ollama, Mistral, etc.), implementa la interfaz `AIAdapter`.
+Si quieres conectar tu propio LLM (OpenAI, Mistral, etc.), implementa la interfaz `AIAdapter`.
 
 **Archivo de referencia**: `cne_core/interfaces/ai_adapter.py`
 **Implementacion mock**: `adapters/mock_adapter.py`
 **Implementacion Anthropic**: `adapters/anthropic_adapter.py`
+**Implementacion Ollama**: `adapters/ollama_adapter.py`
 
 ### La interfaz
 
@@ -591,6 +593,93 @@ DEBES retornar JSON con este schema exacto:
         if context.player_choice:
             return f"El jugador eligio: {context.player_choice}"
         return "Genera el inicio de la historia."
+```
+
+### Usar OllamaAdapter (LLMs locales gratuitos)
+
+El motor incluye un adapter listo para usar con [Ollama](https://ollama.com), que ejecuta LLMs localmente sin API keys ni costos.
+
+#### Instalacion
+
+```bash
+# 1. Instalar Ollama: https://ollama.com
+# 2. Descargar un modelo
+ollama pull gemma3:4b
+```
+
+Modelos recomendados:
+
+| Modelo | RAM | Calidad | Velocidad |
+|--------|-----|---------|-----------|
+| `gemma3:4b` | ~3GB | Buena | Rapido |
+| `qwen3:4b` | ~3GB | Buena | Rapido |
+| `llama3.2:3b` | ~2GB | Aceptable | Muy rapido |
+| `mistral:7b` | ~4GB | Muy buena | Requiere GPU |
+
+#### Uso directo (SDK Python)
+
+```python
+import asyncio
+from adapters.ollama_adapter import OllamaAdapter
+from cne_core import WorldDefinition, NarrativeTone, Entity, EntityType
+from cne_core.interfaces.ai_adapter import NarrativeContext
+
+async def main():
+    adapter = OllamaAdapter(model="gemma3:4b")
+
+    hero = Entity(name="Kael", entity_type=EntityType.CHARACTER,
+                  attributes={"health": 100, "magic": 50})
+    world = WorldDefinition(
+        name="Las Tierras Rotas",
+        context="Un mundo postapocaliptico donde la magia resurge.",
+        protagonist="Kael, un recolector con poderes latentes",
+        era="Post-colapso", tone=NarrativeTone.MYSTERIOUS,
+        initial_entities=[hero],
+    )
+
+    ctx = NarrativeContext(
+        world_definition=world, current_depth=0,
+        current_dramatic_state={
+            "tension": 30, "hope": 60, "chaos": 20, "rhythm": 50,
+            "saturation": 0, "connection": 40, "mystery": 50
+        },
+        current_entity_states={}, current_world_vars={}, commit_chain=[],
+    )
+
+    result = await adapter.generate_narrative(ctx)
+    print(result.narrative_text)
+    print("Opciones:", [c.text for c in result.choices])
+
+asyncio.run(main())
+```
+
+#### Uso via API REST
+
+```bash
+# Iniciar narrativa con Ollama
+curl -X POST http://localhost:8000/worlds/{world_id}/start \
+  -H "Content-Type: application/json" \
+  -d '{"adapter_type": "ollama"}'
+
+# Con modelo personalizado
+curl -X POST http://localhost:8000/worlds/{world_id}/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "adapter_type": "ollama",
+    "adapter_config": {
+      "model": "mistral:7b",
+      "temperature": 0.8
+    }
+  }'
+```
+
+#### Configuracion
+
+En `.env`:
+```
+OLLAMA_MODEL=gemma3:4b
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_TEMPERATURE=0.7
 ```
 
 ### Constraint de evento forzado
