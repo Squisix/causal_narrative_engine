@@ -11,12 +11,42 @@ from api.models.requests import CreateWorldRequest
 from api.models.responses import WorldResponse, ErrorResponse
 from api.services.narrative_service_v2 import NarrativeServiceV2
 from api.dependencies import get_narrative_service_v2
-from cne_core.models.world import WorldDefinition, NarrativeTone
+from cne_core.models.world import WorldDefinition, NarrativeTone, Entity, EntityType
 
 router = APIRouter(
     prefix="/worlds",
     tags=["worlds"]
 )
+
+
+@router.get("", response_model=list[WorldResponse])
+async def list_worlds(
+    service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
+):
+    """Lista todos los mundos creados."""
+    try:
+        worlds = await service.repo.list_worlds()
+        results = []
+        for world in worlds:
+            stats = await service.get_world_stats(world.id)
+            results.append(WorldResponse(
+                world_id=world.id,
+                name=world.name,
+                context=world.context,
+                protagonist=world.protagonist,
+                era=world.era,
+                tone=world.tone.value,
+                antagonist=world.antagonist,
+                rules=world.rules,
+                constraints=world.constraints,
+                max_depth=world.max_depth,
+                created_at=world.created_at,
+                total_commits=stats["total_commits"],
+                active_branches=stats["active_branches"],
+            ))
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("", response_model=WorldResponse, status_code=201)
@@ -51,6 +81,19 @@ async def create_world(
                 detail=f"Invalid tone: {request.tone}. Valid values: epic, dark, mysterious, adventurous, philosophical, black_humor"
             )
 
+        # Convertir entidades iniciales
+        entities = []
+        for er in request.initial_entities:
+            try:
+                etype = EntityType(er.entity_type)
+            except ValueError:
+                etype = EntityType.CHARACTER
+            entities.append(Entity(
+                name=er.name,
+                entity_type=etype,
+                attributes=er.attributes,
+            ))
+
         # Crear WorldDefinition
         world = WorldDefinition(
             name=request.name,
@@ -61,6 +104,7 @@ async def create_world(
             antagonist=request.antagonist or "desconocido",
             rules=request.rules or "El mundo sigue sus propias leyes",
             constraints=request.constraints or [],
+            initial_entities=entities,
             dramatic_config=request.dramatic_config or {
                 "tension": 30,
                 "hope": 60,

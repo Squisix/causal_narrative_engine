@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Causal Narrative Engine</title>
+    <link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+    <header>
+        <h1>Causal Narrative Engine</h1>
+        <span class="version">v0.3.0</span>
+    </header>
+
+    <!-- ── Setup Screen ────────────────────── -->
+    <div id="setup-screen" class="screen active">
+        <div class="setup-layout">
+            <!-- Left: Create New World -->
+            <div class="setup-panel">
+                <h2>Crear Mundo Nuevo</h2>
+                <p class="subtitle">Define la semilla de tu historia.</p>
+
+                <form id="setup-form">
+                    <div class="form-group">
+                        <label for="world-name">Nombre del Mundo</label>
+                        <input type="text" id="world-name" value="Las Tierras Rotas" required minlength="3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="world-context">Contexto del Universo</label>
+                        <textarea id="world-context" rows="3" required minlength="10">Un mundo postapocaliptico donde la magia resurge entre las ruinas de una civilizacion perdida.</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="world-protagonist">Protagonista</label>
+                        <input type="text" id="world-protagonist" value="Kael, un recolector que descubre poderes magicos" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="world-era">Epoca</label>
+                            <input type="text" id="world-era" value="Post-colapso, 300 anos despues" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="world-tone">Tono</label>
+                            <select id="world-tone">
+                                <option value="mysterious" selected>Misterioso</option>
+                                <option value="dark">Oscuro</option>
+                                <option value="epic">Epico</option>
+                                <option value="adventurous">Aventurero</option>
+                                <option value="philosophical">Filosofico</option>
+                                <option value="black_humor">Humor Negro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Entidades iniciales <span class="optional">(opcional)</span></label>
+                        <div id="entities-list"></div>
+                        <button type="button" class="btn btn-small" onclick="addEntityField()">+ Agregar personaje</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="adapter-type">Motor de IA</label>
+                        <select id="adapter-type">
+                            <option value="ollama">Ollama (local, gratis)</option>
+                            <option value="mock">Mock (sin IA, para testing)</option>
+                            <option value="anthropic">Anthropic Claude (requiere API key)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Crear Mundo e Iniciar Historia</button>
+                </form>
+            </div>
+
+            <!-- Right: Continue Story -->
+            <div class="setup-panel" id="existing-worlds-panel">
+                <h2>Continuar Historia</h2>
+                <p class="subtitle">Selecciona un mundo existente.</p>
+                <div id="worlds-list">
+                    <p class="no-worlds">Cargando mundos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Chapters Screen ──────────────────── -->
+    <div id="chapters-screen" class="screen">
+        <div class="chapters-container">
+            <div class="chapters-header">
+                <div>
+                    <h2 id="chapters-title">Capitulos</h2>
+                    <p class="subtitle" id="chapters-subtitle">Selecciona un capitulo para continuar.</p>
+                </div>
+                <button class="btn btn-secondary" onclick="backToSetup()">Volver</button>
+            </div>
+            <div id="chapters-list"></div>
+        </div>
+    </div>
+
+    <!-- ── Game Screen ─────────────────────── -->
+    <div id="game-screen" class="screen">
+        <div class="main-panel">
+            <div class="game-toolbar">
+                <button id="btn-back" class="btn-back" onclick="goBack()" style="display:none">Regresar</button>
+                <span id="chapter-indicator"></span>
+            </div>
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p class="loading-text">Generando...</p>
+            </div>
+            <div id="main-content"></div>
+        </div>
+
+        <div class="side-panel">
+            <h3>Estado Dramatico</h3>
+            <div id="meters"></div>
+
+            <div class="world-info">
+                <h3>Mundo</h3>
+                <div id="world-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/web/app.js"></script>
+</body>
+</html>

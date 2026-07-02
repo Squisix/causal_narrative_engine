@@ -90,6 +90,27 @@ class WorldVariableDelta:
 
 
 @dataclass
+class EntityCreation:
+    """
+    Representa la creacion de una nueva entidad durante la historia.
+
+    Ejemplo: Un misterioso extranjero aparece en el capitulo 3.
+        entity_name = "Zara la Errante"
+        entity_type = "character"
+        attributes = {"health": 100, "loyalty": 50}
+    """
+    entity_name: str
+    entity_type: str
+    attributes: dict[str, Any] = field(default_factory=dict)
+    entity_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    @property
+    def creation_summary(self) -> str:
+        attrs_str = ", ".join(f"{k}={v}" for k, v in self.attributes.items())
+        return f"NEW: {self.entity_name} ({self.entity_type}): {attrs_str}"
+
+
+@dataclass
 class DramaticDelta:
     """
     Cambio en el vector dramático causado por este evento.
@@ -158,10 +179,14 @@ class NarrativeEvent:
     # Qué decisión del jugador lo disparó (None si fue forzado)
     triggered_by_decision: str | None = None
 
+    # Razón causal generada por la IA (por qué ocurre este evento)
+    causal_reason: str | None = None
+
     # Los efectos del evento sobre el mundo
-    entity_deltas:   list[EntityDelta]        = field(default_factory=list)
-    world_deltas:    list[WorldVariableDelta]  = field(default_factory=list)
-    dramatic_delta:  DramaticDelta            = field(default_factory=DramaticDelta)
+    entity_deltas:    list[EntityDelta]        = field(default_factory=list)
+    entity_creations: list[EntityCreation]     = field(default_factory=list)
+    world_deltas:     list[WorldVariableDelta] = field(default_factory=list)
+    dramatic_delta:   DramaticDelta            = field(default_factory=DramaticDelta)
 
     # Si es un evento FORCED, qué medidor lo disparó
     forced_by_meter: str | None    = None

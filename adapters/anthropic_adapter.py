@@ -180,6 +180,8 @@ class AnthropicAdapter(AIAdapter):
             dramatic_state=context.current_dramatic_state,
             forced_constraint=context.forced_constraint,
             player_choice=context.player_choice,
+            current_entity_states=context.current_entity_states or None,
+            current_world_vars=context.current_world_vars or None,
         )
 
     async def _call_claude(self, prompt: str) -> str:
@@ -270,19 +272,34 @@ Asegurate de:
 
     def _convert_to_proposal(self, response: NarrativeResponse) -> NarrativeProposal:
         """Convierte NarrativeResponse a NarrativeProposal."""
-        entity_deltas, world_deltas, dramatic_delta, choices = response.to_core_models()
+        entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 
         return NarrativeProposal(
             narrative_text=response.narrative,
             summary=response.summary,
             choices=choices,
             entity_deltas=entity_deltas,
+            entity_creations=entity_creations,
             world_deltas=world_deltas,
             dramatic_delta=dramatic_delta,
             causal_reason=response.causal_reason,
             is_ending=response.is_ending,
             raw_response=response.model_dump(),
         )
+
+    async def validate_response(self, raw_response: str) -> NarrativeProposal:
+        """Parsea y valida una respuesta raw de Claude."""
+        validator = ResponseValidator()
+        response = validator.parse_and_validate(raw_response)
+        return self._convert_to_proposal(response)
+
+    def get_model_info(self) -> dict[str, str]:
+        """Retorna informacion del modelo."""
+        return {
+            "provider": "Anthropic",
+            "model": self.model,
+            "max_tokens": str(self.max_tokens),
+        }
 
     def get_stats(self) -> dict:
         """Retorna estadisticas del adapter."""

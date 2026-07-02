@@ -52,6 +52,8 @@ class ContextBuilder:
         dramatic_state: dict[str, int],
         forced_constraint: Optional[ForcedEventConstraint] = None,
         player_choice: Optional[str] = None,
+        current_entity_states: Optional[dict] = None,
+        current_world_vars: Optional[dict] = None,
     ) -> str:
         """
         Construye el contexto completo para la IA.
@@ -62,6 +64,8 @@ class ContextBuilder:
             dramatic_state: Estado actual del vector dramatico.
             forced_constraint: Si hay un evento forzado por umbrales.
             player_choice: La decision que acaba de tomar el jugador.
+            current_entity_states: Estado actual de las entidades (post-deltas).
+            current_world_vars: Variables globales actuales del mundo.
 
         Returns:
             str: El contexto completo listo para enviar a la IA.
@@ -71,21 +75,29 @@ class ContextBuilder:
         # 1. Semilla del mundo (siempre presente)
         sections.append(self._build_world_section(world))
 
-        # 2. Estado dramatico actual
+        # 2. Estado actual de entidades (si hay, post-deltas)
+        if current_entity_states:
+            sections.append(self._build_entity_states_section(current_entity_states))
+
+        # 3. Variables globales del mundo (si hay)
+        if current_world_vars:
+            sections.append(self._build_world_vars_section(current_world_vars))
+
+        # 4. Estado dramatico actual
         sections.append(self._build_dramatic_section(dramatic_state))
 
-        # 3. Tronco activo (historia hasta ahora)
+        # 5. Tronco activo (historia hasta ahora)
         sections.append(self._build_trunk_section(commit_chain))
 
-        # 4. Decision del jugador (si hay)
+        # 6. Decision del jugador (si hay)
         if player_choice:
             sections.append(self._build_choice_section(player_choice))
 
-        # 5. Constraint forzado (si hay)
+        # 7. Constraint forzado (si hay)
         if forced_constraint:
             sections.append(self._build_constraint_section(forced_constraint))
 
-        # 6. Instrucciones finales
+        # 8. Instrucciones finales
         sections.append(self._build_instructions_section())
 
         return "\n\n".join(sections)
@@ -99,6 +111,72 @@ class ContextBuilder:
             "",
             world.to_context_string(),
         ]
+        return "\n".join(lines)
+
+    def _build_entity_states_section(self, entity_states: dict) -> str:
+        """Seccion con el estado actual de las entidades (post-deltas)."""
+        characters = []
+        artifacts = []
+        others = []
+
+        for eid, state in entity_states.items():
+            etype = state.get("type", "unknown")
+            if etype == "artifact":
+                artifacts.append((eid, state))
+            elif etype == "character":
+                characters.append((eid, state))
+            else:
+                others.append((eid, state))
+
+        lines = [
+            "=" * 60,
+            "ESTADO ACTUAL DE ENTIDADES",
+            "=" * 60,
+        ]
+
+        if characters or others:
+            lines.append("")
+            lines.append("[PERSONAJES Y FACCIONES]")
+            for eid, state in characters + others:
+                lines.extend(self._format_entity_line(eid, state))
+
+        if artifacts:
+            lines.append("")
+            lines.append("[ITEMS Y ARTEFACTOS]")
+            for eid, state in artifacts:
+                attrs = state.get("attributes", {})
+                possessed_by = attrs.get("possessed_by")
+                location = attrs.get("location", "desconocido")
+                possession_str = f" | Poseido por: {possessed_by}" if possessed_by else f" | Disponible en: {location}"
+                lines.extend(self._format_entity_line(eid, state, extra=possession_str))
+
+        return "\n".join(lines)
+
+    def _format_entity_line(self, eid: str, state: dict, extra: str = "") -> list[str]:
+        name = state.get("name", eid)
+        etype = state.get("type", "unknown")
+        alive = state.get("alive", True)
+        attrs = state.get("attributes", {})
+        display_attrs = {k: v for k, v in attrs.items() if k not in ("created_at_depth",)}
+        status = "" if alive else " [MUERTO/DESTRUIDO]"
+        attrs_str = ", ".join(f"{k}={v}" for k, v in display_attrs.items())
+        return [
+            f"  {name} ({etype}){status}: {attrs_str}{extra}",
+            f"    [entity_id: {eid}]",
+        ]
+
+    def _build_world_vars_section(self, world_vars: dict) -> str:
+        """Seccion con las variables globales del mundo."""
+        lines = [
+            "=" * 60,
+            "VARIABLES GLOBALES DEL MUNDO",
+            "=" * 60,
+            "",
+        ]
+
+        for var_name, value in world_vars.items():
+            lines.append(f"  {var_name}: {value}")
+
         return "\n".join(lines)
 
     def _build_dramatic_section(self, dramatic_state: dict[str, int]) -> str:
@@ -291,6 +369,9 @@ FORMATO REQUERIDO:
   "entity_deltas": [
     {"entity_id": "uuid", "entity_name": "Nombre", "attribute": "atributo", "old_value": X, "new_value": Y}
   ],
+  "entity_creations": [
+    {"entity_name": "Nombre", "entity_type": "character|faction|artifact|location", "attributes": {"key": "value"}}
+  ],
   "world_deltas": [
     {"variable": "nombre_variable", "old_value": X, "new_value": Y}
   ],
@@ -306,11 +387,29 @@ FORMATO REQUERIDO:
 REGLAS IMPORTANTES:
 1. La narrativa debe ser inmersiva y estar en presente
 2. Respeta la semilla del mundo y sus restricciones
-3. Mantén coherencia con la historia previa
+3. Manten coherencia con la historia previa
 4. Los deltas dramaticos deben reflejar el impacto emocional real del evento
 5. Las opciones deben ser significativamente diferentes entre si
 6. Si hay un constraint forzado, DEBES cumplirlo
 7. is_ending solo debe ser true si esta es una conclusion natural de la historia
+
+CREACION DE ENTIDADES (entity_creations):
+- Puedes introducir nuevos personajes, facciones o lugares cuando la narrativa lo requiera
+- Usa entity_creations para registrarlos formalmente en el mundo
+- entity_type debe ser: "character", "faction", "artifact" o "location"
+
+ITEMS Y ARTEFACTOS:
+- Cuando aparezca un objeto significativo (llave, libro, arma, pocion, reliquia, mapa, etc.),
+  crealo como entidad tipo "artifact" en entity_creations
+- Atributos requeridos para artifacts:
+  - "possessed_by": null si esta disponible en el entorno, o nombre del personaje que lo tiene
+  - "location": donde se encuentra el item
+  - "usable": true/false si se puede usar en este momento
+  - "effect": descripcion breve de su efecto o significado
+- Cuando un personaje TOMA un item, genera un entity_delta cambiando
+  "possessed_by": null -> "possessed_by": "nombre del personaje"
+- Si hay items disponibles en la escena (possessed_by=null), genera al menos una opcion
+  que involucre interactuar con ellos (ej: "Tomar la llave oxidada", "Leer el grimorio")
 
 Genera SOLO el JSON. No incluyas explicaciones adicionales.
 """
@@ -365,5 +464,10 @@ para el Causal Narrative Engine (CNE). Debes:
 
 7. LARGO APROPIADO: La narrativa debe ser de 150-250 palabras. Ni telegrafic
    ni excesivamente verboso.
+
+8. ENTIDADES DINAMICAS: Puedes introducir nuevos personajes, facciones, lugares
+   y objetos significativos (llaves, armas, libros, reliquias) usando entity_creations.
+   Los objetos importantes deben crearse como tipo "artifact" con atributos de posesion.
+   Cuando haya items disponibles en la escena, ofrece opciones para interactuar con ellos.
 
 Genera historias que sean memorables, coherentes y respeten la agencia del jugador."""

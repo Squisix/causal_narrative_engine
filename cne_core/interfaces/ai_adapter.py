@@ -59,9 +59,10 @@ class NarrativeProposal:
     choices: list[Any]                       # Lista de NarrativeChoice
 
     # Efectos propuestos del evento
-    entity_deltas: list[Any] = field(default_factory=list)  # list[EntityDelta]
-    world_deltas: list[Any] = field(default_factory=list)   # list[WorldVariableDelta]
-    dramatic_delta: Any = None                               # DramaticDelta
+    entity_deltas: list[Any] = field(default_factory=list)      # list[EntityDelta]
+    entity_creations: list[Any] = field(default_factory=list)   # list[EntityCreation]
+    world_deltas: list[Any] = field(default_factory=list)       # list[WorldVariableDelta]
+    dramatic_delta: Any = None                                   # DramaticDelta
 
     # Metadata
     causal_reason: str | None = None         # Por qué ocurre este evento

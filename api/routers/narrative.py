@@ -7,7 +7,7 @@ Endpoints para generar narrativa y avanzar la historia.
 from fastapi import APIRouter, HTTPException, Depends
 
 from api.models.requests import StartNarrativeRequest, AdvanceNarrativeRequest
-from api.models.responses import NarrativeCommitResponse, DramaticStateResponse, ChoiceResponse
+from api.models.responses import NarrativeCommitResponse, DramaticStateResponse, ChoiceResponse, CommitSummaryResponse, ExistingPathResponse
 from api.services.narrative_service_v2 import NarrativeServiceV2
 from api.dependencies import get_narrative_service_v2, get_ai_adapter
 
@@ -72,15 +72,17 @@ async def advance_narrative(
         if not commit:
             raise HTTPException(status_code=404, detail=f"Commit not found: {commit_id}")
 
-        # Obtener AI adapter - usar el mismo que usó el mundo
-        # Por ahora usamos mock, luego se podría guardar en DB
-        adapter = get_ai_adapter(adapter_type="mock")
+        adapter = get_ai_adapter(
+            adapter_type=request.adapter_type,
+            adapter_config=request.adapter_config or {}
+        )
 
         # Avanzar narrativa
         new_commit = await service.advance_narrative(
             commit_id=commit_id,
             choice=request.choice,
-            adapter=adapter
+            adapter=adapter,
+            custom_choice=request.custom,
         )
 
         # Convertir a response
@@ -88,6 +90,58 @@ async def advance_narrative(
 
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/worlds/{world_id}/commits", response_model=list[CommitSummaryResponse])
+async def list_commits(
+    world_id: str,
+    service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
+):
+    """Lista todos los commits de un mundo (resumen ligero)."""
+    commits = await service.repo.list_commits(world_id)
+    return [
+        CommitSummaryResponse(
+            commit_id=c.id,
+            depth=c.depth,
+            summary=c.summary,
+            choice_text=c.choice_text,
+            is_ending=c.is_ending,
+            created_at=c.created_at,
+        )
+        for c in commits
+    ]
+
+
+@router.get("/worlds/{world_id}/latest", response_model=NarrativeCommitResponse)
+async def get_latest_commit(
+    world_id: str,
+    service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
+):
+    """Obtiene el ultimo commit de un mundo (para continuar una historia)."""
+    latest_id = await service.repo.get_latest_commit_id(world_id)
+    if not latest_id:
+        raise HTTPException(status_code=404, detail=f"No commits found for world: {world_id}")
+
+    commit = await service.get_commit(latest_id)
+    if not commit:
+        raise HTTPException(status_code=404, detail=f"Commit not found: {latest_id}")
+
+    return await _commit_to_response(commit, service)
+
+
+@router.post("/commits/{commit_id}/goto", response_model=NarrativeCommitResponse)
+async def goto_commit(
+    commit_id: str,
+    service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
+):
+    """Navega a un commit específico, restaurando el estado del engine."""
+    try:
+        commit = await service.goto_commit(commit_id)
+        return await _commit_to_response(commit, service)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -164,14 +218,35 @@ async def _commit_to_response(commit, service: NarrativeServiceV2) -> NarrativeC
     # Forced event type (si existe)
     forced_event_type = await service.get_forced_event_type(commit.id)
 
+    # Caminos ya explorados (hijos existentes)
+    children = await service.repo.get_children_commits(commit.id)
+    existing_paths = [
+        ExistingPathResponse(
+            commit_id=child.id,
+            choice_text=child.choice_text or "",
+            depth=child.depth,
+            summary=child.summary,
+        )
+        for child in children
+        if child.choice_text
+    ]
+
+    # Causal reason (from persisted event if available)
+    causal_reason = None
+    events = await service.repo.get_events_for_commit(commit.id)
+    if events:
+        causal_reason = events[0].causal_reason
+
     return NarrativeCommitResponse(
         commit_id=commit.id,
+        parent_id=commit.parent_id,
         depth=commit.depth,
         narrative_text=commit.narrative_text,
         summary=commit.summary,
         choices=choices,
+        existing_paths=existing_paths,
         dramatic_state=dramatic_state,
-        causal_reason=None,  # TODO Fase 2: obtener del NarrativeEvent en DB
+        causal_reason=causal_reason,
         is_ending=commit.is_ending,
         forced_event_type=forced_event_type,
         created_at=commit.created_at,

@@ -89,6 +89,41 @@ class EntityDeltaDict(BaseModel):
         )
 
 
+class EntityCreationDict(BaseModel):
+    """
+    Creacion de una nueva entidad propuesta por la IA.
+
+    La IA especifica nombre, tipo y atributos iniciales.
+    El motor asigna el UUID y created_at_depth automaticamente.
+    """
+    entity_name: str = Field(..., description="Nombre de la nueva entidad")
+    entity_type: str = Field(
+        ...,
+        description="Tipo: character, faction, artifact, location"
+    )
+    attributes: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Atributos iniciales (ej: {health: 100, possessed_by: null})"
+    )
+
+    @field_validator('entity_type')
+    @classmethod
+    def validate_entity_type(cls, v):
+        valid_types = {"character", "faction", "artifact", "location"}
+        if v.lower() not in valid_types:
+            raise ValueError(f"entity_type debe ser uno de {valid_types}, recibido: '{v}'")
+        return v.lower()
+
+    def to_entity_creation(self):
+        """Convierte a EntityCreation del core."""
+        from cne_core.models.event import EntityCreation
+        return EntityCreation(
+            entity_name=self.entity_name,
+            entity_type=self.entity_type,
+            attributes=self.attributes,
+        )
+
+
 class WorldDeltaDict(BaseModel):
     """
     Cambio en una variable global del mundo.
@@ -176,6 +211,11 @@ class NarrativeResponse(BaseModel):
         description="Cambios en entidades causados por este evento"
     )
 
+    entity_creations: list[EntityCreationDict] = Field(
+        default_factory=list,
+        description="Nuevas entidades creadas durante este evento"
+    )
+
     world_deltas: list[WorldDeltaDict] = Field(
         default_factory=list,
         description="Cambios en variables globales del mundo"
@@ -260,20 +300,20 @@ class NarrativeResponse(BaseModel):
         Convierte la respuesta a los modelos del core.
 
         Returns:
-            tuple: (entity_deltas, world_deltas, dramatic_delta, choices)
+            tuple: (entity_deltas, entity_creations, world_deltas, dramatic_delta, choices)
         """
         entity_deltas = [d.to_entity_delta() for d in self.entity_deltas]
+        entity_creations = [c.to_entity_creation() for c in self.entity_creations]
         world_deltas = [d.to_world_delta() for d in self.world_deltas]
         dramatic_delta = self.dramatic_deltas.to_dramatic_delta()
 
-        # Si hay previews, usarlos. Si no, crear choices sin preview
         if self.choice_dramatic_preview:
             choices = [p.to_narrative_choice() for p in self.choice_dramatic_preview]
         else:
             from cne_core.models.commit import NarrativeChoice
             choices = [NarrativeChoice(text=c) for c in self.choices]
 
-        return entity_deltas, world_deltas, dramatic_delta, choices
+        return entity_deltas, entity_creations, world_deltas, dramatic_delta, choices
 
     model_config = ConfigDict(
         json_schema_extra={

@@ -16,9 +16,9 @@ Eso es el poder del Repository pattern.
 from dataclasses import dataclass, field
 from typing import Any
 
-from cne_core.models.world import WorldDefinition, Entity
+from cne_core.models.world import WorldDefinition, Entity, EntityType
 from cne_core.models.event import (
-    NarrativeEvent, EventType, EntityDelta,
+    NarrativeEvent, EventType, EntityDelta, EntityCreation,
     WorldVariableDelta, DramaticDelta, CausalEdge
 )
 from cne_core.models.commit import NarrativeCommit, NarrativeChoice, Branch
@@ -40,6 +40,8 @@ class StoryAdvanceResult:
     dramatic_state:    dict[str, int]
     forced_event:      ForcedEventConstraint | None = None
     is_ending:         bool = False
+    event:             NarrativeEvent | None = None
+    causal_edges:      list[CausalEdge] = field(default_factory=list)
 
     def display(self) -> str:
         """Representación para terminal (útil durante desarrollo)."""
@@ -124,6 +126,7 @@ class StateMachine:
         initial_choices: list[NarrativeChoice],
         initial_summary: str = "La historia comienza.",
         initial_dramatic_delta: DramaticDelta | None = None,
+        causal_reason: str | None = None,
     ) -> StoryAdvanceResult:
         """
         Inicializa la historia con el primer capítulo.
@@ -149,6 +152,7 @@ class StateMachine:
             event_type     = EventType.DECISION,
             narrative_text = initial_narrative,
             summary        = initial_summary,
+            causal_reason  = causal_reason,
             dramatic_delta = initial_dramatic_delta or DramaticDelta(),
             depth          = 0,
         )
@@ -177,6 +181,7 @@ class StateMachine:
             narrative_text    = initial_narrative,
             available_choices = initial_choices,
             dramatic_state    = self._dramatic_engine.current_state.copy(),
+            event             = event,
         )
 
     def advance_story(
@@ -186,9 +191,11 @@ class StateMachine:
         summary:          str,
         choices:          list[NarrativeChoice],
         entity_deltas:    list[EntityDelta]       | None = None,
+        entity_creations: list[EntityCreation]    | None = None,
         world_deltas:     list[WorldVariableDelta] | None = None,
         dramatic_delta:   DramaticDelta | None = None,
         is_ending:        bool = False,
+        causal_reason:    str | None = None,
     ) -> StoryAdvanceResult:
         """
         Procesa una decisión del jugador y avanza la historia.
@@ -227,30 +234,36 @@ class StateMachine:
         self._current_depth += 1
         current_commit = self._commits[self._current_commit_id]
 
-        # 1. Aplicar deltas de entidades
+        # 1. Crear nuevas entidades (antes de deltas, para que deltas puedan referenciarlas)
+        entity_creations = entity_creations or []
+        self._apply_entity_creations(entity_creations, self._current_depth)
+
+        # 2. Aplicar deltas de entidades
         entity_deltas = entity_deltas or []
         self._apply_entity_deltas(entity_deltas)
 
-        # 2. Aplicar deltas de variables globales
+        # 3. Aplicar deltas de variables globales
         world_deltas = world_deltas or []
         self._apply_world_deltas(world_deltas)
 
-        # 3. Actualizar el vector dramático
+        # 4. Actualizar el vector dramático
         dramatic_delta = dramatic_delta or DramaticDelta()
         self._dramatic_engine.apply_delta(dramatic_delta)
 
-        # 4. Evaluar si hay umbrales cruzados → evento forzado
+        # 5. Evaluar si hay umbrales cruzados → evento forzado
         forced_constraint = self._dramatic_engine.evaluate_thresholds()
 
-        # 5. Crear el evento narrativo
+        # 6. Crear el evento narrativo
         event = NarrativeEvent(
             commit_id              = "pending",
             event_type             = EventType.FORCED if forced_constraint else EventType.DECISION,
             narrative_text         = narrative_text,
             summary                = summary,
             triggered_by_decision  = choice_text,
+            causal_reason          = causal_reason,
             caused_by              = [current_commit.event_id],
             entity_deltas          = entity_deltas,
+            entity_creations       = entity_creations,
             world_deltas           = world_deltas,
             dramatic_delta         = dramatic_delta,
             forced_by_meter        = (
@@ -259,20 +272,23 @@ class StateMachine:
             depth                  = self._current_depth,
         )
 
-        # 6. Registrar en el grafo causal y validar
+        # 8. Registrar en el grafo causal y validar
         self._causal_validator.add_event(event.id)
+        causal_edge = CausalEdge(
+            cause_event_id=current_commit.event_id,
+            effect_event_id=event.id,
+        )
         try:
             self._causal_validator.add_edge(
                 current_commit.event_id,
                 event.id
             )
         except CausalCycleError as e:
-            # En producción: loguear y regenerar. En Fase 1: propagar.
             raise
 
         event.topo_order = self._causal_validator.get_topo_order(event.id)
 
-        # 7. Crear el nuevo commit
+        # 9. Crear el nuevo commit
         new_commit = NarrativeCommit(
             world_id         = self.world.id,
             event_id         = event.id,
@@ -290,7 +306,7 @@ class StateMachine:
 
         event.commit_id = new_commit.id
 
-        # 8. Registrar commit y actualizar punteros
+        # 10. Registrar commit y actualizar punteros
         current_commit.add_child(new_commit.id)
         self._events[event.id]       = event
         self._commits[new_commit.id] = new_commit
@@ -303,6 +319,8 @@ class StateMachine:
             dramatic_state    = self._dramatic_engine.current_state.copy(),
             forced_event      = forced_constraint,
             is_ending         = is_ending,
+            event             = event,
+            causal_edges      = [causal_edge],
         )
 
     def go_to_commit(self, commit_id: str) -> StoryAdvanceResult:
@@ -355,8 +373,11 @@ class StateMachine:
         for commit in commits:
             self._commits[commit.id] = commit
 
-            if commit.event_id:
-                self._causal_validator.add_event(commit.event_id)
+            # Generate synthetic event_id if missing (events not saved to DB yet)
+            if not commit.event_id:
+                commit.event_id = f"synth-{commit.id}"
+
+            self._causal_validator.add_event(commit.event_id)
 
             if commit.parent_id and commit.parent_id in self._commits:
                 parent = self._commits[commit.parent_id]
@@ -440,6 +461,27 @@ class StateMachine:
 
     # ── Helpers privados ───────────────────────────────────────────────────────
 
+    def _apply_entity_creations(self, creations: list[EntityCreation], depth: int) -> None:
+        """Crea nuevas entidades y las registra en el estado del mundo."""
+        for creation in creations:
+            entity_type_map = {
+                "character": EntityType.CHARACTER,
+                "faction": EntityType.FACTION,
+                "artifact": EntityType.ARTIFACT,
+                "location": EntityType.LOCATION,
+            }
+            etype = entity_type_map.get(creation.entity_type.lower(), EntityType.CHARACTER)
+            entity = Entity(
+                id=creation.entity_id,
+                name=creation.entity_name,
+                entity_type=etype,
+                attributes={
+                    **creation.attributes,
+                    "created_at_depth": depth,
+                },
+            )
+            self._entities[entity.id] = entity
+
     def _apply_entity_deltas(self, deltas: list[EntityDelta]) -> None:
         for delta in deltas:
             entity = self._entities.get(delta.entity_id)
@@ -458,12 +500,26 @@ class StateMachine:
                 "type":       e.entity_type.value,
                 "attributes": e.attributes.copy(),
                 "alive":      e.is_alive,
+                "created_at_depth": e.attributes.get("created_at_depth", 0),
             }
             for eid, e in self._entities.items()
         }
 
     def _restore_entity_states(self, states: dict[str, Any]) -> None:
-        """Restaura el estado de entidades desde un snapshot."""
+        """Restaura el estado de entidades desde un snapshot (reconstruccion completa)."""
+        self._entities.clear()
         for eid, state in states.items():
-            if eid in self._entities:
-                self._entities[eid].attributes = state.get("attributes", {}).copy()
+            entity_type_map = {
+                "character": EntityType.CHARACTER,
+                "faction": EntityType.FACTION,
+                "artifact": EntityType.ARTIFACT,
+                "location": EntityType.LOCATION,
+            }
+            etype = entity_type_map.get(state.get("type", "character"), EntityType.CHARACTER)
+            entity = Entity(
+                id=eid,
+                name=state.get("name", "Unknown"),
+                entity_type=etype,
+                attributes=state.get("attributes", {}).copy(),
+            )
+            self._entities[entity.id] = entity

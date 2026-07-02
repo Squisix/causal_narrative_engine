@@ -17,7 +17,7 @@ from alembic import context
 from persistence.database import Base
 from persistence.models.world_orm import WorldORM, EntityORM
 from persistence.models.event_orm import EventORM, CausalEdgeORM, EntityDeltaORM, WorldVariableDeltaORM
-from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM
+from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM, ChoiceORM
 
 # Configuración de Alembic
 config = context.config

@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.egg-info
+.git
+.env
+htmlcov
+.pytest_cache
+server.log
+*.md
+!README.md
+docs/
+examples/
+tests/

@@ -7,8 +7,12 @@ Ejecutar:
     uvicorn api.main:app --reload
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from api.config import get_settings
@@ -91,15 +95,25 @@ app.include_router(narrative.router)
 
 @app.get("/")
 async def root():
-    """
-    Endpoint raíz - redirecciona a /docs.
-    """
     return {
         "message": "Causal Narrative Engine API",
         "version": "0.3.0",
         "docs": "/docs",
+        "play": "/play",
         "health": "/health",
     }
+
+
+# ── Web UI ─────────────────────────────────────────────────────────────────────
+
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web")
+
+if os.path.isdir(WEB_DIR):
+    @app.get("/play")
+    async def play_ui():
+        return FileResponse(os.path.join(WEB_DIR, "index.html"))
+
+    app.mount("/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
 
 # ── Main (para ejecución directa) ───────────────────────────────────────────────

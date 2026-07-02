@@ -112,6 +112,8 @@ class OllamaAdapter(AIAdapter):
             dramatic_state=context.current_dramatic_state,
             forced_constraint=context.forced_constraint,
             player_choice=context.player_choice,
+            current_entity_states=context.current_entity_states or None,
+            current_world_vars=context.current_world_vars or None,
         )
 
     async def _call_ollama(self, system_prompt: str, user_prompt: str) -> str:
@@ -223,6 +225,21 @@ class OllamaAdapter(AIAdapter):
                     normalized_wd.append(wd)
                 data["world_deltas"] = normalized_wd
 
+        # entity_creations: debe ser lista de dicts con campos correctos
+        if "entity_creations" in data:
+            if not isinstance(data["entity_creations"], list):
+                data["entity_creations"] = []
+            else:
+                normalized_ec = []
+                for ec in data["entity_creations"]:
+                    if not isinstance(ec, dict):
+                        continue
+                    ec.setdefault("entity_name", "Unknown Entity")
+                    ec.setdefault("entity_type", "character")
+                    ec.setdefault("attributes", {})
+                    normalized_ec.append(ec)
+                data["entity_creations"] = normalized_ec
+
         # dramatic_deltas: asegurar que existe con defaults
         if "dramatic_deltas" not in data:
             data["dramatic_deltas"] = {
@@ -241,13 +258,14 @@ class OllamaAdapter(AIAdapter):
         return data
 
     def _convert_to_proposal(self, response: NarrativeResponse) -> NarrativeProposal:
-        entity_deltas, world_deltas, dramatic_delta, choices = response.to_core_models()
+        entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 
         return NarrativeProposal(
             narrative_text=response.narrative,
             summary=response.summary,
             choices=choices,
             entity_deltas=entity_deltas,
+            entity_creations=entity_creations,
             world_deltas=world_deltas,
             dramatic_delta=dramatic_delta,
             causal_reason=response.causal_reason,

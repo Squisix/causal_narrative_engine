@@ -1,7 +1,32 @@
-# docker-compose.yml — Infraestructura para Fase 2
+# docker-compose.yml — Causal Narrative Engine (completo)
+#
+# Uso:
+#   docker-compose up -d              Levantar todo
+#   docker-compose up -d app postgres  Solo app + DB (sin Ollama)
+#   docker-compose logs -f app         Ver logs de la app
+#   docker-compose down                Detener servicios
+#   docker-compose down -v             Detener y borrar volumenes
 
 services:
-  # PostgreSQL 16 con soporte para JSON y CTEs recursivas
+  # ── App (FastAPI + Web UI) ───────────────────────────────
+  app:
+    build: .
+    container_name: cne_app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://cne_user:cne_password_dev@postgres:5432/cne_db
+      - DEFAULT_AI_ADAPTER=ollama
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=gemma3:4b
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+
+  # ── PostgreSQL 16 ────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: cne_postgres
@@ -21,7 +46,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis para caché de estado (opcional, Fase 4+)
+  # ── Ollama (LLMs locales) ────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cne_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./scripts/ollama-entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ── Redis (cache, opcional) ──────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: cne_redis
@@ -35,7 +77,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # Adminer para explorar la DB durante desarrollo
+  # ── Adminer (DB explorer) ────────────────────────────────
   adminer:
     image: adminer:latest
     container_name: cne_adminer
@@ -51,17 +93,12 @@ volumes:
     driver: local
   redis_data:
     driver: local
+  ollama_data:
+    driver: local
 
-# Uso:
-#   docker-compose up -d          Levantar servicios
-#   docker-compose logs -f        Ver logs
-#   docker-compose down           Detener servicios
-#   docker-compose down -v        Detener y borrar volúmenes (resetea DB)
-#
 # Acceso:
-#   PostgreSQL: localhost:5433 (5433 en host, 5432 en contenedor)
+#   Web UI:     http://localhost:8000/play
+#   API Docs:   http://localhost:8000/docs
 #   Adminer:    http://localhost:8080
-#   Redis:      localhost:6379
-#
-# Conexión string:
-#   postgresql+asyncpg://cne_user@localhost:5433/cne_db
+#   PostgreSQL: localhost:5433
+#   Ollama:     localhost:11434

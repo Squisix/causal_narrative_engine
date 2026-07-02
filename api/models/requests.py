@@ -8,6 +8,13 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 
+class EntityRequest(BaseModel):
+    """Entidad inicial para un mundo."""
+    name: str = Field(..., min_length=1, max_length=200)
+    entity_type: str = Field(default="character", description="character, location, artifact, faction")
+    attributes: dict = Field(default_factory=dict, description="Atributos iniciales (ej: {health: 100, mood: 'neutral'})")
+
+
 class CreateWorldRequest(BaseModel):
     """
     Request para crear un nuevo mundo (semilla).
@@ -23,6 +30,11 @@ class CreateWorldRequest(BaseModel):
     antagonist: Optional[str] = Field(default="desconocido", max_length=500)
     rules: Optional[str] = Field(default="El mundo sigue sus propias leyes", max_length=1000)
     constraints: list[str] = Field(default_factory=list, description="Restricciones narrativas absolutas")
+
+    initial_entities: list[EntityRequest] = Field(
+        default_factory=list,
+        description="Entidades iniciales del mundo (personajes, locaciones, items)"
+    )
 
     # Configuración dramática inicial
     dramatic_config: Optional[dict[str, int]] = Field(
@@ -93,9 +105,25 @@ class AdvanceNarrativeRequest(BaseModel):
     """
     choice: str = Field(..., min_length=1, max_length=500, description="Texto de la opción elegida")
 
+    custom: bool = Field(
+        default=False,
+        description="True si es una opción escrita por el jugador (salta validación de choices)"
+    )
+
+    adapter_type: str = Field(
+        default="ollama",
+        description="Tipo de AI adapter ('mock', 'anthropic' o 'ollama')"
+    )
+
+    adapter_config: Optional[dict] = Field(
+        default=None,
+        description="Configuración específica del adapter"
+    )
+
     class Config:
         json_schema_extra = {
             "example": {
-                "choice": "Confrontar a Malachar directamente"
+                "choice": "Confrontar a Malachar directamente",
+                "adapter_type": "ollama"
             }
         }

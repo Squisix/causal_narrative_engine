@@ -115,13 +115,14 @@ class MockAdapter(AIAdapter):
         )
 
         # Convertir a NarrativeProposal
-        entity_deltas_core, world_deltas_core, dramatic_delta_core, choices_core = response.to_core_models()
+        entity_deltas_core, entity_creations_core, world_deltas_core, dramatic_delta_core, choices_core = response.to_core_models()
 
         return NarrativeProposal(
             narrative_text=response.narrative,
             summary=response.summary,
             choices=choices_core,
             entity_deltas=entity_deltas_core,
+            entity_creations=entity_creations_core,
             world_deltas=world_deltas_core,
             dramatic_delta=dramatic_delta_core,
             causal_reason=response.causal_reason,

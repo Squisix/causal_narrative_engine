@@ -25,7 +25,7 @@ from cne_core.models.commit import NarrativeCommit, NarrativeChoice, Branch
 from persistence.database import DatabaseConfig
 from persistence.models.world_orm import WorldORM, EntityORM
 from persistence.models.event_orm import (
-    EventORM, CausalEdgeORM, EntityDeltaORM, WorldVariableDeltaORM
+    EventORM, CausalEdgeORM, EntityDeltaORM, EntityCreationORM, WorldVariableDeltaORM
 )
 from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM, ChoiceORM
 from persistence.queries.causal_queries import CausalGraphQueries
@@ -95,6 +95,18 @@ class PostgreSQLRepository(NarrativeRepository):
 
         # Convertir ORM → Dataclass
         return self._world_orm_to_dataclass(world_orm)
+
+    async def delete_world(self, world_id: str) -> bool:
+        result = await self.session.execute(
+            select(WorldORM).where(WorldORM.id == world_id)
+        )
+        world_orm = result.scalar_one_or_none()
+        if world_orm is None:
+            return False
+
+        await self.session.delete(world_orm)
+        await self.session.flush()
+        return True
 
     async def list_worlds(self, limit: int = 50) -> list[WorldDefinition]:
         result = await self.session.execute(
@@ -181,12 +193,27 @@ class PostgreSQLRepository(NarrativeRepository):
         commits.reverse()
         return commits
 
+    async def list_commits(self, world_id: str) -> list[NarrativeCommit]:
+        result = await self.session.execute(
+            select(CommitORM)
+            .options(
+                selectinload(CommitORM.dramatic_state),
+                selectinload(CommitORM.events),
+                selectinload(CommitORM.choices),
+            )
+            .where(CommitORM.world_id == world_id)
+            .order_by(CommitORM.depth.asc())
+        )
+        commits_orm = result.scalars().all()
+        return [self._commit_orm_to_dataclass(c) for c in commits_orm]
+
     async def get_children_commits(self, commit_id: str) -> list[NarrativeCommit]:
         result = await self.session.execute(
             select(CommitORM)
             .options(
                 selectinload(CommitORM.dramatic_state),
-                selectinload(CommitORM.events)
+                selectinload(CommitORM.events),
+                selectinload(CommitORM.choices),
             )
             .where(CommitORM.parent_id == commit_id)
         )
@@ -244,6 +271,7 @@ class PostgreSQLRepository(NarrativeRepository):
             narrative_text=event.narrative_text,
             summary=event.summary,
             triggered_by_decision=event.triggered_by_decision,
+            causal_reason=event.causal_reason,
             forced_by_meter=event.forced_by_meter,
             depth=event.depth,
             topo_order=event.topo_order,
@@ -275,6 +303,17 @@ class PostgreSQLRepository(NarrativeRepository):
                 new_value=delta.new_value,
             )
             self.session.add(delta_orm)
+
+        # Guardar entity creations
+        for creation in event.entity_creations:
+            creation_orm = EntityCreationORM(
+                event_id=event.id,
+                entity_id=creation.entity_id,
+                entity_name=creation.entity_name,
+                entity_type=creation.entity_type,
+                attributes=creation.attributes,
+            )
+            self.session.add(creation_orm)
 
         # Guardar dramatic deltas
         if not event.dramatic_delta.is_empty():
@@ -460,6 +499,20 @@ class PostgreSQLRepository(NarrativeRepository):
             select(func.count(EventORM.id))
         )
         return result.scalar_one()
+
+    # ── Entity CRUD ───────────────────────────────────────────────────────────
+
+    async def save_entity(self, entity: Entity, world_id: str) -> None:
+        entity_orm = EntityORM(
+            id=entity.id,
+            world_id=world_id,
+            name=entity.name,
+            entity_type=entity.entity_type.value,
+            attributes=entity.attributes,
+            created_at_depth=entity.created_at_depth,
+            destroyed_at_depth=entity.destroyed_at_depth,
+        )
+        self.session.add(entity_orm)
 
     # ── Entity State ───────────────────────────────────────────────────────────
 
@@ -669,6 +722,7 @@ class PostgreSQLRepository(NarrativeRepository):
             summary=event_orm.summary,
             caused_by=caused_by,
             triggered_by_decision=event_orm.triggered_by_decision,
+            causal_reason=event_orm.causal_reason,
             entity_deltas=entity_deltas,
             world_deltas=world_deltas,
             dramatic_delta=dramatic_delta,

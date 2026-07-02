@@ -388,7 +388,7 @@ class DramaticEngine:
             )
 
         # Descanso narrativo (ritmo sostenido alto)
-        if v.rhythm > 90 and v.vector._high_rhythm_turns >= 3:
+        if v.rhythm > 90 and v._high_rhythm_turns >= 3:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.NARRATIVE_REST,
                 trigger_meter = "rhythm",

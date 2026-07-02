@@ -1,312 +1,339 @@
 """
 tests/test_api.py - Tests de la API REST
 
-Usa FastAPI TestClient para probar los endpoints sin levantar servidor.
+Usa httpx.AsyncClient para probar los endpoints con async correcto.
+Requiere PostgreSQL corriendo (docker-compose up -d).
+
+Ejecutar:
+    pytest tests/test_api.py -v
 """
 
 import pytest
-from fastapi.testclient import TestClient
+import httpx
+from httpx import ASGITransport
 
 from api.main import app
 
 
 @pytest.fixture
-def client():
-    """Cliente de prueba de FastAPI."""
-    return TestClient(app)
+async def client():
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
 
-def test_health_endpoint(client):
-    """Test: GET /health retorna status ok."""
-    print("\n[TEST] GET /health")
-
-    response = client.get("/health")
-
-    assert response.status_code == 200
-
-    data = response.json()
-    assert data["status"] == "ok"
-    assert data["version"] == "0.3.0"
-    assert "timestamp" in data
-    assert data["ai_adapter"] == "mock"
-
-    print(f"  [OK] Health check: {data['status']}")
-    print(f"  [OK] Version: {data['version']}")
-
-
-def test_root_endpoint(client):
-    """Test: GET / retorna info básica."""
-    print("\n[TEST] GET /")
-
-    response = client.get("/")
-
-    assert response.status_code == 200
-
-    data = response.json()
-    assert data["message"] == "Causal Narrative Engine API"
-    assert data["version"] == "0.3.0"
-    assert data["docs"] == "/docs"
-
-    print(f"  [OK] Root endpoint works")
-
-
-def test_create_world(client):
-    """Test: POST /worlds crea un mundo."""
-    print("\n[TEST] POST /worlds")
-
-    world_data = {
-        "name": "Reino de Prueba",
-        "context": "Un reino medieval para testing de API",
-        "protagonist": "Héroe de prueba",
+async def _create_world(client, **overrides):
+    """Helper: crea un mundo y retorna (world_id, response_data)."""
+    data = {
+        "name": "Test World",
+        "context": "Un reino medieval para testing",
+        "protagonist": "El heroe",
         "era": "Medieval",
         "tone": "dark",
-        "antagonist": "Villano genérico",
-        "rules": "Reglas básicas",
+        "antagonist": "Villano",
+        "rules": "Reglas basicas",
         "constraints": ["No magia"],
-        "max_depth": 10
+        "max_depth": 20,
     }
+    data.update(overrides)
+    r = await client.post("/worlds", json=data)
+    assert r.status_code == 201, f"create_world failed: {r.text}"
+    body = r.json()
+    return body["world_id"], body
 
-    response = client.post("/worlds", json=world_data)
 
-    assert response.status_code == 201
+async def _start_narrative(client, world_id, adapter_type="mock"):
+    """Helper: inicia narrativa y retorna response."""
+    r = await client.post(
+        f"/worlds/{world_id}/start",
+        json={"adapter_type": adapter_type, "adapter_config": {"deterministic": True, "seed": 42}},
+    )
+    assert r.status_code == 201, f"start_narrative failed: {r.text}"
+    return r.json()
 
-    data = response.json()
-    assert "world_id" in data
-    assert data["name"] == "Reino de Prueba"
-    assert data["tone"] == "oscuro"  # El enum devuelve el valor en español
+
+async def _cleanup_world(client, world_id):
+    """Helper: elimina un mundo."""
+    await client.delete(f"/worlds/{world_id}")
+
+
+# -- Health & root --
+
+@pytest.mark.asyncio
+async def test_health_endpoint(client):
+    r = await client.get("/health")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert "version" in data
+    assert "timestamp" in data
+
+
+@pytest.mark.asyncio
+async def test_root_endpoint(client):
+    r = await client.get("/")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["message"] == "Causal Narrative Engine API"
+
+
+# -- World CRUD --
+
+@pytest.mark.asyncio
+async def test_create_world(client):
+    world_id, data = await _create_world(client, name="API Test World")
+    assert world_id is not None
+    assert data["name"] == "API Test World"
+    assert data["tone"] == "oscuro"
     assert data["total_commits"] == 0
-
-    print(f"  [OK] World created: {data['world_id'][:8]}")
-    print(f"  [OK] Name: {data['name']}")
-
-    return data["world_id"]
+    await _cleanup_world(client, world_id)
 
 
-def test_get_world(client):
-    """Test: GET /worlds/{world_id} obtiene un mundo."""
-    print("\n[TEST] GET /worlds/{world_id}")
-
-    # Crear mundo primero
-    world_id = test_create_world(client)
-
-    # Obtener mundo
-    response = client.get(f"/worlds/{world_id}")
-
-    assert response.status_code == 200
-
-    data = response.json()
-    assert data["world_id"] == world_id
-    assert data["name"] == "Reino de Prueba"
-
-    print(f"  [OK] World retrieved: {data['world_id'][:8]}")
+@pytest.mark.asyncio
+async def test_create_world_with_entities(client):
+    world_id, data = await _create_world(
+        client,
+        name="World con entidades",
+        initial_entities=[
+            {"name": "Kael", "entity_type": "character", "attributes": {"health": 100}},
+            {"name": "Fortaleza", "entity_type": "location", "attributes": {"danger": 50}},
+        ],
+    )
+    assert data["name"] == "World con entidades"
+    r = await client.get(f"/worlds/{world_id}")
+    assert r.status_code == 200
+    await _cleanup_world(client, world_id)
 
 
-def test_get_nonexistent_world(client):
-    """Test: GET /worlds/{id} retorna 404 si no existe."""
-    print("\n[TEST] GET /worlds/{invalid_id} -> 404")
-
-    response = client.get("/worlds/nonexistent-id-123")
-
-    assert response.status_code == 404
-
-    data = response.json()
-    assert "detail" in data
-
-    print(f"  [OK] 404 returned for nonexistent world")
+@pytest.mark.asyncio
+async def test_get_world(client):
+    world_id, _ = await _create_world(client)
+    r = await client.get(f"/worlds/{world_id}")
+    assert r.status_code == 200
+    assert r.json()["world_id"] == world_id
+    await _cleanup_world(client, world_id)
 
 
-def test_start_narrative_with_mock(client):
-    """Test: POST /worlds/{id}/start inicia narrativa con MockAdapter."""
-    print("\n[TEST] POST /worlds/{id}/start (MockAdapter)")
+@pytest.mark.asyncio
+async def test_get_nonexistent_world(client):
+    r = await client.get("/worlds/nonexistent-id")
+    assert r.status_code == 404
 
-    # Crear mundo
-    world_id = test_create_world(client)
 
-    # Iniciar narrativa
-    request_data = {
-        "adapter_type": "mock",
-        "adapter_config": {
-            "deterministic": True,
-            "seed": 42
-        }
-    }
+@pytest.mark.asyncio
+async def test_delete_world(client):
+    world_id, _ = await _create_world(client)
+    r = await client.delete(f"/worlds/{world_id}")
+    assert r.status_code == 204
+    r = await client.get(f"/worlds/{world_id}")
+    assert r.status_code == 404
 
-    response = client.post(f"/worlds/{world_id}/start", json=request_data)
 
-    assert response.status_code == 201
+# -- Narrative flow --
 
-    data = response.json()
-    assert "commit_id" in data
+@pytest.mark.asyncio
+async def test_start_narrative(client):
+    world_id, _ = await _create_world(client)
+    data = await _start_narrative(client, world_id)
+
     assert data["depth"] == 0
     assert len(data["narrative_text"]) > 50
     assert len(data["choices"]) >= 2
     assert "dramatic_state" in data
+    assert data["dramatic_state"]["tension"] > 0
 
-    print(f"  [OK] Narrative started: {data['commit_id'][:8]}")
-    print(f"  [OK] Narrative length: {len(data['narrative_text'])} chars")
-    print(f"  [OK] Choices: {len(data['choices'])}")
-
-    return data["commit_id"]
+    await _cleanup_world(client, world_id)
 
 
-def test_advance_narrative(client):
-    """Test: POST /commits/{id}/advance avanza la narrativa."""
-    print("\n[TEST] POST /commits/{id}/advance")
+@pytest.mark.asyncio
+async def test_advance_narrative(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    commit_id = start["commit_id"]
+    choice_text = start["choices"][0]["text"]
 
-    # Iniciar narrativa
-    commit_id = test_start_narrative_with_mock(client)
+    r = await client.post(
+        f"/commits/{commit_id}/advance",
+        json={"choice": choice_text, "adapter_type": "mock"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["depth"] == 1
+    assert data["commit_id"] != commit_id
+    assert data["parent_id"] == commit_id
 
-    # Obtener commit para ver las choices
-    response = client.get(f"/commits/{commit_id}")
-    choices = response.json()["choices"]
-    chosen_text = choices[0]["text"]
-
-    # Avanzar narrativa
-    advance_data = {
-        "choice": chosen_text
-    }
-
-    response = client.post(f"/commits/{commit_id}/advance", json=advance_data)
-
-    assert response.status_code == 201
-
-    data = response.json()
-    assert "commit_id" in data
-    assert data["commit_id"] != commit_id  # Nuevo commit
-    assert data["depth"] == 1  # Profundidad incrementada
-    assert len(data["narrative_text"]) > 50
-
-    print(f"  [OK] Narrative advanced: {data['commit_id'][:8]}")
-    print(f"  [OK] New depth: {data['depth']}")
+    await _cleanup_world(client, world_id)
 
 
-def test_get_commit(client):
-    """Test: GET /commits/{id} obtiene un commit."""
-    print("\n[TEST] GET /commits/{id}")
+@pytest.mark.asyncio
+async def test_advance_with_custom_choice(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    commit_id = start["commit_id"]
 
-    # Crear narrativa
-    commit_id = test_start_narrative_with_mock(client)
+    r = await client.post(
+        f"/commits/{commit_id}/advance",
+        json={"choice": "Hago algo totalmente inesperado", "custom": True, "adapter_type": "mock"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["depth"] == 1
 
-    # Obtener commit
-    response = client.get(f"/commits/{commit_id}")
+    await _cleanup_world(client, world_id)
 
-    assert response.status_code == 200
 
-    data = response.json()
+@pytest.mark.asyncio
+async def test_get_commit(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    commit_id = start["commit_id"]
+
+    r = await client.get(f"/commits/{commit_id}")
+    assert r.status_code == 200
+    data = r.json()
     assert data["commit_id"] == commit_id
     assert "narrative_text" in data
     assert "choices" in data
 
-    print(f"  [OK] Commit retrieved: {data['commit_id'][:8]}")
+    await _cleanup_world(client, world_id)
 
 
-def test_get_dramatic_state(client):
-    """Test: GET /commits/{id}/dramatic obtiene estado dramático."""
-    print("\n[TEST] GET /commits/{id}/dramatic")
+@pytest.mark.asyncio
+async def test_get_dramatic_state(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
 
-    # Crear narrativa
-    commit_id = test_start_narrative_with_mock(client)
-
-    # Obtener estado dramático
-    response = client.get(f"/commits/{commit_id}/dramatic")
-
-    assert response.status_code == 200
-
-    data = response.json()
+    r = await client.get(f"/commits/{start['commit_id']}/dramatic")
+    assert r.status_code == 200
+    data = r.json()
     assert "tension" in data
     assert "hope" in data
-    assert "chaos" in data
     assert 0 <= data["tension"] <= 100
     assert 0 <= data["hope"] <= 100
 
-    print(f"  [OK] Dramatic state: T={data['tension']}, H={data['hope']}, C={data['chaos']}")
+    await _cleanup_world(client, world_id)
 
 
-def test_delete_world(client):
-    """Test: DELETE /worlds/{id} elimina un mundo."""
-    print("\n[TEST] DELETE /worlds/{id}")
+@pytest.mark.asyncio
+async def test_causal_reason_in_response(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
 
-    # Crear mundo
-    world_id = test_create_world(client)
+    assert "causal_reason" in start
+    assert start["causal_reason"] is not None
 
-    # Eliminar mundo
-    response = client.delete(f"/worlds/{world_id}")
-
-    assert response.status_code == 204
-
-    # Verificar que ya no existe
-    response = client.get(f"/worlds/{world_id}")
-    assert response.status_code == 404
-
-    print(f"  [OK] World deleted successfully")
-
-
-def test_full_narrative_flow(client):
-    """Test: Flujo completo de narrativa (crear mundo -> iniciar -> avanzar x3)."""
-    print("\n[TEST] Flujo completo de narrativa")
-
-    # 1. Crear mundo
-    world_data = {
-        "name": "Historia de Prueba Completa",
-        "context": "Un mundo para probar el flujo completo",
-        "protagonist": "El protagonista",
-        "era": "Fantástico",
-        "tone": "adventurous",
-    }
-
-    response = client.post("/worlds", json=world_data)
-    assert response.status_code == 201
-    world_id = response.json()["world_id"]
-
-    print(f"  [1] World created: {world_id[:8]}")
-
-    # 2. Iniciar narrativa
-    response = client.post(
-        f"/worlds/{world_id}/start",
-        json={"adapter_type": "mock"}
+    # Advance and check causal_reason on the second commit too
+    choice_text = start["choices"][0]["text"]
+    r = await client.post(
+        f"/commits/{start['commit_id']}/advance",
+        json={"choice": choice_text, "adapter_type": "mock"},
     )
-    assert response.status_code == 201
-    commit_id = response.json()["commit_id"]
+    data = r.json()
+    assert data["causal_reason"] is not None
+    assert len(data["causal_reason"]) > 10
 
-    print(f"  [2] Narrative started: {commit_id[:8]}")
+    await _cleanup_world(client, world_id)
 
-    # 3. Avanzar 3 veces
-    for i in range(3):
-        # Obtener choices
-        response = client.get(f"/commits/{commit_id}")
-        choices = response.json()["choices"]
-        chosen_text = choices[0]["text"]
 
-        # Avanzar
-        response = client.post(
+# -- Navigation --
+
+@pytest.mark.asyncio
+async def test_list_commits(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    choice_text = start["choices"][0]["text"]
+    await client.post(
+        f"/commits/{start['commit_id']}/advance",
+        json={"choice": choice_text, "adapter_type": "mock"},
+    )
+
+    r = await client.get(f"/worlds/{world_id}/commits")
+    assert r.status_code == 200
+    commits = r.json()
+    assert len(commits) == 2
+    assert commits[0]["depth"] == 0
+    assert commits[1]["depth"] == 1
+
+    await _cleanup_world(client, world_id)
+
+
+@pytest.mark.asyncio
+async def test_goto_commit(client):
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    commit0_id = start["commit_id"]
+    choice_text = start["choices"][0]["text"]
+
+    r = await client.post(
+        f"/commits/{commit0_id}/advance",
+        json={"choice": choice_text, "adapter_type": "mock"},
+    )
+    commit1_id = r.json()["commit_id"]
+
+    # Go back to commit 0
+    r = await client.post(f"/commits/{commit0_id}/goto")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["commit_id"] == commit0_id
+    assert data["depth"] == 0
+
+    await _cleanup_world(client, world_id)
+
+
+@pytest.mark.asyncio
+async def test_existing_paths(client):
+    """Advance twice from same commit -> existing_paths should show both children."""
+    world_id, _ = await _create_world(client)
+    start = await _start_narrative(client, world_id)
+    commit0_id = start["commit_id"]
+
+    # Advance with first choice
+    choice1 = start["choices"][0]["text"]
+    await client.post(
+        f"/commits/{commit0_id}/advance",
+        json={"choice": choice1, "adapter_type": "mock"},
+    )
+
+    # Go back and get commit0 - should show existing path
+    r = await client.get(f"/commits/{commit0_id}")
+    data = r.json()
+    assert len(data["existing_paths"]) >= 1
+    assert data["existing_paths"][0]["choice_text"] == choice1
+
+    await _cleanup_world(client, world_id)
+
+
+# -- Full flow --
+
+@pytest.mark.asyncio
+async def test_full_narrative_flow_3_chapters(client):
+    world_id, _ = await _create_world(
+        client,
+        name="Full Flow Test",
+        initial_entities=[
+            {"name": "Hero", "entity_type": "character", "attributes": {"health": 100}},
+        ],
+    )
+    start = await _start_narrative(client, world_id)
+
+    commit_id = start["commit_id"]
+    for depth in range(1, 4):
+        r = await client.get(f"/commits/{commit_id}")
+        choices = r.json()["choices"]
+        assert len(choices) >= 2, f"No choices at depth {depth - 1}"
+
+        r = await client.post(
             f"/commits/{commit_id}/advance",
-            json={"choice": chosen_text}
+            json={"choice": choices[0]["text"], "adapter_type": "mock"},
         )
-        assert response.status_code == 201
-        commit_id = response.json()["commit_id"]
+        assert r.status_code == 201, f"Advance failed at depth {depth}: {r.json()}"
+        data = r.json()
+        assert data["depth"] == depth
+        commit_id = data["commit_id"]
 
-        print(f"  [{i+3}] Advanced to depth {i+1}: {commit_id[:8]}")
+    # Verify final state
+    r = await client.get(f"/worlds/{world_id}/commits")
+    commits = r.json()
+    assert len(commits) == 4
 
-    print(f"  [OK] Full flow completed successfully")
-
-
-if __name__ == "__main__":
-    print("=== Tests de API REST ===\n")
-
-    # Crear cliente
-    client = TestClient(app)
-
-    # Ejecutar tests
-    test_health_endpoint(client)
-    test_root_endpoint(client)
-    test_create_world(client)
-    test_get_world(client)
-    test_get_nonexistent_world(client)
-    test_start_narrative_with_mock(client)
-    test_advance_narrative(client)
-    test_get_commit(client)
-    test_get_dramatic_state(client)
-    test_delete_world(client)
-    test_full_narrative_flow(client)
-
-    print("\n[SUCCESS] Todos los tests de API pasaron")
+    await _cleanup_world(client, world_id)

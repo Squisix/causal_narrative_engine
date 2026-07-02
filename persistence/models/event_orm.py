@@ -38,6 +38,9 @@ class EventORM(Base):
     # Decisión que disparó este evento (None si fue forzado)
     triggered_by_decision: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Razón causal generada por la IA (por qué ocurre este evento)
+    causal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Si es un evento FORCED, qué medidor lo disparó
     forced_by_meter: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
@@ -68,6 +71,12 @@ class EventORM(Base):
 
     entity_deltas: Mapped[list["EntityDeltaORM"]] = relationship(
         "EntityDeltaORM",
+        back_populates="event",
+        cascade="all, delete-orphan"
+    )
+
+    entity_creations: Mapped[list["EntityCreationORM"]] = relationship(
+        "EntityCreationORM",
         back_populates="event",
         cascade="all, delete-orphan"
     )
@@ -165,6 +174,35 @@ class EntityDeltaORM(Base):
             f"<EntityDeltaORM({self.entity_name}.{self.attribute}: "
             f"{self.old_value} → {self.new_value})>"
         )
+
+
+class EntityCreationORM(Base):
+    """
+    Tabla: entity_creations
+
+    Registra que entidades fueron creadas por que evento.
+    Tabla de auditoria para rastrear cuando y como aparecio cada entidad.
+    """
+    __tablename__ = "entity_creations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    event_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("events.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    entity_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    attributes: Mapped[dict] = mapped_column(JSON, nullable=True, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
+
+    event: Mapped["EventORM"] = relationship("EventORM", back_populates="entity_creations")
+
+    def __repr__(self) -> str:
+        return f"<EntityCreationORM({self.entity_name} [{self.entity_type}] by event {self.event_id[:8]}...)>"
 
 
 class WorldVariableDeltaORM(Base):

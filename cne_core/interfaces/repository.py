@@ -49,6 +49,11 @@ class NarrativeRepository(ABC):
         """Lista mundos creados (para selección en UI)."""
         pass
 
+    @abstractmethod
+    async def delete_world(self, world_id: str) -> bool:
+        """Elimina un mundo y todos sus datos asociados (cascade). Retorna True si existía."""
+        pass
+
     # ── NarrativeCommit ────────────────────────────────────────────────────────
 
     @abstractmethod
@@ -85,6 +90,11 @@ class NarrativeRepository(ABC):
         Returns:
             Lista de commits en orden cronológico.
         """
+        pass
+
+    @abstractmethod
+    async def list_commits(self, world_id: str) -> list[NarrativeCommit]:
+        """Lista todos los commits de un mundo, ordenados por depth ascendente."""
         pass
 
     @abstractmethod
@@ -213,6 +223,19 @@ class NarrativeRepository(ABC):
             meter: Nombre del medidor ("tension", "hope", etc.).
             delta: Cambio en el valor (+15, -8, etc.).
             reason: Explicación opcional del cambio.
+        """
+        pass
+
+    # ── Entity CRUD ───────────────────────────────────────────────────────────
+
+    @abstractmethod
+    async def save_entity(self, entity: Entity, world_id: str) -> None:
+        """
+        Persiste una nueva entidad creada durante la historia.
+
+        Args:
+            entity: La entidad a persistir.
+            world_id: El mundo al que pertenece.
         """
         pass
 

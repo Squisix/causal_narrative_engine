@@ -27,6 +27,14 @@ class ChoiceResponse(BaseModel):
     tone_hint: Optional[str] = None
 
 
+class ExistingPathResponse(BaseModel):
+    """Un camino ya explorado (hijo existente de este commit)."""
+    commit_id: str
+    choice_text: str
+    depth: int
+    summary: str
+
+
 class NarrativeCommitResponse(BaseModel):
     """
     Respuesta con el estado de un commit narrativo.
@@ -34,12 +42,14 @@ class NarrativeCommitResponse(BaseModel):
     Incluye la narrativa generada, opciones, y estado del mundo.
     """
     commit_id: str
+    parent_id: Optional[str] = None
     depth: int
 
     # Narrativa
     narrative_text: str
     summary: str
     choices: list[ChoiceResponse]
+    existing_paths: list[ExistingPathResponse] = []
 
     # Estado dramático
     dramatic_state: DramaticStateResponse
@@ -86,6 +96,16 @@ class NarrativeCommitResponse(BaseModel):
                 "created_at": "2026-03-23T19:30:00Z"
             }
         }
+
+
+class CommitSummaryResponse(BaseModel):
+    """Resumen ligero de un commit para listados."""
+    commit_id: str
+    depth: int
+    summary: str
+    choice_text: Optional[str] = None
+    is_ending: bool = False
+    created_at: datetime
 
 
 class WorldResponse(BaseModel):
