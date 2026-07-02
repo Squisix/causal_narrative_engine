@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 
 from api.config import get_settings
 from api.routers import health, worlds, narrative
+from persistence.cache import create_cache
 
 
 # ── Lifespan events ────────────────────────────────────────────────────────────
@@ -31,9 +32,12 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.app_name} v{settings.app_version}")
     print(f"Default AI adapter: {settings.default_ai_adapter}")
 
+    app.state.cache = await create_cache(settings.redis_url)
+
     yield
 
     # Shutdown
+    await app.state.cache.close()
     print("Shutting down...")
 
 

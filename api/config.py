@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Default adapter ("mock", "anthropic", o "ollama")
     default_ai_adapter: str = "mock"
 
+    # Redis (cache)
+    redis_url: str | None = None
+    redis_ttl_trunk: int = 3600
+    redis_ttl_world: int = 1800
+    redis_ttl_choices: int = 3600
+
     # Session management
     session_timeout_minutes: int = 60
     max_sessions_per_world: int = 10

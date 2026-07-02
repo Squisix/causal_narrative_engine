@@ -19,6 +19,7 @@ services:
       - DEFAULT_AI_ADAPTER=ollama
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=gemma3:4b
+      - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy

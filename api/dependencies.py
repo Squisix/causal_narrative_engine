@@ -7,7 +7,7 @@ Provee dependencias para FastAPI (Repository, AI Adapters, etc.)
 from functools import lru_cache
 from typing import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from persistence.database import get_session
@@ -16,6 +16,7 @@ from cne_core.interfaces.repository import NarrativeRepository
 from adapters.mock_adapter import MockAdapter
 from api.config import get_settings
 from api.services.narrative_service_v2 import NarrativeServiceV2
+from persistence.cache import CacheBackend, NullCache
 
 try:
     from adapters.anthropic_adapter import AnthropicAdapter
@@ -159,15 +160,24 @@ def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
         raise ValueError(f"Unknown adapter type: {adapter_type}. Valid: mock, anthropic, ollama")
 
 
+# ── Cache ──────────────────────────────────────────────────────────────────
+
+
+def get_cache(request: Request) -> CacheBackend:
+    """Retorna el cache backend inicializado en el lifespan."""
+    return getattr(request.app.state, "cache", NullCache())
+
+
 # ── Narrative Service V2 ────────────────────────────────────────────────────
 
 
 async def get_narrative_service_v2(
-    repo: NarrativeRepository = Depends(get_repository)
+    repo: NarrativeRepository = Depends(get_repository),
+    cache: CacheBackend = Depends(get_cache),
 ) -> NarrativeServiceV2:
     """
     Dependency para obtener el NarrativeServiceV2.
 
-    Usa el Repository inyectado (PostgreSQL).
+    Usa el Repository inyectado (PostgreSQL) y el cache (Redis o NullCache).
     """
-    return NarrativeServiceV2(repository=repo)
+    return NarrativeServiceV2(repository=repo, cache=cache)

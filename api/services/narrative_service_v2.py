@@ -13,6 +13,7 @@ from cne_core.models.event import CausalEdge
 from cne_core.engine.state_machine import StateMachine, StoryAdvanceResult
 from cne_core.interfaces.ai_adapter import NarrativeContext, AIAdapter
 from cne_core.interfaces.repository import NarrativeRepository
+from persistence.cache import CacheBackend, NullCache
 
 # Cache de engines a nivel de módulo (persiste entre requests HTTP)
 _engine_cache: dict[str, StateMachine] = {}
@@ -26,12 +27,14 @@ class NarrativeServiceV2:
     soporta navegación de branches y estadísticas.
     """
 
-    def __init__(self, repository: NarrativeRepository):
+    def __init__(self, repository: NarrativeRepository, cache: CacheBackend | None = None):
         """
         Args:
             repository: Implementación de NarrativeRepository (ej: PostgreSQLRepository)
+            cache: Backend de cache (Redis o NullCache). None = sin cache.
         """
         self.repo = repository
+        self.cache: CacheBackend = cache or NullCache()
 
         # Cache de choices por commit (per-request, para evitar doble query)
         self._commit_choices: dict[str, list[NarrativeChoice]] = {}
@@ -46,8 +49,14 @@ class NarrativeServiceV2:
         await self.repo.save_world(world)
 
     async def get_world(self, world_id: str) -> Optional[WorldDefinition]:
-        """Obtiene un mundo desde PostgreSQL."""
-        return await self.repo.get_world(world_id)
+        """Obtiene un mundo desde cache o PostgreSQL."""
+        cached = await self.cache.get_world(world_id)
+        if cached:
+            return cached
+        world = await self.repo.get_world(world_id)
+        if world:
+            await self.cache.set_world(world_id, world)
+        return world
 
     async def delete_world(self, world_id: str) -> bool:
         """
@@ -57,8 +66,10 @@ class NarrativeServiceV2:
         """
         deleted = await self.repo.delete_world(world_id)
 
-        if deleted and world_id in _engine_cache:
-            del _engine_cache[world_id]
+        if deleted:
+            if world_id in _engine_cache:
+                del _engine_cache[world_id]
+            await self.cache.invalidate_world(world_id)
 
         return deleted
 
@@ -187,8 +198,12 @@ class NarrativeServiceV2:
                 engine.go_to_commit(child.id)
                 return child
 
-        # Obtener trunk completo desde DB
-        trunk = await self.repo.get_trunk(commit_id, max_depth=20)
+        # Obtener trunk (cache-aside: Redis → PostgreSQL)
+        trunk = await self.cache.get_trunk(commit_id)
+        if not trunk:
+            trunk = await self.repo.get_trunk(commit_id, max_depth=20)
+            if trunk:
+                await self.cache.set_trunk(commit_id, trunk)
 
         # Evaluar umbrales dramáticos
         forced_constraint = engine._dramatic_engine.evaluate_thresholds()
@@ -252,10 +267,16 @@ class NarrativeServiceV2:
         return await self.repo.get_commit(commit_id)
 
     async def get_commit_choices(self, commit_id: str) -> list[NarrativeChoice]:
-        """Obtiene las choices de un commit (cache o BD)."""
+        """Obtiene las choices de un commit (memoria → Redis → BD)."""
         if commit_id in self._commit_choices:
             return self._commit_choices[commit_id]
-        return await self.repo.get_choices(commit_id)
+        cached = await self.cache.get_choices(commit_id)
+        if cached:
+            return cached
+        choices = await self.repo.get_choices(commit_id)
+        if choices:
+            await self.cache.set_choices(commit_id, choices)
+        return choices
 
     async def get_dramatic_state(self, commit_id: str) -> Optional[dict[str, int]]:
         """Obtiene el estado dramático de un commit desde DB."""
@@ -351,6 +372,7 @@ class NarrativeServiceV2:
         await self.repo.save_choices(commit.id, result.available_choices)
         self._commit_choices[commit.id] = result.available_choices
         self._commit_forced_event[commit.id] = forced_event_str
+        await self.cache.set_choices(commit.id, result.available_choices)
 
     async def _get_or_create_engine(self, world_id: str) -> StateMachine:
         """
