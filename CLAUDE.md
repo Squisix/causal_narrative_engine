@@ -37,7 +37,7 @@ CNE = (W, E, S, D, T, C, Φ)
 |---------|--------|-------------|
 | `W` | WorldDefinition | Semilla inmutable: género, tono, reglas, restricciones |
 | `E` | Event Space | Todos los eventos narrativos posibles |
-| `S(t)` | Narrative State | `(Entities(t), WorldVars(t), D(t), History(t))` |
+| `S(t)` | Narrative State | `(Entities(t), EntityCreations(t), WorldVars(t), D(t), History(t))` |
 | `D(t)` | Dramatic Vector | `(tension, hope, chaos, rhythm, saturation, connection, mystery) ∈ [0,100]⁷` |
 | `T` | Transition Function | `S(t+1) = T(S(t), choice, proposal_IA)` |
 | `C` | Causal Graph | DAG dirigido de eventos. Sin ciclos. |
@@ -133,27 +133,24 @@ externa sino una consecuencia formal de los eventos que elevaron el medidor.
 └─────────────────────┬────────────────────────────────┘
                       │ import cne_core  /  HTTP  /  SDK
 ┌─────────────────────▼────────────────────────────────┐
-│            FastAPI REST (Fase 4)                     │
-│    Expone el motor como servicio HTTP consumible     │
-│    por cualquier cliente en cualquier lenguaje       │
+│            FastAPI REST  ✅                          │
+│    api/ — NarrativeServiceV2 + routers              │
 └─────────────────────┬────────────────────────────────┘
                       │
 ┌─────────────────────▼────────────────────────────────┐
 │           Core Engine  —  cne_core/                  │
 │   CausalValidator  │  DramaticEngine  │  StateMachine│
-│   ContextBuilder   │  NarrativeRunner │  Interfaces  │
+│   ContextBuilder   │  ResponseSchema  │  Interfaces  │
 └──────────┬──────────────────────────────┬────────────┘
            │                              │
 ┌──────────▼──────────┐      ┌────────────▼────────────┐
 │  Persistence Layer  │      │      AI Adapter          │
-│  (Fase 2)           │      │      (Fase 3)            │
 │                     │      │                          │
 │  Interface ABC      │      │  Interface ABC           │
 │  ─────────────      │      │  ─────────────           │
-│  PostgreSQL impl.   │      │  Anthropic impl.         │
-│  SQLite impl.       │      │  OpenAI impl.            │
-│  InMemory impl. ✅  │      │  Local LLM impl.         │
-│  JSON impl.         │      │  Mock impl. ✅           │
+│  PostgreSQL ✅      │      │  Anthropic ✅            │
+│                     │      │  Ollama ✅               │
+│                     │      │  Mock ✅                 │
 └─────────────────────┘      └──────────────────────────┘
 ```
 
@@ -169,26 +166,29 @@ independientemente reutilizable.
 
 ## Estado Actual del Proyecto
 
-### ✅ FASE 1 COMPLETADA — Core Engine (Python puro, sin dependencias externas)
-
-**Archivos implementados:**
+### ✅ FASE 1 COMPLETADA — Core Engine
 
 ```
 cne_core/
 ├── models/
 │   ├── world.py       # WorldDefinition, Entity, EntityType, NarrativeTone
-│   ├── event.py       # NarrativeEvent, CausalEdge, EntityDelta,
+│   ├── event.py       # NarrativeEvent, CausalEdge, EntityDelta, EntityCreation,
 │   │                  # WorldVariableDelta, DramaticDelta
 │   └── commit.py      # NarrativeCommit, Branch, NarrativeChoice
 ├── engine/
 │   ├── causal_validator.py  # CausalValidator: detección de ciclos DAG (BFS)
 │   ├── dramatic_engine.py   # DramaticEngine: SDMM completo con Φ
 │   └── state_machine.py     # StateMachine: orquestador en memoria
-tests/
-└── test_fase1.py      # Tests completos, todas las propiedades verificadas
+├── interfaces/
+│   ├── repository.py        # NarrativeRepository ABC
+│   └── ai_adapter.py        # AIAdapter ABC + NarrativeContext/NarrativeProposal
+└── ai/
+    ├── context_builder.py   # ContextBuilder: tronco activo para LLMs
+    ├── response_schema.py   # NarrativeResponse (Pydantic) + to_core_models()
+    └── response_validator.py # Validación del JSON de la IA
 ```
 
-**Resultado de tests:**
+**4 propiedades verificadas:**
 ```
 ✅ P1 CAUSALIDAD:   DAG válido, ciclos detectados correctamente
 ✅ P2 DETERMINISMO: Estado reconstruible, go_to_commit() funciona
@@ -199,138 +199,34 @@ tests/
 
 ---
 
-### 🔲 FASE 2 — Persistencia (SIGUIENTE)
-
-**Objetivo**: misma lógica del Core Engine, pero persistida en PostgreSQL.
+### ✅ FASE 2 COMPLETADA — Persistencia PostgreSQL
 
 **Stack**: SQLAlchemy 2.0 (async) + Alembic + PostgreSQL 16+
 
-**Lo que hay que construir:**
-
-#### Nuevas tablas SQL (además de las del diseño original):
-
-```sql
--- Vector dramático por commit
-CREATE TABLE dramatic_state (
-    id              UUID PRIMARY KEY,
-    commit_id       UUID NOT NULL REFERENCES narrative_commits(id),
-    tension         SMALLINT NOT NULL DEFAULT 30 CHECK (tension BETWEEN 0 AND 100),
-    hope            SMALLINT NOT NULL DEFAULT 60 CHECK (hope BETWEEN 0 AND 100),
-    chaos           SMALLINT NOT NULL DEFAULT 20 CHECK (chaos BETWEEN 0 AND 100),
-    rhythm          SMALLINT NOT NULL DEFAULT 50 CHECK (rhythm BETWEEN 0 AND 100),
-    saturation      SMALLINT NOT NULL DEFAULT 0  CHECK (saturation BETWEEN 0 AND 100),
-    connection      SMALLINT NOT NULL DEFAULT 40 CHECK (connection BETWEEN 0 AND 100),
-    mystery         SMALLINT NOT NULL DEFAULT 50 CHECK (mystery BETWEEN 0 AND 100),
-    forced_event    TEXT,
-    trigger_meter   TEXT,
-    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Historial de cambios en medidores (para el paper)
-CREATE TABLE dramatic_state_deltas (
-    id          UUID PRIMARY KEY,
-    event_id    UUID NOT NULL REFERENCES events(id),
-    meter       TEXT NOT NULL,
-    delta       SMALLINT NOT NULL,
-    reason      TEXT,
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
-);
 ```
-
-#### Interfaces abstractas (Repository pattern):
-
-```python
-# El Core Engine NO habla directamente con PostgreSQL.
-# Habla con estas interfaces. Eso hace el sistema replicable.
-
-class NarrativeRepository(ABC):
-    @abstractmethod
-    async def save_commit(self, commit: NarrativeCommit) -> None: ...
-
-    @abstractmethod
-    async def get_commit(self, commit_id: str) -> NarrativeCommit | None: ...
-
-    @abstractmethod
-    async def get_trunk(self, commit_id: str, max_depth: int) -> list[NarrativeCommit]: ...
-
-    @abstractmethod
-    async def save_event(self, event: NarrativeEvent) -> None: ...
-
-    @abstractmethod
-    async def save_dramatic_state(self, commit_id: str, vector: dict) -> None: ...
-
-    @abstractmethod
-    async def get_entity_state(self, entity_id: str, at_commit: str) -> dict: ...
-
-class AIAdapter(ABC):
-    @abstractmethod
-    async def generate_narrative(self, context: NarrativeContext) -> NarrativeProposal: ...
-```
-
-#### Validación causal en SQL (CTE recursiva):
-
-```sql
--- Antes de insertar arista A→B, verificar que no exista B→...→A
-WITH RECURSIVE path AS (
-    SELECT parent_event_id, child_event_id
-    FROM event_edges
-    WHERE parent_event_id = $child_event   -- empieza desde B
-
-    UNION
-
-    SELECT e.parent_event_id, e.child_event_id
-    FROM event_edges e
-    JOIN path p ON e.parent_event_id = p.child_event_id
-)
-SELECT 1 FROM path WHERE child_event_id = $parent_event LIMIT 1;
--- Si retorna fila → hay ciclo → rechazar
-```
-
-#### StateRebuilder:
-
-```python
-# Reconstruye S(t) completo desde un commit dado
-# Algoritmo: encuentra snapshot más cercano + aplica deltas acumulados
-class StateRebuilder:
-    async def rebuild_from_commit(
-        self,
-        commit_id: str,
-        repo: NarrativeRepository
-    ) -> WorldState:
-        snapshot = await repo.get_nearest_snapshot(commit_id)
-        deltas   = await repo.get_deltas_since(snapshot.commit_id, commit_id)
-        return self._apply_deltas(snapshot.state, deltas)
-```
-
-**Archivos a crear en Fase 2:**
-
-```
-cne_core/
-├── interfaces/
-│   ├── repository.py      # NarrativeRepository ABC
-│   └── ai_adapter.py      # AIAdapter ABC
 persistence/
-├── models/                # SQLAlchemy ORM models (mapean los dataclasses)
-│   ├── world_orm.py
-│   ├── event_orm.py
-│   └── commit_orm.py
-├── repositories/          # Implementaciones concretas PostgreSQL
-│   ├── world_repository.py
-│   ├── event_repository.py
-│   ├── commit_repository.py
-│   └── dramatic_repository.py
-├── queries/
-│   └── causal_queries.py  # CTE recursiva + topological order
-└── state_rebuilder.py     # Reconstrucción de estado desde deltas
-migrations/
-└── versions/
-    └── 001_initial_schema.py   # Alembic migration
-docker-compose.yml             # motor + PostgreSQL + Redis
+├── database.py                    # DatabaseConfig, async session factory
+├── models/
+│   ├── world_orm.py               # WorldORM, EntityORM
+│   ├── event_orm.py               # EventORM, EntityDeltaORM, EntityCreationORM
+│   └── commit_orm.py              # CommitORM, BranchORM, ChoiceORM, DramaticStateORM
+├── repositories/
+│   └── postgresql_repository.py   # PostgreSQLRepository (implementa NarrativeRepository)
+└── queries/
+    └── causal_queries.py          # CTE recursiva para validación causal en SQL
+
+migrations/versions/
+├── 001_initial_schema.py          # Tablas base (worlds, entities, events, commits, branches)
+├── 002_add_choices_table.py       # Tabla choices
+├── 003_add_causal_reason_to_events.py  # Campo causal_reason en events
+└── 004_entity_creations_table.py  # Tabla entity_creations (auditoría)
+
+docker-compose.yml                 # PostgreSQL + Ollama
 ```
 
 ---
 
-### 🔲 FASE 3 — AI Adapter
+### ✅ FASE 3 COMPLETADA — AI Adapter
 
 **Contrato JSON que la IA debe retornar** (validado por ResponseValidator):
 
@@ -345,6 +241,10 @@ docker-compose.yml             # motor + PostgreSQL + Redis
     { "choice": "opción C", "tension_delta": 5,  "hope_delta": 10,  "tone": "inesperado" }
   ],
   "entity_deltas": [{"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}],
+  "entity_creations": [
+    {"entity_name": "Nombre", "entity_type": "character|artifact|faction|location",
+     "attributes": {"health": 100, "possessed_by": null, "location": "lugar", "usable": true, "effect": "desc"}}
+  ],
   "world_deltas":  [{"variable": "political_stability", "old_value": 60, "new_value": 48}],
   "dramatic_deltas": {
     "tension": 15, "hope": -8, "chaos": 5,
@@ -356,58 +256,53 @@ docker-compose.yml             # motor + PostgreSQL + Redis
 }
 ```
 
-**Tronco activo** (~1500 tokens máximo, independiente de la longitud de la historia):
+**Adapters implementados:**
 
 ```
-SEMILLA DEL MUNDO:
-[WorldDefinition.to_context_string()]
+adapters/
+├── mock_adapter.py         # MockAdapter: determinista, para tests
+├── anthropic_adapter.py    # AnthropicAdapter: Claude API
+└── ollama_adapter.py       # OllamaAdapter: LLMs locales gratuitos
+```
 
-ESTADO DRAMÁTICO ACTUAL:
-Tensión: 78/100 🔴
-Esperanza: 41/100 🔴
-[...resto del vector...]
-
-HISTORIA ANTERIOR (comprimida):
-• [Cap.0] El rey Aldric muere misteriosamente (T=50, H=55)
-• [Cap.1] → "Investigación secreta" | Lyra encarga investigar a Sera (T=58)
-
-CAPÍTULOS RECIENTES (últimos 6, con detalle):
-[Cap.2] → "Seguir a Malachar" | Lyra descubre la conspiración (T=78, H=41)
-
-[CONSTRAINT DRAMÁTICO OBLIGATORIO — si Φ detectó umbral]
-⚠️ La tensión ha llegado a su punto máximo. DEBE ocurrir un clímax...
+**`to_core_models()` retorna 5-tuple:**
+```python
+entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 ```
 
 ---
 
-### 🔲 FASE 4 — FastAPI REST + SDK Python
+### ✅ FASE 4 COMPLETADA — FastAPI REST API
 
-**Objetivo**: exponer el motor de dos formas para máxima portabilidad:
-
-**A) API REST** — para clientes en cualquier lenguaje:
 ```
-POST   /worlds                       # Crear WorldDefinition (semilla)
+api/
+├── main.py              # App FastAPI con routers
+├── config.py            # Configuración del servidor
+├── dependencies.py      # Inyección de dependencias (repo, service)
+├── routers/
+│   ├── worlds.py        # CRUD de mundos
+│   ├── narrative.py     # start, advance, goto, commits
+│   └── health.py        # Health check
+├── services/
+│   └── narrative_service_v2.py  # Orquestador con persistencia
+└── models/
+    ├── requests.py      # Pydantic request schemas
+    └── responses.py     # Pydantic response schemas
+```
+
+**Endpoints:**
+```
+POST   /worlds                       # Crear WorldDefinition
 GET    /worlds/{world_id}            # Obtener mundo
-POST   /worlds/{world_id}/start      # Iniciar historia → primer NarrativeCommit
-POST   /commits/{commit_id}/advance  # Tomar decisión → nuevo commit
-GET    /commits/{commit_id}/state    # Estado actual del mundo
-GET    /commits/{commit_id}/dramatic_state   # Vector dramático
-GET    /worlds/{world_id}/branches   # Árbol de ramas navegable
-POST   /commits/{commit_id}/goto     # Regresar a un commit anterior
+DELETE /worlds/{world_id}            # Eliminar mundo
+POST   /worlds/{world_id}/start      # Iniciar historia
+GET    /worlds/{world_id}/commits    # Listar commits
+POST   /commits/{commit_id}/advance  # Tomar decisión
+GET    /commits/{commit_id}          # Estado de un commit
+GET    /commits/{commit_id}/dramatic # Vector dramático
+POST   /commits/{commit_id}/goto     # Navegar a commit anterior
+GET    /health                       # Estado del servidor
 ```
-
-**B) SDK Python** — para integración directa sin HTTP:
-```python
-# Uso objetivo: instalar y usar en 5 líneas
-from cne_core import NarrativeEngine, WorldDefinition
-
-engine = NarrativeEngine.from_config("config.json")
-result = await engine.start(world)
-result = await engine.advance(commit_id, choice="atacar al guardia")
-```
-
-El SDK es `cne_core` directamente — quien quiera integrarlo en Python
-importa el paquete sin necesidad de levantar una API.
 
 ---
 
@@ -415,25 +310,11 @@ importa el paquete sin necesidad de levantar una API.
 
 **Objetivo**: hacer el motor genuinamente usable por otros sin asistencia.
 
-```
-docs/
-├── quickstart.md          # Motor funcionando en < 10 minutos
-├── concepts.md            # Árbol Literario, SDMM, causalidad formal
-├── api_reference.md       # Documentación completa de la API REST
-├── sdk_reference.md       # Documentación del SDK Python
-├── extending.md           # Cómo implementar AIAdapter y Repository propios
-├── examples/
-│   ├── minimal/           # Historia de 3 decisiones, InMemory + MockAI
-│   ├── with_postgres/     # Con PostgreSQL real
-│   └── with_claude_api/   # Con Anthropic SDK
-└── paper/                 # Documentación académica
-```
-
 **Entregables**:
 - `pyproject.toml` listo para publicar en PyPI como `cne-core`
 - GitHub release con changelog
-- README con ejemplos copy-paste funcionales
-- Docker image pública: `ghcr.io/usuario/cne:latest`
+- Documentación completa (quickstart, API reference, extending guide)
+- Docker image pública
 
 ---
 
@@ -521,19 +402,14 @@ pytest = "^8.0"
 pytest-asyncio = "^0.23"
 ```
 
-### Implementaciones opcionales incluidas en el repo
+### Implementaciones incluidas en el repo
 
-El motor viene con implementaciones de referencia intercambiables:
-
-| Componente | Implementación | Cuándo usar |
-|------------|---------------|-------------|
-| Repository | `InMemoryRepository` ✅ | Tests, prototipos, demos |
-| Repository | `PostgreSQLRepository` | Producción, historias largas |
-| Repository | `SQLiteRepository` | Desarrollo local sin Docker |
-| AIAdapter | `MockAIAdapter` ✅ | Tests sin API key |
-| AIAdapter | `AnthropicAdapter` ✅ | Producción con Claude |
-| AIAdapter | `OllamaAdapter` ✅ | LLMs locales gratuitos (gemma3, llama, etc.) |
-| AIAdapter | `OpenAIAdapter` | Alternativa GPT |
+| Componente | Implementación | Estado | Cuándo usar |
+|------------|---------------|--------|-------------|
+| Repository | `PostgreSQLRepository` | ✅ | Producción y tests de integración |
+| AIAdapter | `MockAdapter` | ✅ | Tests sin API key (determinista) |
+| AIAdapter | `AnthropicAdapter` | ✅ | Producción con Claude |
+| AIAdapter | `OllamaAdapter` | ✅ | LLMs locales gratuitos (gemma3, llama, etc.) |
 
 ---
 
@@ -563,17 +439,19 @@ El motor viene con implementaciones de referencia intercambiables:
 ## Comandos Útiles
 
 ```bash
-# Verificar que el Core Engine funciona
+# Core Engine (sin dependencias)
 python tests/test_fase1.py
 
-# Estructura del proyecto
-find . -name "*.py" | grep -v __pycache__ | sort
-
-# Cuando llegues a Fase 2: levantar infraestructura
+# Todos los tests (requiere Docker + PostgreSQL)
 docker-compose up -d
-
-# Cuando llegues a Fase 2: correr migraciones
 alembic upgrade head
+pytest tests/ -v
+
+# Tests sin Docker (solo core + adapters)
+pytest tests/test_fase1.py tests/test_adapters.py -v
+
+# Levantar API REST
+uvicorn api.main:app --reload --port 8000
 ```
 
 ---
@@ -581,9 +459,12 @@ alembic upgrade head
 ## Notas Importantes
 
 - **No usar `vitality`** en el código — fue reemplazado por `DramaticVector`. Si ves referencias a `vitality` en documentos viejos, ignorarlas.
-- **`StateMachine` en Fase 1 es síncrono** — en Fase 2 se convierte a `async` cuando use SQLAlchemy async.
+- **`StateMachine` es síncrono** — la capa async vive en `NarrativeServiceV2` que orquesta engine + repository + adapter.
 - **El Core Engine nunca importa de `persistence/`** — la dependencia va en dirección opuesta.
 - **La IA nunca modifica directamente el estado** — siempre propone, el motor valida y aplica.
-- **`go_to_commit()` en Fase 1 restaura desde snapshots** — en Fase 2 usará `StateRebuilder` con deltas reales.
+- **`go_to_commit()` restaura desde snapshots** — limpia `self._entities` y reconstruye completamente desde el snapshot del commit, incluyendo entidades creadas dinámicamente.
+- **Entity creation va ANTES de entity deltas** — para que los deltas puedan referenciar entidades recién creadas en el mismo turno.
+- **`to_core_models()` retorna 5 valores** — `(entity_deltas, entity_creations, world_deltas, dramatic_delta, choices)`. Todos los adapters deben hacer unpacking de 5.
+- **`AdvanceNarrativeRequest` defaults a `adapter_type="ollama"`** — los tests deben pasar explícitamente `adapter_type: "mock"`.
 - **No acoplar el core a ningún cliente específico** — si una implementación del core requiere importar FastAPI, Flutter, o cualquier framework de UI, es un error de diseño.
-- **Las interfaces ABC son el contrato público del motor** — `NarrativeRepository` y `AIAdapter` son lo que un integrador externo implementa para conectar su stack al CNE. Documentarlas bien es prioritario.
+- **Las interfaces ABC son el contrato público del motor** — `NarrativeRepository` y `AIAdapter` son lo que un integrador externo implementa para conectar su stack al CNE.

@@ -27,7 +27,8 @@ flowchart TD
     DisplayChoice --> |Volver atrás| GoTo[StateMachine.go_to_commit]
 
     %% ADVANCE STORY FLOW
-    Advance --> ApplyEntity[Aplicar EntityDeltas]
+    Advance --> ApplyCreations[Aplicar EntityCreations]
+    ApplyCreations --> ApplyEntity[Aplicar EntityDeltas]
     ApplyEntity --> ApplyWorld[Aplicar WorldVariableDeltas]
     ApplyWorld --> ApplyDrama[DramaticEngine.apply_delta]
 
@@ -69,6 +70,7 @@ flowchart TD
 
     style CreateWorld fill:#e1f5ff
     style InitMachine fill:#e1f5ff
+    style ApplyCreations fill:#f0ffe1
     style DramaticEngine fill:#ffe1f5
     style CausalValidator fill:#ffe1f5
     style ApplyDrama fill:#fff4e1
@@ -111,8 +113,10 @@ classDiagram
         +str summary
         +list~str~ caused_by
         +list~EntityDelta~ entity_deltas
+        +list~EntityCreation~ entity_creations
         +list~WorldVariableDelta~ world_deltas
         +DramaticDelta dramatic_delta
+        +str causal_reason
         +int depth
         +int topo_order
     }
@@ -231,20 +235,23 @@ sequenceDiagram
     SM-->>Usuario: StoryAdvanceResult
 
     %% DECISIÓN DEL JUGADOR
-    Usuario->>SM: advance_story(choice, narrative, deltas)
+    Usuario->>SM: advance_story(choice, narrative, deltas, entity_creations)
 
-    Note over SM: 1. Aplicar deltas de entidades
+    Note over SM: 1. Aplicar entity creations
+    SM->>SM: _apply_entity_creations()
+
+    Note over SM: 2. Aplicar deltas de entidades
     SM->>SM: _apply_entity_deltas()
 
-    Note over SM: 2. Aplicar deltas de mundo
+    Note over SM: 3. Aplicar deltas de mundo
     SM->>SM: _apply_world_deltas()
 
-    Note over SM: 3. Actualizar vector dramático
+    Note over SM: 4. Actualizar vector dramático
     SM->>DE: apply_delta(dramatic_delta)
     DE->>DE: apply_interactions()
     DE->>DE: clamp_values()
 
-    Note over SM: 4. Evaluar umbrales
+    Note over SM: 5. Evaluar umbrales
     SM->>DE: evaluate_thresholds()
     alt Umbral cruzado
         DE-->>SM: ForcedEventConstraint
@@ -252,10 +259,10 @@ sequenceDiagram
         DE-->>SM: None
     end
 
-    Note over SM: 5. Crear evento narrativo
+    Note over SM: 6. Crear evento narrativo
     SM->>NE: new NarrativeEvent(deltas)
 
-    Note over SM: 6. Validar causalidad
+    Note over SM: 7. Validar causalidad
     SM->>CV: add_event(event.id)
     SM->>CV: add_edge(parent_id, event.id)
 
@@ -266,7 +273,7 @@ sequenceDiagram
     else No hay ciclo (DAG válido)
         CV-->>SM: CausalEdge creada
 
-        Note over SM: 7. Crear nuevo commit
+        Note over SM: 8. Crear nuevo commit
         SM->>NC: new NarrativeCommit()
         NC->>NC: Guardar snapshots
         SM->>SM: Actualizar punteros
@@ -410,7 +417,7 @@ flowchart TD
 | **StateMachine** | Orquestador central | WorldDefinition, Entity, NarrativeEvent, NarrativeCommit | StoryAdvanceResult |
 | **CausalValidator** | Garantizar DAG sin ciclos | NarrativeEvent.id, CausalEdge | topo_order, estadísticas DAG |
 | **DramaticEngine** | Gestionar vector dramático y umbrales | DramaticDelta, DramaticVector | ForcedEventConstraint (o None) |
-| **NarrativeEvent** | Unidad atómica de la historia | EntityDelta, WorldVariableDelta, DramaticDelta | - |
+| **NarrativeEvent** | Unidad atómica de la historia | EntityDelta, EntityCreation, WorldVariableDelta, DramaticDelta | - |
 | **NarrativeCommit** | Punto versionado (como Git) | NarrativeEvent, snapshots del estado | - |
 | **StoryAdvanceResult** | Respuesta del motor al cliente | NarrativeCommit, DramaticVector, NarrativeChoice | - |
 

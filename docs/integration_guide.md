@@ -51,9 +51,9 @@ Y dos interfaces extensibles:
 │                  │      │                  │
 │Implementaciones: │      │Implementaciones: │
 │- PostgreSQL ✅   │      │- Anthropic ✅    │
-│- InMemory ✅     │      │- Ollama ✅       │
-│- Tu propia BD    │      │- Mock ✅         │
-└─────────────────┘       │- Tu propio LLM   │
+│- Tu propia BD    │      │- Ollama ✅       │
+└─────────────────┘       │- Mock ✅         │
+                          │- Tu propio LLM   │
                           └─────────────────┘
 ```
 
@@ -217,7 +217,8 @@ curl -X POST http://localhost:8000/worlds/abc-123-.../start \
 curl -X POST http://localhost:8000/commits/def-456-.../advance \
   -H "Content-Type: application/json" \
   -d '{
-    "choice": "Confrontar a Malachar directamente"
+    "choice": "Confrontar a Malachar directamente",
+    "adapter_type": "mock"
   }'
 
 # 4. Consultar estado dramatico
@@ -252,7 +253,7 @@ print("Opciones:", [c["text"] for c in commit["choices"]])
 # Avanzar
 next_commit = requests.post(
     f"{BASE}/commits/{commit['commit_id']}/advance",
-    json={"choice": commit["choices"][0]["text"]}
+    json={"choice": commit["choices"][0]["text"], "adapter_type": "mock"}
 ).json()
 ```
 
@@ -309,6 +310,7 @@ class MiRepository(NarrativeRepository):
     async def save_dramatic_delta(self, event_id, meter, delta, reason=None) -> None: ...
 
     # Entidades
+    async def save_entity(self, entity: Entity, world_id: str) -> None: ...
     async def get_entity_state(self, entity_id: str, at_commit: str) -> dict | None: ...
     async def save_entity_snapshot(self, commit_id: str, entity_states: dict) -> None: ...
 
@@ -463,9 +465,10 @@ class NarrativeProposal:
     choices: list[NarrativeChoice]   # 2-4 opciones para el jugador
 
     # Efectos (opcionales pero recomendados)
-    entity_deltas: list[EntityDelta] = []       # Cambios en personajes
-    world_deltas: list[WorldVariableDelta] = []  # Cambios en variables globales
-    dramatic_delta: DramaticDelta | None = None  # Cambios al vector dramatico
+    entity_deltas: list[EntityDelta] = []         # Cambios en personajes/objetos existentes
+    entity_creations: list[EntityCreation] = []   # Nuevas entidades creadas en este turno
+    world_deltas: list[WorldVariableDelta] = []   # Cambios en variables globales
+    dramatic_delta: DramaticDelta | None = None   # Cambios al vector dramatico
 
     # Metadata
     causal_reason: str | None = None     # Por que ocurre este evento
@@ -488,6 +491,10 @@ Si tu LLM retorna JSON, este es el schema esperado:
   ],
   "entity_deltas": [
     {"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}
+  ],
+  "entity_creations": [
+    {"entity_name": "Nombre", "entity_type": "character|artifact|faction|location",
+     "attributes": {"health": 100, "possessed_by": null, "location": "lugar"}}
   ],
   "world_deltas": [
     {"variable": "political_stability", "old_value": 60, "new_value": 48}
@@ -793,6 +800,7 @@ DATABASE_URL=postgresql+asyncpg://cne_user:cne_password_dev@localhost:5433/cne_d
 | `events` | Eventos narrativos (unidad atomica) |
 | `event_edges` | DAG causal (sin ciclos) |
 | `entity_deltas` | Cambios en atributos de entidades |
+| `entity_creations` | Registro de entidades creadas en runtime |
 | `world_variable_deltas` | Cambios en variables globales |
 | `dramatic_states` | Vector de 7 medidores por commit |
 | `dramatic_deltas` | Historial de cambios dramaticos |

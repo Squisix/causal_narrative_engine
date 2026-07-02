@@ -302,8 +302,14 @@ Cubre:
 # Core Engine en memoria (sin dependencias)
 python tests/test_fase1.py
 
-# Persistencia (requiere Docker)
-pytest tests/test_fase2.py -v
+# Adapters + integracion con engine (sin API key)
+pytest tests/test_adapters.py -v
+
+# API REST (requiere Docker + PostgreSQL)
+pytest tests/test_api.py -v
+
+# Persistencia (requiere Docker + PostgreSQL)
+pytest tests/test_persistence_integration.py -v
 
 # Todos los tests
 pytest tests/ -v
@@ -315,31 +321,33 @@ pytest tests/ -v
 
 ```
 cne_core/                          # Core Engine
-├── models/                        # Dataclasses (WorldDefinition, NarrativeEvent, etc.)
+├── models/                        # Dataclasses (WorldDefinition, NarrativeEvent, EntityCreation, etc.)
 ├── engine/                        # CausalValidator, DramaticEngine, StateMachine
 ├── interfaces/                    # Contratos abstractos (NarrativeRepository, AIAdapter)
-└── ai/                            # ResponseValidator, ResponseSchema
+└── ai/                            # ContextBuilder, ResponseValidator, ResponseSchema
 
 adapters/                          # Implementaciones de AIAdapter
-├── mock_adapter.py                # Mock para tests
+├── mock_adapter.py                # Mock para tests (determinista)
 ├── anthropic_adapter.py           # Anthropic Claude
 └── ollama_adapter.py              # Ollama (LLMs locales gratuitos)
 
 persistence/                       # Persistencia PostgreSQL
 ├── database.py                    # Config SQLAlchemy 2.0 async
-├── models/                        # ORM models
+├── models/                        # ORM models (WorldORM, EventORM, CommitORM, EntityCreationORM)
 ├── repositories/                  # PostgreSQLRepository
 └── queries/                       # CTEs recursivas (validacion causal en SQL)
 
 api/                               # FastAPI REST API
 ├── routers/                       # Endpoints (worlds, narrative, health)
 ├── services/                      # NarrativeServiceV2
-├── models/                        # Request/Response schemas
+├── models/                        # Request/Response schemas (Pydantic)
 └── dependencies.py                # Inyeccion de dependencias
 
-migrations/                        # Alembic
-tests/                             # Tests por fase
+cli/                               # CLI interactivo
+migrations/                        # Alembic (4 migraciones)
+tests/                             # Tests (test_fase1, test_adapters, test_api, test_persistence_integration)
 docs/                              # Documentacion
+web/                               # Interfaz web (en desarrollo)
 ```
 
 ---
@@ -373,6 +381,8 @@ docs/                              # Documentacion
 - [x] NarrativeServiceV2 con persistencia
 - [x] Choices persistidas en BD
 - [x] Engine reconstruction desde BD
+- [x] Entity creation dinamica (personajes, items, artefactos en runtime)
+- [x] Dockerfile + Docker Compose con Ollama
 
 ### 🔲 Fase 5 — Release
 - [ ] PyPI release (`pip install cne-core`)
