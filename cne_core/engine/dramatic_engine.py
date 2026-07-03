@@ -268,19 +268,49 @@ class DramaticEngine:
         """
         v = self.vector
 
+        # Calcular turnos consecutivos con tensión alta (> 80) desde el historial de la sesión
+        high_tension_turns = 0
+        for state in reversed(self._history):
+            if state.get("tension", 0) > 80:
+                high_tension_turns += 1
+            else:
+                break
+
+        # Calcular turnos consecutivos con caos alto (> 75) desde el historial de la sesión
+        high_chaos_turns = 0
+        for state in reversed(self._history):
+            if state.get("chaos", 0) > 75:
+                high_chaos_turns += 1
+            else:
+                break
+
         # ── Prioridad 1: Combinaciones de dos medidores ────────────────────
         # Estas condiciones tienen mayor precedencia porque son más específicas
 
         # Clímax de revelación: misterio alto + tensión alta
         if v.mystery > 65 and v.tension > 65:
+            if high_tension_turns <= 2:
+                description = (
+                    f"El misterio central DEBE revelarse ahora, en el momento de máxima tensión "
+                    f"(Turno {high_tension_turns} de Clímax). Una verdad oculta sale a la luz. "
+                    f"Mantén la intensidad dramática muy alta y el conflicto activo."
+                )
+            else:
+                description = (
+                    f"La tensión y el misterio han estado en niveles extremos durante "
+                    f"{high_tension_turns} capítulos. El clímax ha alcanzado su límite natural "
+                    f"de agotamiento. DEBES iniciar la fase de resolución/descompresión "
+                    f"de esta escena en la narrativa. Además, estás obligado a retornar en "
+                    f"'dramatic_deltas' valores significativamente negativos para 'mystery' "
+                    f"(entre -20 y -40) y 'tension' (entre -20 y -35) para enfriar el estado dramático "
+                    f"y permitir que la historia avance."
+                )
+
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.CLIMAX_REVELATION,
                 trigger_meter = "mystery+tension",
                 trigger_value = max(v.mystery, v.tension),
-                description   = (
-                    "El misterio central DEBE revelarse ahora, en el momento "
-                    "de máxima tensión. Una verdad oculta sale a la luz."
-                )
+                description   = description
             )
 
         # Momento emocional: conexión alta + tensión alta
@@ -313,15 +343,26 @@ class DramaticEngine:
 
         # Clímax (tensión extrema)
         if v.tension > 85:
+            if high_tension_turns <= 2:
+                description = (
+                    f"La tensión ha llegado a su punto máximo (Turno {high_tension_turns} de Tensión Extrema). "
+                    f"DEBE ocurrir una confrontación directa con el conflicto central. "
+                    f"No puede posponerse más."
+                )
+            else:
+                description = (
+                    f"La tensión ha estado extremadamente alta por {high_tension_turns} capítulos. "
+                    f"La confrontación entra en su fase final. DEBES iniciar la resolución/liberación "
+                    f"de la tensión en la narrativa. Estás obligado a retornar en 'dramatic_deltas' "
+                    f"un valor significativamente negativo para 'tension' (entre -20 y -45) "
+                    f"para iniciar la fase de resolución."
+                )
+
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.CLIMAX,
                 trigger_meter = "tension",
                 trigger_value = v.tension,
-                description   = (
-                    "La tensión ha llegado a su punto máximo. DEBE ocurrir "
-                    "una confrontación directa con el conflicto central. "
-                    "No puede posponerse más."
-                )
+                description   = description
             )
 
         # Tragedia (esperanza al límite)
@@ -339,15 +380,24 @@ class DramaticEngine:
 
         # Tormenta de caos
         if v.chaos > 80:
+            if high_chaos_turns <= 2:
+                description = (
+                    f"El mundo está en caos total (Turno {high_chaos_turns} de Caos Extremo). "
+                    f"Un evento externo impredecible DEBE irrumpir, fuera del control del protagonista."
+                )
+            else:
+                description = (
+                    f"El caos se ha prolongado por {high_chaos_turns} capítulos. La situación debe empezar "
+                    f"a asentarse. DEBES narrar cómo se estabiliza la escena tras la tormenta de caos "
+                    f"y retornar en 'dramatic_deltas' un valor significativamente negativo para 'chaos' "
+                    f"(entre -20 y -40) para asentar el mundo."
+                )
+
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.CHAOS_STORM,
                 trigger_meter = "chaos",
                 trigger_value = v.chaos,
-                description   = (
-                    "El mundo está en caos total. Un evento externo "
-                    "impredecible DEBE irrumpir, fuera del control del "
-                    "protagonista."
-                )
+                description   = description
             )
 
         # Giro argumental (saturación alta)

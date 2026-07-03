@@ -286,23 +286,23 @@ adapter = MockAdapter(deterministic=True, seed=42)
 - Prueban que la persistencia, el motor y la API funcionan juntos
 - Mas lentos, pero verifican que todo conecta correctamente
 
-### Nota critica: `adapter_type: "mock"` en tests de API
+### Nota: `adapter_type` en tests de API
 
-Los tests que llaman al endpoint `/advance` **deben** incluir
-`"adapter_type": "mock"` en el body del request. El default es `"ollama"`,
-que intentara conectarse a un servidor Ollama local y hara timeout:
+Por defecto, los endpoints de la API (como `/advance`) usan `"adapter_type": "mock"`. Esto significa que los tests son rápidos y seguros sin necesidad de dependencias externas.
+
+Si deseas probar la integración con un modelo real como Ollama, puedes especificar `"adapter_type": "ollama"` en el body del request:
 
 ```python
-# CORRECTO -- usa MockAdapter
+# Usa Ollama (requiere servidor local de Ollama corriendo)
 r = await client.post(
     f"/commits/{commit_id}/advance",
-    json={"choice": choice_text, "adapter_type": "mock"},
+    json={"choice": choice_text, "adapter_type": "ollama"},
 )
 
-# INCORRECTO -- intentara usar Ollama y fallara
+# Por defecto, si se omite, se usa el MockAdapter:
 r = await client.post(
     f"/commits/{commit_id}/advance",
-    json={"choice": choice_text},  # adapter_type default = "ollama"
+    json={"choice": choice_text},  # adapter_type default = "mock"
 )
 ```
 

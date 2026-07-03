@@ -168,12 +168,12 @@ Otro request importante es `AdvanceNarrativeRequest`:
 class AdvanceNarrativeRequest(BaseModel):
     choice: str = Field(..., min_length=1, max_length=500, description="Texto de la opcion elegida")
     custom: bool = Field(default=False, description="True si es opcion escrita por el jugador")
-    adapter_type: str = Field(default="ollama", description="'mock', 'anthropic' o 'ollama'")
+    adapter_type: str = Field(default="mock", description="'mock', 'anthropic' o 'ollama'")
     adapter_config: Optional[dict] = Field(default=None)
 ```
 
-> **Importante**: `adapter_type` tiene como default `"ollama"`. Para testing
-> sin un servidor de Ollama corriendo, siempre pasa `"adapter_type": "mock"`.
+> **Importante**: `adapter_type` tiene como default `"mock"`. Para producción
+> u obtención de respuestas generadas por un LLM local, puedes pasar `"adapter_type": "ollama"`.
 
 ---
 
@@ -375,9 +375,8 @@ curl -X POST http://localhost:8000/commits/{commit_id}/advance \
   }'
 ```
 
-> **Importante**: siempre incluye `"adapter_type": "mock"` para testing.
-> Si lo omites, el default es `"ollama"` y la request fallara por timeout
-> si no tienes un servidor Ollama corriendo.
+> **Importante**: El default es `"mock"`, por lo que es seguro para testing sin dependencias de IA externas.
+> Si deseas usar un modelo local con Ollama, debes pasar explícitamente `"adapter_type": "ollama"`.
 
 ### Ver el vector dramatico
 

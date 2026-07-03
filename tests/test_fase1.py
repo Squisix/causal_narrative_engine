@@ -139,6 +139,28 @@ def test_dramatic_engine():
     assert constraint2 is not None
     print(f"[OK] Misterio+Tensión alto -> {constraint2.event_type.value}")
 
+    # Test: Pacing de clímax de tensión (turno 1, 2, y 3)
+    pacing_engine = DramaticEngine({"tension": 30})
+    
+    # Turno 1: Subimos tensión a 90
+    pacing_engine.apply_delta_from_dict({"tension": 60})
+    constraint_t1 = pacing_engine.evaluate_thresholds()
+    assert constraint_t1 is not None
+    assert "Turno 1 de Tensión Extrema" in constraint_t1.description
+
+    # Turno 2: Mantenemos en 90
+    pacing_engine.apply_delta_from_dict({"tension": 0})
+    constraint_t2 = pacing_engine.evaluate_thresholds()
+    assert constraint_t2 is not None
+    assert "Turno 2 de Tensión Extrema" in constraint_t2.description
+
+    # Turno 3: Mantenemos en 90
+    pacing_engine.apply_delta_from_dict({"tension": 0})
+    constraint_t3 = pacing_engine.evaluate_thresholds()
+    assert constraint_t3 is not None
+    assert "obligado a retornar en 'dramatic_deltas' un valor significativamente negativo" in constraint_t3.description
+    print("[OK] Pacing del Clímax de Tensión verificado correctamente para Turnos 1, 2 y 3")
+
     # Test análisis de arco
     analysis = engine.get_arc_analysis()
     print(f"[OK] Análisis de arco: {analysis}")

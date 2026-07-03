@@ -111,7 +111,7 @@ class AdvanceNarrativeRequest(BaseModel):
     )
 
     adapter_type: str = Field(
-        default="ollama",
+        default="mock",
         description="Tipo de AI adapter ('mock', 'anthropic' o 'ollama')"
     )
 
@@ -124,6 +124,6 @@ class AdvanceNarrativeRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "choice": "Confrontar a Malachar directamente",
-                "adapter_type": "ollama"
+                "adapter_type": "mock"
             }
         }

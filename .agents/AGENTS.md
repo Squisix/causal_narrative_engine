@@ -69,7 +69,7 @@ CNE = (W, E, S, D, T, C, Phi)
 |                     |      |                          |
 |  Interface ABC      |      |  Interface ABC           |
 |  PostgreSQL [OK]    |      |  Anthropic [OK]          |
-|                     |      |  Ollama [OK]             |
+|  Redis Cache [OK]   |      |  Ollama [OK]             |
 |                     |      |  Mock [OK]               |
 +---------------------+      +--------------------------+
 ```
@@ -118,8 +118,9 @@ adapters/                          # Implementaciones de AIAdapter
 ├── anthropic_adapter.py           # AnthropicAdapter: Claude API
 └── ollama_adapter.py              # OllamaAdapter: LLMs locales gratuitos
 
-persistence/                       # Persistencia PostgreSQL
+persistence/                       # Persistencia PostgreSQL y Cache
 ├── database.py                    # DatabaseConfig, async session factory
+├── cache.py                       # CacheBackend (RedisCache, NullCache) para optimización
 ├── models/
 │   ├── world_orm.py               # WorldORM, EntityORM
 │   ├── event_orm.py               # EventORM, EntityDeltaORM, EntityCreationORM
@@ -232,6 +233,8 @@ class ValidationError(Exception): ...
 | Componente | Implementacion | Cuando usar |
 |------------|---------------|-------------|
 | Repository | `PostgreSQLRepository` | Produccion y tests de integracion |
+| Cache | `RedisCache` | Caching de trunks, mundos y choices en producción (opcional) |
+| Cache | `NullCache` | Caché no-op si Redis no está configurado (fallback automático) |
 | AIAdapter | `MockAdapter` | Tests sin API key (determinista) |
 | AIAdapter | `AnthropicAdapter` | Produccion con Claude |
 | AIAdapter | `OllamaAdapter` | LLMs locales gratuitos (gemma3, llama, etc.) |
@@ -269,3 +272,4 @@ uvicorn api.main:app --reload --port 8000
 - **`to_core_models()` retorna 5 valores** — todos los adapters hacen unpacking de 5.
 - **`AdvanceNarrativeRequest` defaults a `adapter_type="ollama"`** — los tests deben pasar `adapter_type: "mock"`.
 - **No acoplar el core a ningun cliente** — si requiere importar FastAPI o Flutter, es un error.
+- **Redis Cache es opcional** — si `REDIS_URL` no está configurado o falla, se utiliza `NullCache` de fallback y la aplicación sigue funcionando de forma normal y silenciosa.
