@@ -1,18 +1,18 @@
 """
-cne_core/ai/response_validator.py - Validacion de respuestas de IA
+cne_core/ai/response_validator.py - AI response validation
 
-El ResponseValidator verifica que las respuestas generadas por la IA
-cumplan las propiedades P1-P4 del motor antes de aplicarlas:
+The ResponseValidator verifies that AI-generated responses
+comply with the engine's P1-P4 properties before applying them:
 
-P1 - CAUSALIDAD: No crear ciclos, eventos bien conectados
-P2 - DETERMINISMO: Estados reconstruibles
-P3 - VERSIONADO: Metadata correcta
-P4 - CONSISTENCIA: Entidades muertas no actuan, valores en rango
+P1 - CAUSALITY: No cycles created, events well connected
+P2 - DETERMINISM: States reconstructible
+P3 - VERSIONING: Correct metadata
+P4 - CONSISTENCY: Dead entities do not act, values in range
 
-Si una respuesta falla validacion, se rechaza y se puede:
-- Pedir a la IA que la regenere
-- Aplicar fallbacks seguros
-- Loguear el error para mejorar el prompt
+If a response fails validation, it is rejected and can be:
+- Asked to the AI to regenerate
+- Applied with safe fallbacks
+- Logged for prompt improvement
 """
 
 from typing import Any, Optional
@@ -25,9 +25,9 @@ from cne_core.models.world import WorldDefinition
 @dataclass
 class ValidationResult:
     """
-    Resultado de validar una respuesta de IA.
+    Result of validating an AI response.
 
-    Si is_valid=False, errors contiene la lista de problemas encontrados.
+    If is_valid=False, errors contains the list of issues found.
     """
     is_valid: bool
     errors: list[str]
@@ -43,11 +43,11 @@ class ValidationResult:
 
 class ResponseValidator:
     """
-    Valida que las respuestas de la IA sean coherentes y seguras.
+    Validates that AI responses are coherent and safe.
 
-    Realiza validaciones en dos niveles:
-    1. Validacion de schema (Pydantic lo hace automaticamente)
-    2. Validacion de coherencia narrativa (este validator)
+    Performs validations at two levels:
+    1. Schema validation (Pydantic does this automatically)
+    2. Narrative coherence validation (this validator)
     """
 
     def __init__(
@@ -58,9 +58,9 @@ class ResponseValidator:
     ):
         """
         Args:
-            world: La semilla del mundo (define las reglas).
-            current_entities: Estado actual de las entidades.
-            current_world_vars: Estado actual de las variables del mundo.
+            world: The world seed (defines the rules).
+            current_entities: Current state of entities.
+            current_world_vars: Current state of world variables.
         """
         self.world = world
         self.current_entities = current_entities
@@ -68,34 +68,34 @@ class ResponseValidator:
 
     def validate(self, response: NarrativeResponse) -> ValidationResult:
         """
-        Valida una respuesta completa de la IA.
+        Validates a complete AI response.
 
         Args:
-            response: La respuesta parseada (ya paso validacion de Pydantic).
+            response: The parsed response (already passed Pydantic validation).
 
         Returns:
-            ValidationResult indicando si es valida y que errores hay.
+            ValidationResult indicating whether it is valid and what errors exist.
         """
         errors = []
         warnings = []
 
-        # V1: Validar entity deltas
+        # V1: Validate entity deltas
         entity_errors = self._validate_entity_deltas(response.entity_deltas)
         errors.extend(entity_errors)
 
-        # V2: Validar dramatic deltas
+        # V2: Validate dramatic deltas
         dramatic_errors = self._validate_dramatic_deltas(response.dramatic_deltas)
         errors.extend(dramatic_errors)
 
-        # V3: Validar coherencia narrativa
+        # V3: Validate narrative coherence
         narrative_warnings = self._validate_narrative_coherence(response)
         warnings.extend(narrative_warnings)
 
-        # V4: Validar choices
+        # V4: Validate choices
         choice_errors = self._validate_choices(response)
         errors.extend(choice_errors)
 
-        # V5: Validar que respete constraints del mundo
+        # V5: Validate that world constraints are respected
         constraint_errors = self._validate_world_constraints(response)
         errors.extend(constraint_errors)
 
@@ -107,9 +107,9 @@ class ResponseValidator:
 
     def _validate_entity_deltas(self, entity_deltas: list) -> list[str]:
         """
-        Valida que los deltas de entidades sean coherentes.
+        Validates that entity deltas are coherent.
 
-        P4: Las entidades muertas no pueden actuar.
+        P4: Dead entities cannot act.
         """
         errors = []
 
@@ -117,173 +117,173 @@ class ResponseValidator:
             entity_id = delta.entity_id
             entity_name = delta.entity_name
 
-            # Verificar que la entidad exista
+            # Check that the entity exists
             if entity_id not in self.current_entities:
-                # Podria ser una entidad nueva que se crea en este evento
-                # Por ahora, solo advertencia
+                # Could be a new entity created in this event
+                # For now, just a warning
                 continue
 
             entity_state = self.current_entities[entity_id]
 
-            # CRITICO: Entidades muertas no pueden actuar
+            # CRITICAL: Dead entities cannot act
             if not entity_state.get("alive", True):
-                # A menos que el delta sea resucitarla (cambio de alive)
+                # Unless the delta is to resurrect it (alive attribute change)
                 if delta.attribute != "alive":
                     errors.append(
-                        f"P4 VIOLATION: Entidad muerta '{entity_name}' no puede "
-                        f"cambiar atributo '{delta.attribute}'. "
-                        f"Las entidades muertas no actuan."
+                        f"P4 VIOLATION: Dead entity '{entity_name}' cannot "
+                        f"change attribute '{delta.attribute}'. "
+                        f"Dead entities do not act."
                     )
 
-            # Validar que el old_value coincida con el estado actual
+            # Validate that old_value matches current state
             current_value = entity_state.get(delta.attribute)
             if current_value is not None and current_value != delta.old_value:
                 errors.append(
-                    f"CONSISTENCY ERROR: Entidad '{entity_name}' tiene "
-                    f"{delta.attribute}={current_value} pero la IA asume "
-                    f"{delta.old_value}. Estado inconsistente."
+                    f"CONSISTENCY ERROR: Entity '{entity_name}' has "
+                    f"{delta.attribute}={current_value} but the AI assumes "
+                    f"{delta.old_value}. Inconsistent state."
                 )
 
         return errors
 
     def _validate_dramatic_deltas(self, dramatic_deltas) -> list[str]:
         """
-        Valida que los deltas dramaticos esten en rango.
+        Validates that dramatic deltas are in range.
 
-        Los deltas deben estar en [-100, +100].
+        Deltas must be in [-100, +100].
         """
         errors = []
 
-        # Pydantic ya valida el rango, pero verificamos por si acaso
+        # Pydantic already validates the range, but we double-check just in case
         deltas_dict = dramatic_deltas.dict() if hasattr(dramatic_deltas, 'dict') else dramatic_deltas
 
         for meter, value in deltas_dict.items():
             if not isinstance(value, int):
                 errors.append(
-                    f"DRAMATIC DELTA ERROR: {meter} debe ser int, es {type(value)}"
+                    f"DRAMATIC DELTA ERROR: {meter} must be int, got {type(value)}"
                 )
                 continue
 
             if not (-100 <= value <= 100):
                 errors.append(
-                    f"DRAMATIC DELTA ERROR: {meter}={value} fuera de rango [-100, +100]"
+                    f"DRAMATIC DELTA ERROR: {meter}={value} out of range [-100, +100]"
                 )
 
         return errors
 
     def _validate_narrative_coherence(self, response: NarrativeResponse) -> list[str]:
         """
-        Validaciones de coherencia narrativa (no-criticas, warnings).
+        Narrative coherence validations (non-critical, warnings).
 
-        Cosas que no rompen el motor pero indican que la IA podria mejorar.
+        Things that do not break the engine but indicate the AI could improve.
         """
         warnings = []
 
-        # W1: Narrative demasiado corta
+        # W1: Narrative too short
         word_count = len(response.narrative.split())
         if word_count < 50:
             warnings.append(
-                f"Narrativa corta ({word_count} palabras). Recomendado: 150-250."
+                f"Short narrative ({word_count} words). Recommended: 150-250."
             )
 
-        # W2: Narrative demasiado larga
+        # W2: Narrative too long
         if word_count > 350:
             warnings.append(
-                f"Narrativa larga ({word_count} palabras). Puede cansar al jugador."
+                f"Long narrative ({word_count} words). May tire the player."
             )
 
-        # W3: Summary demasiado largo
+        # W3: Summary too long
         if len(response.summary) > 150:
             warnings.append(
-                "Summary demasiado largo. Debe ser 1 oracion concisa."
+                "Summary too long. Should be 1 concise sentence."
             )
 
-        # W4: Ningun cambio dramatico (historia plana)
+        # W4: No dramatic changes (flat story)
         if response.dramatic_deltas:
             deltas_dict = response.dramatic_deltas.dict() if hasattr(response.dramatic_deltas, 'dict') else response.dramatic_deltas
             total_change = sum(abs(v) for v in deltas_dict.values())
             if total_change == 0 and not response.is_ending:
                 warnings.append(
-                    "Sin cambios dramaticos. La historia puede sentirse plana."
+                    "No dramatic changes. The story may feel flat."
                 )
 
-        # W5: Demasiados deltas (complejidad excesiva)
+        # W5: Too many deltas (excessive complexity)
         if len(response.entity_deltas) > 5:
             warnings.append(
-                f"{len(response.entity_deltas)} entity deltas. Podria ser demasiado "
-                f"complejo para un solo evento."
+                f"{len(response.entity_deltas)} entity deltas. Could be too "
+                f"complex for a single event."
             )
 
         return warnings
 
     def _validate_choices(self, response: NarrativeResponse) -> list[str]:
         """
-        Valida que las opciones sean apropiadas.
+        Validates that choices are appropriate.
         """
         errors = []
 
-        # Si es ending, no debe haber choices
+        # If ending, there should be no choices
         if response.is_ending and len(response.choices) > 0:
             errors.append(
-                "ENDING ERROR: is_ending=true pero hay choices. "
-                "Los finales no tienen opciones."
+                "ENDING ERROR: is_ending=true but there are choices. "
+                "Endings have no options."
             )
 
-        # Si no es ending, debe haber al menos 2 choices
+        # If not ending, there should be at least 2 choices
         if not response.is_ending and len(response.choices) < 2:
             errors.append(
-                "CHOICES ERROR: Debe haber al menos 2 opciones (excepto en endings)."
+                "CHOICES ERROR: There must be at least 2 options (except for endings)."
             )
 
-        # Verificar que las opciones no sean identicas
+        # Check that choices are not identical
         if len(response.choices) > 1:
             unique_choices = set(c.lower().strip() for c in response.choices)
             if len(unique_choices) < len(response.choices):
                 errors.append(
-                    "CHOICES ERROR: Hay opciones duplicadas o muy similares."
+                    "CHOICES ERROR: There are duplicate or very similar options."
                 )
 
         return errors
 
     def _validate_world_constraints(self, response: NarrativeResponse) -> list[str]:
         """
-        Valida que la respuesta respete las restricciones del mundo.
+        Validates that the response respects the world constraints.
 
-        Esto es CRITICO: las constraints de la WorldDefinition son inviolables.
+        This is CRITICAL: WorldDefinition constraints are inviolable.
         """
         errors = []
 
-        # Verificar cada constraint
+        # Check each constraint
         for constraint in self.world.constraints:
-            # Buscar keywords en el constraint
+            # Search for keywords in the constraint
             constraint_lower = constraint.lower()
 
-            # Ejemplo: "Los muertos no pueden regresar"
-            if "muertos" in constraint_lower and "no" in constraint_lower:
-                # Verificar que ningun entity_delta reviva a alguien
+            # Example: "The dead cannot return"
+            if "dead" in constraint_lower and "no" in constraint_lower:
+                # Verify that no entity_delta resurrects someone
                 for delta in response.entity_deltas:
                     if delta.attribute == "alive":
                         if delta.old_value == False and delta.new_value == True:
                             errors.append(
                                 f"WORLD CONSTRAINT VIOLATION: '{constraint}'. "
-                                f"La IA intento revivir a '{delta.entity_name}'."
+                                f"The AI attempted to resurrect '{delta.entity_name}'."
                             )
 
-            # Ejemplo: "No hay viajes en el tiempo"
-            if "tiempo" in constraint_lower and "no" in constraint_lower:
-                # Buscar keywords en narrative y summary
+            # Example: "No time travel"
+            if "time" in constraint_lower and "no" in constraint_lower:
+                # Search for keywords in narrative and summary
                 narrative_lower = response.narrative.lower()
                 summary_lower = response.summary.lower()
 
-                time_keywords = ["pasado", "futuro", "viaje en el tiempo", "retroceder"]
+                time_keywords = ["past", "future", "time travel", "go back"]
                 for keyword in time_keywords:
                     if keyword in narrative_lower or keyword in summary_lower:
                         errors.append(
                             f"WORLD CONSTRAINT VIOLATION: '{constraint}'. "
-                            f"La narrativa menciona conceptos temporales prohibidos."
+                            f"The narrative mentions forbidden temporal concepts."
                         )
 
-            # Pued agregar mas validaciones especificas por tipo de constraint
+            # Can add more specific validations per constraint type
 
         return errors
 
@@ -294,30 +294,30 @@ class ResponseValidator:
         max_attempts: int = 3,
     ) -> tuple[bool, ValidationResult, Optional[str]]:
         """
-        Valida la respuesta y sugiere como corregirla si falla.
+        Validates the response and suggests how to correct it if it fails.
 
         Args:
-            response: La respuesta a validar.
-            attempt: Numero de intento actual.
-            max_attempts: Maximo de intentos permitidos.
+            response: The response to validate.
+            attempt: Current attempt number.
+            max_attempts: Maximum allowed attempts.
 
         Returns:
-            tuple: (continuar_intentando, resultado, mensaje_para_ia)
+            tuple: (should_retry, result, message_for_ai)
         """
         result = self.validate(response)
 
         if result.is_valid:
-            return (False, result, None)  # No reintentar, todo ok
+            return (False, result, None)  # Do not retry, all ok
 
         if attempt >= max_attempts:
-            return (False, result, None)  # No reintentar, maximo alcanzado
+            return (False, result, None)  # Do not retry, maximum reached
 
-        # Construir mensaje para la IA
-        error_summary = "; ".join(result.errors[:3])  # Top 3 errores
+        # Build message for the AI
+        error_summary = "; ".join(result.errors[:3])  # Top 3 errors
         feedback = (
-            f"La respuesta tiene errores de validacion (intento {attempt}/{max_attempts}):\n"
+            f"The response has validation errors (attempt {attempt}/{max_attempts}):\n"
             f"{error_summary}\n\n"
-            f"Por favor, genera una nueva respuesta que corrija estos problemas."
+            f"Please generate a new response that corrects these issues."
         )
 
         return (True, result, feedback)

@@ -1,13 +1,13 @@
 """
-interfaces/ai_adapter.py — Contrato de generación narrativa
+interfaces/ai_adapter.py — Narrative generation contract
 
-Define qué debe retornar cualquier adaptador de IA que se conecte al CNE.
+Defines what any AI adapter connected to the CNE must return.
 
-Implementaciones incluidas en el repo:
-- MockAIAdapter (Fase 1 ✅, tests sin API key)
-- AnthropicAdapter (Fase 3, producción con Claude)
-- OpenAIAdapter (Fase 3, alternativa con GPT)
-- LocalLLMAdapter (Fase 3, Ollama / LLMs locales)
+Implementations included in the repo:
+- MockAIAdapter (Phase 1, tests without API key)
+- AnthropicAdapter (Phase 3, production with Claude)
+- OpenAIAdapter (Phase 3, alternative with GPT)
+- LocalLLMAdapter (Phase 3, Ollama / local LLMs)
 """
 
 from abc import ABC, abstractmethod
@@ -21,66 +21,66 @@ from cne_core.models.commit import NarrativeChoice
 @dataclass
 class NarrativeContext:
     """
-    El contexto que se envía a la IA para generar la próxima narrativa.
+    The context sent to the AI to generate the next narrative.
 
-    Esto es lo que el motor construye y pasa al AIAdapter.
-    El adapter lo convierte en el prompt específico de cada LLM.
+    This is what the engine builds and passes to the AIAdapter.
+    The adapter converts it into the prompt specific to each LLM.
     """
-    # Importamos WorldDefinition y otros types aquí para evitar circular imports
-    world_definition: Any                   # WorldDefinition completo
-    current_depth: int                      # Profundidad narrativa actual
-    current_dramatic_state: dict[str, int]  # Vector dramático actual
-    current_entity_states: dict[str, Any]   # Estado actual de entidades
-    current_world_vars: dict[str, Any]      # Variables globales actuales
+    # We import WorldDefinition and other types here to avoid circular imports
+    world_definition: Any                   # Full WorldDefinition
+    current_depth: int                      # Current narrative depth
+    current_dramatic_state: dict[str, int]  # Current dramatic vector
+    current_entity_states: dict[str, Any]   # Current entity states
+    current_world_vars: dict[str, Any]      # Current global variables
 
-    # Historia hasta ahora
-    commit_chain: list[Any] = field(default_factory=list)  # Lista de NarrativeCommit
+    # Story so far
+    commit_chain: list[Any] = field(default_factory=list)  # List of NarrativeCommit
 
-    # Decisión del jugador (si hay)
+    # Player decision (if any)
     player_choice: str | None = None
 
-    # Si hay constraint por umbral dramático
+    # If there is a constraint from dramatic threshold
     forced_constraint: Any | None = None  # ForcedEventConstraint
 
 
 @dataclass
 class NarrativeProposal:
     """
-    La propuesta que retorna la IA y que el motor debe validar.
+    The proposal returned by the AI that the engine must validate.
 
-    Este es el contrato JSON que la IA debe respetar.
-    El motor valida que:
-    - Los entity_deltas referencien entidades existentes
-    - Los dramatic_deltas estén en rango válido
-    - Las choices sean coherentes
+    This is the JSON contract that the AI must respect.
+    The engine validates that:
+    - The entity_deltas reference existing entities
+    - The dramatic_deltas are in valid range
+    - The choices are coherent
     """
-    narrative_text: str                      # 150-250 palabras inmersivas
-    summary: str                             # 1 oración para el tronco
-    choices: list[Any]                       # Lista de NarrativeChoice
+    narrative_text: str                      # 150-250 immersive words
+    summary: str                             # 1 sentence for the trunk
+    choices: list[Any]                       # List of NarrativeChoice
 
-    # Efectos propuestos del evento
+    # Proposed effects of the event
     entity_deltas: list[Any] = field(default_factory=list)      # list[EntityDelta]
     entity_creations: list[Any] = field(default_factory=list)   # list[EntityCreation]
     world_deltas: list[Any] = field(default_factory=list)       # list[WorldVariableDelta]
     dramatic_delta: Any = None                                   # DramaticDelta
 
     # Metadata
-    causal_reason: str | None = None         # Por qué ocurre este evento
-    is_ending: bool = False                  # ¿Es un final?
-    forced_event_type: str | None = None     # Si fue forzado por umbral
-    raw_response: dict[str, Any] | None = None  # Respuesta cruda del LLM (para logging)
+    causal_reason: str | None = None         # Why this event occurs
+    is_ending: bool = False                  # Is it an ending?
+    forced_event_type: str | None = None     # If forced by threshold
+    raw_response: dict[str, Any] | None = None  # Raw LLM response (for logging)
 
 
 class AIAdapter(ABC):
     """
-    Interfaz abstracta para generación narrativa con IA.
+    Abstract interface for AI-powered narrative generation.
 
-    El motor llama a generate_narrative() y recibe un NarrativeProposal.
-    Luego valida la propuesta y, si es coherente, la aplica al estado.
+    The engine calls generate_narrative() and receives a NarrativeProposal.
+    It then validates the proposal and, if coherent, applies it to the state.
 
-    Separación de responsabilidades:
-    - IA: generar propuestas creativas y narrativamente ricas
-    - Motor: validar coherencia causal y consistencia de estado
+    Separation of responsibilities:
+    - AI: generate creative and narratively rich proposals
+    - Engine: validate causal coherence and state consistency
     """
 
     @abstractmethod
@@ -89,56 +89,56 @@ class AIAdapter(ABC):
         context: NarrativeContext
     ) -> NarrativeProposal:
         """
-        Genera la próxima narrativa dado el contexto actual.
+        Generates the next narrative given the current context.
 
         Args:
-            context: Estado completo del mundo y la historia.
+            context: Complete state of the world and the story.
 
         Returns:
-            NarrativeProposal que el motor validará antes de aplicar.
+            NarrativeProposal that the engine will validate before applying.
 
         Raises:
-            AIGenerationError: Si la IA falla o retorna JSON inválido.
+            AIGenerationError: If the AI fails or returns invalid JSON.
         """
         pass
 
     @abstractmethod
     async def validate_response(self, raw_response: str) -> NarrativeProposal:
         """
-        Valida y parsea la respuesta cruda de la IA.
+        Validates and parses the raw AI response.
 
-        Verifica que el JSON tenga todos los campos requeridos
-        y que los valores estén en rangos válidos.
+        Verifies that the JSON has all required fields
+        and that values are in valid ranges.
 
         Args:
-            raw_response: Texto crudo retornado por la IA.
+            raw_response: Raw text returned by the AI.
 
         Returns:
-            NarrativeProposal parseado.
+            Parsed NarrativeProposal.
 
         Raises:
-            ValidationError: Si el JSON es inválido o incompleto.
+            ValidationError: If the JSON is invalid or incomplete.
         """
         pass
 
     @abstractmethod
     def get_model_info(self) -> dict[str, str]:
         """
-        Retorna información del modelo usado.
+        Returns information about the model used.
 
-        Útil para logs y para el paper.
+        Useful for logs and for the paper.
 
         Returns:
-            Dict con keys: "provider", "model", "version"
+            Dict with keys: "provider", "model", "version"
         """
         pass
 
 
 class AIGenerationError(Exception):
-    """Error durante generación narrativa."""
+    """Error during narrative generation."""
     pass
 
 
 class ValidationError(Exception):
-    """Error al validar la respuesta de la IA."""
+    """Error when validating the AI response."""
     pass

@@ -1,7 +1,7 @@
 """
-migrations/env.py — Configuración del entorno de Alembic
+migrations/env.py — Alembic environment configuration
 
-Adaptado para SQLAlchemy 2.0 async.
+Adapted for SQLAlchemy 2.0 async.
 """
 
 import asyncio
@@ -13,29 +13,29 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Importar la Base declarativa y todos los modelos ORM
+# Import the declarative Base and all ORM models
 from persistence.database import Base
 from persistence.models.world_orm import WorldORM, EntityORM
 from persistence.models.event_orm import EventORM, CausalEdgeORM, EntityDeltaORM, WorldVariableDeltaORM
 from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM, ChoiceORM
 
-# Configuración de Alembic
+# Alembic configuration
 config = context.config
 
-# Configurar logging
+# Configure logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Target metadata para autogenerate
+# Target metadata for autogenerate
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     """
-    Ejecutar migraciones en modo 'offline'.
+    Run migrations in 'offline' mode.
 
-    Genera SQL sin conectarse a la DB.
-    Útil para generar scripts SQL para ejecutar manualmente.
+    Generates SQL without connecting to the DB.
+    Useful for generating SQL scripts to run manually.
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -50,7 +50,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    """Helper para ejecutar migraciones con una conexión."""
+    """Helper to run migrations with a connection."""
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
@@ -59,9 +59,9 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """
-    Ejecutar migraciones en modo async.
+    Run migrations in async mode.
 
-    Esto es necesario porque usamos asyncpg.
+    This is necessary because we use asyncpg.
     """
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = config.get_main_option("sqlalchemy.url")
@@ -80,9 +80,9 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """
-    Ejecutar migraciones en modo 'online'.
+    Run migrations in 'online' mode.
 
-    Se conecta a la DB y ejecuta las migraciones.
+    Connects to the DB and runs the migrations.
     """
     asyncio.run(run_async_migrations())
 

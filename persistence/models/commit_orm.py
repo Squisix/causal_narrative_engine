@@ -1,11 +1,11 @@
 """
-persistence/models/commit_orm.py — ORM para commits y estado dramático
+persistence/models/commit_orm.py — ORM for commits and dramatic state
 
-Mapea:
-- NarrativeCommit → tabla commits
-- Branch → tabla branches
-- DramaticVector → tabla dramatic_states
-- DramaticDelta (histórico) → tabla dramatic_deltas
+Maps:
+- NarrativeCommit → commits table
+- Branch → branches table
+- DramaticVector → dramatic_states table
+- DramaticDelta (history) → dramatic_deltas table
 """
 
 from datetime import datetime
@@ -18,9 +18,9 @@ from persistence.database import Base
 
 class CommitORM(Base):
     """
-    Tabla: commits
+    Table: commits
 
-    Mapea NarrativeCommit (el árbol versionado de decisiones).
+    Maps NarrativeCommit (the versioned decision tree).
     """
     __tablename__ = "commits"
 
@@ -37,43 +37,43 @@ class CommitORM(Base):
         nullable=True
     )
 
-    # Parent commit (None solo en el commit raíz)
+    # Parent commit (None only for the root commit)
     parent_id: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("commits.id", ondelete="SET NULL"),
         nullable=True
     )
 
-    # Decisión tomada (None en el commit inicial)
+    # Decision taken (None for the initial commit)
     choice_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Narrativa
+    # Narrative
     narrative_text: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
 
-    # Metadata narrativa
+    # Narrative metadata
     depth: Mapped[int] = mapped_column(Integer, nullable=False)
     is_ending: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Snapshots ligeros (JSON)
-    # En Fase 2 completa, estos se reemplazarán por state_rebuilder
+    # Lightweight snapshots (JSON)
+    # In the full Phase 2, these will be replaced by state_rebuilder
     world_state_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     entity_states_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
-    # Relaciones
+    # Relationships
     world: Mapped["WorldORM"] = relationship("WorldORM", back_populates="commits")
     branch: Mapped["BranchORM | None"] = relationship("BranchORM", back_populates="commits")
 
-    # Eventos asociados a este commit
+    # Events associated with this commit
     events: Mapped[list["EventORM"]] = relationship(
         "EventORM",
         back_populates="commit",
         cascade="all, delete-orphan"
     )
 
-    # Estado dramático en este commit
+    # Dramatic state at this commit
     dramatic_state: Mapped["DramaticStateORM | None"] = relationship(
         "DramaticStateORM",
         back_populates="commit",
@@ -81,7 +81,7 @@ class CommitORM(Base):
         cascade="all, delete-orphan"
     )
 
-    # Choices disponibles para el jugador en este commit
+    # Choices available to the player at this commit
     choices: Mapped[list["ChoiceORM"]] = relationship(
         "ChoiceORM",
         back_populates="commit",
@@ -89,7 +89,7 @@ class CommitORM(Base):
         order_by="ChoiceORM.display_order"
     )
 
-    # Commits hijos (para navegación del árbol)
+    # Child commits (for tree navigation)
     # Self-referential relationship: parent_id → id
     children: Mapped[list["CommitORM"]] = relationship(
         "CommitORM",
@@ -108,15 +108,15 @@ class CommitORM(Base):
         return self.parent_id is None
 
     def __repr__(self) -> str:
-        choice = f'"{self.choice_text}"' if self.choice_text else "inicio"
+        choice = f'"{self.choice_text}"' if self.choice_text else "beginning"
         return f"<CommitORM(id={self.id[:8]}..., depth={self.depth}, choice={choice})>"
 
 
 class BranchORM(Base):
     """
-    Tabla: branches
+    Table: branches
 
-    Mapea Branch (metadata de ramas del árbol narrativo).
+    Maps Branch (metadata for narrative tree branches).
     """
     __tablename__ = "branches"
 
@@ -131,12 +131,12 @@ class BranchORM(Base):
     origin_commit_id: Mapped[str] = mapped_column(String(36), nullable=False)
     leaf_commit_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
-    name: Mapped[str] = mapped_column(String(200), default="Rama principal")
+    name: Mapped[str] = mapped_column(String(200), default="Main branch")
     description: Mapped[str] = mapped_column(Text, default="")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
-    # Relaciones
+    # Relationships
     commits: Mapped[list["CommitORM"]] = relationship("CommitORM", back_populates="branch")
 
     def __repr__(self) -> str:
@@ -145,11 +145,11 @@ class BranchORM(Base):
 
 class DramaticStateORM(Base):
     """
-    Tabla: dramatic_states
+    Table: dramatic_states
 
-    Mapea el estado del DramaticVector en un commit.
+    Maps the DramaticVector state at a commit.
 
-    Uno por commit. Almacena los 7 medidores + metadata de eventos forzados.
+    One per commit. Stores the 7 meters + forced event metadata.
     """
     __tablename__ = "dramatic_states"
 
@@ -159,10 +159,10 @@ class DramaticStateORM(Base):
         String(36),
         ForeignKey("commits.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True   # Un estado dramático por commit
+        unique=True   # One dramatic state per commit
     )
 
-    # Los 7 medidores del SDMM
+    # The 7 SDMM meters
     tension: Mapped[int] = mapped_column(
         SmallInteger,
         nullable=False,
@@ -199,13 +199,13 @@ class DramaticStateORM(Base):
         default=50
     )
 
-    # Metadata de evento forzado (si aplica)
+    # Forced event metadata (if applicable)
     forced_event: Mapped[str | None] = mapped_column(String(50), nullable=True)
     trigger_meter: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
-    # Relaciones
+    # Relationships
     commit: Mapped["CommitORM"] = relationship("CommitORM", back_populates="dramatic_state")
 
     def to_dict(self) -> dict[str, int]:
@@ -228,12 +228,12 @@ class DramaticStateORM(Base):
 
 class DramaticDeltaORM(Base):
     """
-    Tabla: dramatic_deltas
+    Table: dramatic_deltas
 
-    Historial de cambios en medidores dramáticos.
+    History of changes in dramatic meters.
 
-    Esto NO es necesario para el funcionamiento del motor, pero sí
-    para el paper: permite analizar qué eventos afectan más cada medidor.
+    This is NOT necessary for engine operation, but it is
+    for the paper: it allows analyzing which events affect each meter most.
     """
     __tablename__ = "dramatic_deltas"
 
@@ -258,9 +258,9 @@ class DramaticDeltaORM(Base):
 
 class ChoiceORM(Base):
     """
-    Tabla: choices
+    Table: choices
 
-    Mapea NarrativeChoice. Opciones disponibles para el jugador en cada commit.
+    Maps NarrativeChoice. Options available to the player at each commit.
     """
     __tablename__ = "choices"
 
@@ -280,7 +280,7 @@ class ChoiceORM(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
-    # Relaciones
+    # Relationships
     commit: Mapped["CommitORM"] = relationship("CommitORM", back_populates="choices")
 
     def __repr__(self) -> str:

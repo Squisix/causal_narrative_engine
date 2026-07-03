@@ -1,26 +1,26 @@
 ---
 name: sdmm
-description: Sistema Dramatico Multi-Medidor — los 7 medidores, interacciones, y umbrales
-trigger: Cuando se trabaje con DramaticEngine, vectores dramaticos, eventos forzados, o umbrales
+description: Dramatic Multi-Meter System — the 7 meters, interactions, and thresholds
+trigger: When working with DramaticEngine, dramatic vectors, forced events, or thresholds
 ---
 
-# Sistema Dramatico Multi-Medidor (SDMM)
+# Dramatic Multi-Meter System (DMMS / SDMM)
 
-Innovacion central del proyecto. Reemplaza "vida del arbol" con un vector formal de 7 dimensiones.
+The core innovation of the project. Replaces "tree health" with a formal 7-dimensional state vector.
 
-## Los 7 Medidores
+## The 7 Meters
 
-| Medidor | Rango | Inicio | Que mide |
-|---------|-------|--------|----------|
-| `tension` | [0-100] | 30 | Nivel de conflicto activo |
-| `hope` | [0-100] | 60 | Percepcion de que las cosas pueden mejorar |
-| `chaos` | [0-100] | 20 | Entropia del mundo, eventos impredecibles |
-| `rhythm` | [0-100] | 50 | Velocidad narrativa |
-| `saturation` | [0-100] | 0 | Agotamiento del arco actual |
-| `connection` | [0-100] | 40 | Profundidad emocional con personajes |
-| `mystery` | [0-100] | 50 | Preguntas sin resolver |
+| Meter | Range | Start | What It Measures |
+|-------|-------|-------|------------------|
+| `tension` | [0-100] | 30 | Level of active conflict |
+| `hope` | [0-100] | 60 | Perception that things can improve |
+| `chaos` | [0-100] | 20 | World entropy and unpredictable events |
+| `rhythm` | [0-100] | 50 | Narrative pacing and speed |
+| `saturation` | [0-100] | 0 | Exhaustion level of the current story arc |
+| `connection` | [0-100] | 40 | Emotional depth and bonding with characters |
+| `mystery` | [0-100] | 50 | Unresolved questions and secrets |
 
-## Interacciones automaticas (se aplican despues de cada delta)
+## Automatic Interactions (Applied after every delta)
 
 ```
 tension > 50     ->  hope -= ((tension - 50) // 10) * 2
@@ -29,17 +29,17 @@ saturation > 70  ->  connection -= (saturation - 70) // 5
 hope < 20        ->  mystery += 3
 ```
 
-Todos los valores se clampean a [0, 100] despues de aplicar interacciones.
+All values are clamped to [0, 100] after applying these interactions.
 
-## Umbrales -> Eventos Forzados (Phi)
+## Thresholds -> Forced Events (Phi)
 
-### Prioridad 1: Combinaciones
+### Priority 1: Combinations
 ```
 mystery > 65 AND tension > 65    ->  CLIMAX_REVELATION
 connection > 70 AND tension > 60 ->  EMOTIONAL_MOMENT
 ```
 
-### Prioridad 2: Individuales
+### Priority 2: Individuals
 ```
 saturation > 95                  ->  ARC_CLOSURE
 tension > 85                     ->  CLIMAX
@@ -48,21 +48,21 @@ chaos > 80                       ->  CHAOS_STORM
 saturation > 85                  ->  PLOT_TWIST
 tension < 15                     ->  DISRUPTIVE
 hope > 90                        ->  UNEXPECTED_THREAT
-rhythm > 90 (x3 turnos seguidos) ->  NARRATIVE_REST
+rhythm > 90 (x3 turns in a row)  ->  NARRATIVE_REST
 ```
 
-## Como funciona un evento forzado
+## How a Forced Event Works
 
-1. `DramaticEngine.evaluate_thresholds()` retorna `ForcedEventConstraint | None`
-2. Si hay constraint, se incluye en el `NarrativeContext` para la IA
-3. La IA recibe un **constraint obligatorio** en el system prompt
-4. El evento forzado se integra causalmente al DAG — no es una interrupcion externa, sino consecuencia formal de los eventos que elevaron el medidor
+1. `DramaticEngine.evaluate_thresholds()` returns a `ForcedEventConstraint | None`.
+2. If a constraint exists, it is appended to the `NarrativeContext` for the AI.
+3. The AI receives a **mandatory constraint instruction** in the system prompt.
+4. The forced event is integrated causally into the DAG — it is not an arbitrary external interruption, but a formal consequence of the events that elevated the meters.
 
-## Archivos clave
+## Key Files
 
 - `cne_core/engine/dramatic_engine.py` — `DramaticEngine`, `DramaticVector`, `ForcedEventConstraint`, `ForcedEventType`
-- `cne_core/models/event.py` — `DramaticDelta` (los deltas que cada evento aplica)
-- `cne_core/ai/context_builder.py` — Como se presenta el estado dramatico a la IA
+- `cne_core/models/event.py` — `DramaticDelta` (the deltas applied by each event)
+- `cne_core/ai/context_builder.py` — Formatting the dramatic state for the AI prompt
 
 ## DramaticDelta
 
@@ -78,4 +78,4 @@ class DramaticDelta:
     mystery: int = 0
 ```
 
-Cada evento narrativo puede incluir un `DramaticDelta` que modifica el vector. El motor aplica las interacciones automaticas despues.
+Each narrative event can include a `DramaticDelta` that mutates the vector. The engine automatically processes the cross-meter interactions and clamps the results afterwards.

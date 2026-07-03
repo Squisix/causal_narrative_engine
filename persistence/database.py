@@ -1,7 +1,7 @@
 """
-persistence/database.py — Configuración de SQLAlchemy 2.0 async
+persistence/database.py — SQLAlchemy 2.0 async configuration
 
-Define la base declarativa y la sesión async.
+Defines the declarative base and async session.
 """
 
 from contextlib import asynccontextmanager
@@ -13,9 +13,9 @@ import os
 
 class Base(DeclarativeBase):
     """
-    Base declarativa para todos los ORM models.
+    Declarative base for all ORM models.
 
-    Todos los modelos heredan de esto:
+    All models inherit from this:
         class WorldORM(Base):
             __tablename__ = "worlds"
             ...
@@ -25,9 +25,9 @@ class Base(DeclarativeBase):
 
 class DatabaseConfig:
     """
-    Configuración y factory de sesiones async.
+    Configuration and async session factory.
 
-    Uso:
+    Usage:
         config = DatabaseConfig("postgresql+asyncpg://user:pass@localhost/cne")
         async with config.get_session() as session:
             result = await session.execute(query)
@@ -36,30 +36,30 @@ class DatabaseConfig:
     def __init__(self, database_url: str, echo: bool = False):
         """
         Args:
-            database_url: URL de conexión. Ejemplos:
+            database_url: Connection URL. Examples:
                 - PostgreSQL: "postgresql+asyncpg://user:pass@localhost/cne"
                 - SQLite: "sqlite+aiosqlite:///./cne.db"
-            echo: Si True, loguea todas las queries SQL (útil para debug).
+            echo: If True, logs all SQL queries (useful for debug).
         """
         self.engine = create_async_engine(
             database_url,
             echo=echo,
-            pool_pre_ping=True,     # Verifica conexiones antes de usarlas
-            pool_size=10,           # Pool de conexiones
+            pool_pre_ping=True,     # Verify connections before using them
+            pool_size=10,           # Connection pool
             max_overflow=20,
         )
         self.async_session_maker = async_sessionmaker(
             self.engine,
             class_=AsyncSession,
-            expire_on_commit=False,  # No expira objetos después del commit
+            expire_on_commit=False,  # Do not expire objects after commit
         )
 
     @asynccontextmanager
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """
-        Context manager que retorna una sesión async.
+        Context manager that returns an async session.
 
-        Uso:
+        Usage:
             async with config.get_session() as session:
                 await session.execute(...)
                 await session.commit()
@@ -75,38 +75,38 @@ class DatabaseConfig:
 
     async def create_all_tables(self) -> None:
         """
-        Crea todas las tablas definidas en los ORM models.
+        Creates all tables defined in the ORM models.
 
-        SOLO usar en desarrollo/tests. En producción usar Alembic.
+        Only use in development/tests. In production use Alembic.
         """
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
     async def drop_all_tables(self) -> None:
         """
-        Borra todas las tablas. SOLO usar en tests.
+        Drops all tables. Only use in tests.
         """
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
 
     async def dispose(self) -> None:
-        """Cierra el engine y libera recursos."""
+        """Closes the engine and releases resources."""
         await self.engine.dispose()
 
 
 # ── Global Session Factory ────────────────────────────────────────────────────
 
-# Engine global (singleton)
+# Global engine (singleton)
 _global_engine = None
 _global_session_maker = None
 
 
 def get_engine():
-    """Obtiene o crea el engine global."""
+    """Gets or creates the global engine."""
     global _global_engine, _global_session_maker
 
     if _global_engine is None:
-        # Leer DATABASE_URL del entorno (seteado por .env)
+        # Read DATABASE_URL from environment (set by .env)
         database_url = os.getenv(
             "DATABASE_URL",
             "postgresql+asyncpg://cne_user:cne_password@localhost:5433/cne_db"
@@ -131,29 +131,29 @@ def get_engine():
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency para FastAPI que retorna una sesión async.
+    FastAPI dependency that returns an async session.
 
-    Maneja transacciones automáticamente:
-    - Commit al finalizar exitosamente
-    - Rollback en caso de excepción
+    Handles transactions automatically:
+    - Commits on successful completion
+    - Rolls back on exception
 
-    Uso en routers:
+    Usage in routers:
         @router.get("/endpoint")
         async def endpoint(session: AsyncSession = Depends(get_session)):
             result = await session.execute(...)
     """
-    # Asegurar que el engine esté creado
+    # Ensure the engine is created
     get_engine()
 
     async with _global_session_maker() as session:
         try:
             yield session
-            # Commit automático si todo salió bien
+            # Auto-commit if everything went well
             await session.commit()
         except Exception:
-            # Rollback en caso de error
+            # Rollback on error
             await session.rollback()
             raise
         finally:
-            # Cerrar la sesión
+            # Close the session
             await session.close()

@@ -1,10 +1,10 @@
 """
-persistence — Capa de persistencia para el CNE
+persistence — Persistence layer for the CNE
 
-Implementaciones concretas de NarrativeRepository usando SQLAlchemy 2.0 async.
+Concrete implementations of NarrativeRepository using SQLAlchemy 2.0 async.
 
-Estructura:
-- models/       ORM models (mapean dataclasses → tablas SQL)
-- repositories/ Implementaciones de NarrativeRepository
-- queries/      Queries complejas (CTE recursiva, topological order)
+Structure:
+- models/       ORM models (map dataclasses → SQL tables)
+- repositories/ NarrativeRepository implementations
+- queries/      Complex queries (recursive CTE, topological order)
 """

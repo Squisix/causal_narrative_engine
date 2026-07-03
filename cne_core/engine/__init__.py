@@ -1,10 +1,10 @@
 """
-cne_core/engine — Componentes del motor narrativo
+cne_core/engine — Narrative engine components
 
-El motor se compone de:
-- CausalValidator: Valida que el grafo de eventos sea un DAG sin ciclos
-- DramaticEngine: Gestiona el vector de 7 medidores y evalúa umbrales
-- StateMachine: Orquestador que coordina validación, estado y progresión
+The engine is composed of:
+- CausalValidator: Validates that the event graph is a cycle-free DAG
+- DramaticEngine: Manages the 7-meter vector and evaluates thresholds
+- StateMachine: Orchestrator that coordinates validation, state, and progression
 """
 
 from cne_core.engine.causal_validator import CausalValidator, CausalCycleError

@@ -1,7 +1,7 @@
 """
-persistence/queries — Queries complejas SQL
+persistence/queries — Complex SQL queries
 
-Queries que requieren CTEs recursivas, subqueries, o lógica avanzada.
+Queries that require recursive CTEs, subqueries, or advanced logic.
 """
 
 from persistence.queries.causal_queries import CausalGraphQueries

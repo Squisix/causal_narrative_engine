@@ -1,18 +1,18 @@
 """
 cne_core — Causal Narrative Engine Core
 
-El motor narrativo independiente. Puede usarse sin dependencias externas
-(Fase 1 en memoria) o con PostgreSQL (Fase 2).
+The standalone narrative engine. Can be used without external dependencies
+(Phase 1 in-memory) or with PostgreSQL (Phase 2).
 
-Exports principales:
+Main exports:
 - WorldDefinition, Entity, NarrativeTone
 - NarrativeEvent, EventType, DramaticDelta
 - NarrativeCommit, Branch
 - CausalValidator, DramaticEngine, StateMachine
 
 Interfaces:
-- NarrativeRepository (para persistencia)
-- AIAdapter (para generación narrativa)
+- NarrativeRepository (for persistence)
+- AIAdapter (for narrative generation)
 """
 
 __version__ = "0.3.0"

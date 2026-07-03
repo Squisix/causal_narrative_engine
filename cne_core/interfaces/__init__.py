@@ -1,11 +1,11 @@
 """
-cne_core/interfaces — Contratos públicos del motor
+cne_core/interfaces — Public contracts of the engine
 
-Estas son las interfaces que cualquier integrador externo debe implementar
-para conectar el CNE a su stack de persistencia y IA.
+These are the interfaces that any external integrator must implement
+to connect the CNE to their persistence and AI stack.
 
-El Core Engine SOLO conoce estas abstracciones, nunca implementaciones concretas.
-Eso es lo que hace el motor independiente y reutilizable.
+The Core Engine ONLY knows these abstractions, never concrete implementations.
+This is what makes the engine standalone and reusable.
 """
 
 from cne_core.interfaces.repository import NarrativeRepository

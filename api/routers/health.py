@@ -1,7 +1,7 @@
 """
 api/routers/health.py - Health check endpoints
 
-Endpoints para verificar el estado de la API.
+Endpoints to verify the API status.
 """
 
 from fastapi import APIRouter, Depends
@@ -23,13 +23,13 @@ async def health_check(settings: Settings = Depends(get_settings)):
     """
     Health check endpoint.
 
-    Verifica que la API esté funcionando.
+    Verifies that the API is running.
     """
     return HealthResponse(
         status="ok",
         version=settings.app_version,
         timestamp=datetime.now(),
-        database="not_implemented",  # Fase 2
+        database="not_implemented",  # Phase 2
         ai_adapter=settings.default_ai_adapter,
     )
 
@@ -39,7 +39,7 @@ async def get_stats(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Estadísticas del motor desde PostgreSQL.
+    Engine statistics from PostgreSQL.
     """
     stats = await service.get_global_stats()
 

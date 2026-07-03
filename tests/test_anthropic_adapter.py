@@ -1,18 +1,18 @@
 """
-tests/test_anthropic_adapter.py - Tests del AnthropicAdapter (REAL API)
+tests/test_anthropic_adapter.py - AnthropicAdapter Tests (REAL API)
 
-IMPORTANTE: Estos tests se conectan a la API de Anthropic y consumen tokens.
-No se ejecutan por defecto. Solo corren si:
+IMPORTANT: These tests connect to the Anthropic API and consume tokens.
+They do not run by default. They only run if:
 
-1. Tienes ANTHROPIC_API_KEY configurada
-2. Ejecutas: pytest -m anthropic_api
+1. You have ANTHROPIC_API_KEY configured
+2. You run: pytest -m anthropic_api
 
-Para configurar:
-    1. Copia .env.example a .env
-    2. Agrega tu API key real
-    3. Ejecuta: pytest -m anthropic_api -v
+To configure:
+    1. Copy .env.example to .env
+    2. Add your real API key
+    3. Run: pytest -m anthropic_api -v
 
-Costo estimado: ~$0.01 USD por ejecucion completa
+Estimated cost: ~$0.01 USD per full run
 """
 
 import pytest
@@ -24,29 +24,29 @@ from cne_core.interfaces.ai_adapter import NarrativeContext
 from adapters.anthropic_adapter import AnthropicAdapter
 
 
-# Marker personalizado para tests que requieren API key
+# Custom marker for tests that require an API key
 pytestmark = pytest.mark.anthropic_api
 
 
 def check_api_key():
-    """Verifica que la API key este configurada."""
+    """Verifies that the API key is configured."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         pytest.skip(
-            "ANTHROPIC_API_KEY no esta configurada. "
-            "Configura tu .env para ejecutar estos tests."
+            "ANTHROPIC_API_KEY is not configured. "
+            "Set up your .env to run these tests."
         )
     if api_key.startswith("sk-ant-api03-tu-api-key"):
         pytest.skip(
-            "ANTHROPIC_API_KEY es el valor de ejemplo. "
-            "Reemplazala con tu key real de Anthropic."
+            "ANTHROPIC_API_KEY is the example value. "
+            "Replace it with your real Anthropic key."
         )
     return api_key
 
 
 @pytest.fixture
 def sample_world():
-    """Mundo de prueba."""
+    """Test world."""
     lyra = Entity(
         name="Lyra",
         entity_type=EntityType.CHARACTER,
@@ -54,9 +54,9 @@ def sample_world():
     )
 
     return WorldDefinition(
-        name="Reino de Prueba",
-        context="Un reino medieval en crisis",
-        protagonist="Princesa Lyra",
+        name="Test Kingdom",
+        context="A medieval kingdom in crisis",
+        protagonist="Princess Lyra",
         era="Medieval",
         tone=NarrativeTone.DARK,
         initial_entities=[lyra],
@@ -65,18 +65,18 @@ def sample_world():
 
 @pytest.fixture
 def anthropic_adapter():
-    """AnthropicAdapter real."""
+    """Real AnthropicAdapter."""
     check_api_key()
     return AnthropicAdapter(
         temperature=0.7,
-        max_tokens=1024,  # Reducido para ahorrar costos en tests
+        max_tokens=1024,  # Reduced to save costs in tests
     )
 
 
 @pytest.mark.asyncio
 async def test_anthropic_basic_generation(sample_world, anthropic_adapter):
-    """Test: El AnthropicAdapter genera narrativa real."""
-    print("\n[TEST] Anthropic - Generacion basica (REAL API)")
+    """Test: The AnthropicAdapter generates real narrative."""
+    print("\n[TEST] Anthropic - Basic generation (REAL API)")
 
     context = NarrativeContext(
         world_definition=sample_world,
@@ -97,33 +97,33 @@ async def test_anthropic_basic_generation(sample_world, anthropic_adapter):
         forced_constraint=None,
     )
 
-    # Generar con Claude
+    # Generate with Claude
     proposal = await anthropic_adapter.generate_narrative(context)
 
-    # Verificar respuesta
+    # Verify response
     assert proposal is not None
     assert len(proposal.narrative_text) > 50
     assert len(proposal.choices) >= 2
     assert proposal.dramatic_delta is not None
 
-    print(f"  [OK] Narrativa generada: {len(proposal.narrative_text)} caracteres")
+    print(f"  [OK] Narrative generated: {len(proposal.narrative_text)} characters")
     print(f"  [OK] Choices: {len(proposal.choices)}")
-    print(f"  [OK] Ejemplo: {proposal.narrative_text[:100]}...")
+    print(f"  [OK] Example: {proposal.narrative_text[:100]}...")
 
-    # Verificar stats
+    # Verify stats
     stats = anthropic_adapter.get_stats()
     assert stats["total_calls"] == 1
     assert stats["total_tokens_used"] > 0
 
-    print(f"  [OK] Tokens usados: {stats['total_tokens_used']}")
+    print(f"  [OK] Tokens used: {stats['total_tokens_used']}")
 
 
 @pytest.mark.asyncio
 async def test_anthropic_with_player_choice(sample_world, anthropic_adapter):
-    """Test: Claude responde a decisiones del jugador."""
-    print("\n[TEST] Anthropic - Con decision de jugador (REAL API)")
+    """Test: Claude responds to player decisions."""
+    print("\n[TEST] Anthropic - With player decision (REAL API)")
 
-    player_choice = "Investigar el castillo de noche"
+    player_choice = "Investigate the castle at night"
 
     context = NarrativeContext(
         world_definition=sample_world,
@@ -147,18 +147,18 @@ async def test_anthropic_with_player_choice(sample_world, anthropic_adapter):
     proposal = await anthropic_adapter.generate_narrative(context)
 
     assert proposal is not None
-    # Claude deberia mencionar la decision en la narrativa o causal_reason
+    # Claude should mention the decision in the narrative or causal_reason
     text_to_check = (proposal.narrative_text + " " + proposal.causal_reason).lower()
-    assert "investig" in text_to_check or "castillo" in text_to_check or "noche" in text_to_check
+    assert "investig" in text_to_check or "castle" in text_to_check or "night" in text_to_check
 
-    print(f"  [OK] Claude incorporo la decision del jugador")
+    print(f"  [OK] Claude incorporated the player's decision")
     print(f"  [OK] Causal reason: {proposal.causal_reason[:80]}...")
 
 
 @pytest.mark.asyncio
 async def test_anthropic_validation(sample_world, anthropic_adapter):
-    """Test: Las respuestas de Claude pasan validacion."""
-    print("\n[TEST] Anthropic - Validacion de respuestas (REAL API)")
+    """Test: Claude's responses pass validation."""
+    print("\n[TEST] Anthropic - Response validation (REAL API)")
 
     context = NarrativeContext(
         world_definition=sample_world,
@@ -181,25 +181,25 @@ async def test_anthropic_validation(sample_world, anthropic_adapter):
 
     proposal = await anthropic_adapter.generate_narrative(context)
 
-    # Verificar que todos los campos sean validos
+    # Verify that all fields are valid
     assert 50 <= len(proposal.narrative_text) <= 2000
     assert 10 <= len(proposal.summary) <= 200
     assert 2 <= len(proposal.choices) <= 5
 
-    # Verificar deltas dramaticos en rango
+    # Verify dramatic deltas are in range
     delta = proposal.dramatic_delta
     assert -100 <= delta.tension <= 100
     assert -100 <= delta.hope <= 100
     assert -100 <= delta.chaos <= 100
 
-    print(f"  [OK] Respuesta valida y dentro de limites")
+    print(f"  [OK] Valid response within limits")
     print(f"  [OK] Dramatic deltas: T={delta.tension}, H={delta.hope}, C={delta.chaos}")
 
 
 @pytest.mark.asyncio
 async def test_anthropic_stats_tracking(sample_world, anthropic_adapter):
-    """Test: El adapter trackea estadisticas correctamente."""
-    print("\n[TEST] Anthropic - Tracking de estadisticas (REAL API)")
+    """Test: The adapter tracks statistics correctly."""
+    print("\n[TEST] Anthropic - Statistics tracking (REAL API)")
 
     context = NarrativeContext(
         world_definition=sample_world,
@@ -220,7 +220,7 @@ async def test_anthropic_stats_tracking(sample_world, anthropic_adapter):
         forced_constraint=None,
     )
 
-    # Generar 2 veces
+    # Generate 2 times
     await anthropic_adapter.generate_narrative(context)
     await anthropic_adapter.generate_narrative(context)
 
@@ -238,6 +238,6 @@ async def test_anthropic_stats_tracking(sample_world, anthropic_adapter):
 
 
 if __name__ == "__main__":
-    print("=== Tests de AnthropicAdapter (REAL API) ===\n")
-    print("ADVERTENCIA: Estos tests consumen tokens de Anthropic API")
-    print("Ejecuta con: pytest tests/test_anthropic_adapter.py -m anthropic_api -v\n")
+    print("=== AnthropicAdapter Tests (REAL API) ===\n")
+    print("WARNING: These tests consume Anthropic API tokens")
+    print("Run with: pytest tests/test_anthropic_adapter.py -m anthropic_api -v\n")

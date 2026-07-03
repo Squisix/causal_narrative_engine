@@ -1,14 +1,14 @@
 """
-adapters/mock_adapter.py - Mock AIAdapter para tests
+adapters/mock_adapter.py - Mock AIAdapter for tests
 
-Este adapter NO usa una IA real. Genera respuestas deterministas
-basadas en plantillas predefinidas.
+This adapter does NOT use a real AI. It generates deterministic responses
+based on predefined templates.
 
-Util para:
-- Tests que no requieren API keys
-- Desarrollo local sin costos de API
-- CI/CD que no tiene acceso a secrets
-- Validar el flujo del motor sin depender de IA externa
+Useful for:
+- Tests that do not require API keys
+- Local development without API costs
+- CI/CD that does not have access to secrets
+- Validating the engine flow without depending on external AI
 """
 
 import json
@@ -27,10 +27,10 @@ from cne_core.ai.response_schema import (
 
 class MockAdapter(AIAdapter):
     """
-    Mock AIAdapter que genera respuestas deterministas.
+    Mock AIAdapter that generates deterministic responses.
 
-    Las respuestas son genericas pero validas, y puedes controlar
-    su comportamiento con parametros.
+    Responses are generic but valid, and you can control
+    their behavior with parameters.
     """
 
     def __init__(
@@ -41,9 +41,9 @@ class MockAdapter(AIAdapter):
     ):
         """
         Args:
-            deterministic: Si True, siempre genera la misma respuesta para el mismo input.
-            seed: Semilla para generacion pseudoaleatoria (si no es deterministic).
-            force_errors: Si True, genera respuestas invalidas para testing.
+            deterministic: If True, always generates the same response for the same input.
+            seed: Seed for pseudorandom generation (if not deterministic).
+            force_errors: If True, generates invalid responses for testing.
         """
         self.deterministic = deterministic
         self.seed = seed
@@ -55,27 +55,27 @@ class MockAdapter(AIAdapter):
 
     async def generate_narrative(self, context: NarrativeContext) -> NarrativeProposal:
         """
-        Genera una narrativa mock basada en el contexto.
+        Generates a mock narrative based on the context.
 
-        La narrativa es generica pero coherente con el estado del mundo.
+        The narrative is generic but coherent with the state of the world.
         """
         self.call_count += 1
 
-        # Si estamos forzando errores, generar respuesta invalida
+        # If we are forcing errors, generate an invalid response
         if self.force_errors:
             return self._generate_invalid_response(context)
 
-        # Generar respuesta valida
+        # Generate valid response
         return self._generate_valid_response(context)
 
     def _generate_valid_response(self, context: NarrativeContext) -> NarrativeProposal:
-        """Genera una respuesta valida usando plantillas."""
+        """Generates a valid response using templates."""
 
-        # Determinar si es el inicio de la historia
+        # Determine if this is the start of the story
         is_start = context.current_depth == 0
         is_forced = context.forced_constraint is not None
 
-        # Plantillas de narrativa
+        # Narrative templates
         if is_start:
             narrative = self._generate_start_narrative(context)
         elif is_forced:
@@ -83,24 +83,24 @@ class MockAdapter(AIAdapter):
         else:
             narrative = self._generate_normal_narrative(context)
 
-        # Generar summary
+        # Generate summary
         summary = self._generate_summary(context, is_start, is_forced)
 
-        # Generar choices (2-4 opciones)
+        # Generate choices (2-4 options)
         num_choices = 3 if self.deterministic else random.randint(2, 4)
         choices, choice_previews = self._generate_choices(context, num_choices)
 
-        # Generar deltas dramaticos (basados en el contexto)
+        # Generate dramatic deltas (based on context)
         dramatic_deltas = self._generate_dramatic_deltas(context, is_forced)
 
-        # Entity y world deltas (vacios en el mock simple)
+        # Entity and world deltas (empty in the simple mock)
         entity_deltas = []
         world_deltas = []
 
         # Causal reason
         causal_reason = self._generate_causal_reason(context, is_start)
 
-        # Construir respuesta
+        # Build response
         response = NarrativeResponse(
             narrative=narrative,
             summary=summary,
@@ -114,7 +114,7 @@ class MockAdapter(AIAdapter):
             is_ending=False,
         )
 
-        # Convertir a NarrativeProposal
+        # Convert to NarrativeProposal
         entity_deltas_core, entity_creations_core, world_deltas_core, dramatic_delta_core, choices_core = response.to_core_models()
 
         return NarrativeProposal(
@@ -131,30 +131,30 @@ class MockAdapter(AIAdapter):
         )
 
     def _generate_start_narrative(self, context: NarrativeContext) -> str:
-        """Genera narrativa de inicio."""
+        """Generates start narrative."""
         world_name = context.world_definition.name
         protagonist = context.world_definition.protagonist
         tone = context.world_definition.tone.value
 
-        return f"""La historia de {world_name} comienza. {protagonist} se encuentra en un momento crucial. El ambiente es {tone}, y las decisiones que tome ahora determinaran el curso de los eventos venideros. Todo esta en calma, pero se siente la tension en el aire. Es el momento de actuar."""
+        return f"""The story of {world_name} begins. {protagonist} finds themselves at a crucial moment. The atmosphere is {tone}, and the decisions made now will determine the course of events to come. Everything is calm, but tension can be felt in the air. It is time to act."""
 
     def _generate_forced_narrative(self, context: NarrativeContext) -> str:
-        """Genera narrativa para evento forzado."""
+        """Generates narrative for a forced event."""
         event_type = context.forced_constraint.event_type.value
         description = context.forced_constraint.description
 
-        return f"""[EVENTO FORZADO: {event_type}] {description} La situacion ha alcanzado un punto critico. No hay vuelta atras. Los eventos que llevaron a este momento culminan ahora en una confrontacion directa con las fuerzas en juego. La tension es palpable, y las consecuencias de lo que suceda a continuacion resonaran a traves de toda la historia."""
+        return f"""[FORCED EVENT: {event_type}] {description} The situation has reached a critical point. There is no turning back. The events that led to this moment now culminate in a direct confrontation with the forces at play. The tension is palpable, and the consequences of what happens next will resonate throughout the entire story."""
 
     def _generate_normal_narrative(self, context: NarrativeContext) -> str:
-        """Genera narrativa normal."""
-        choice_text = context.player_choice if context.player_choice else "una decision"
+        """Generates normal narrative."""
+        choice_text = context.player_choice if context.player_choice else "a decision"
 
         narratives = [
-            f"""Habiendo elegido {choice_text}, los acontecimientos se desarrollan de forma inesperada. La decision tomada tiene ramificaciones que se extienden mas alla de lo inmediatamente visible. Nuevas oportunidades se abren, pero tambien nuevos peligros acechan en las sombras. Es momento de considerar cuidadosamente el proximo paso.""",
+            f"""Having chosen {choice_text}, events unfold in unexpected ways. The decision made has ramifications that extend beyond what is immediately visible. New opportunities open up, but new dangers also lurk in the shadows. It is time to carefully consider the next step.""",
 
-            f"""La eleccion de {choice_text} reverbera a traves de los eventos. Las consecuencias se manifiestan de formas sutiles y evidentes. Algunos caminos se cierran mientras otros se revelan. La historia avanza, llevando consigo el peso de las decisiones pasadas y la promesa de las futuras.""",
+            f"""The choice of {choice_text} reverberates through the events. The consequences manifest in both subtle and evident ways. Some paths close while others are revealed. The story moves forward, carrying with it the weight of past decisions and the promise of future ones.""",
 
-            f"""Tras {choice_text}, el mundo responde. Los ecos de esta accion se extienden, tocando vidas y alterando destinos. Lo que parecia claro ahora se torna complejo. Nuevas preguntas emergen, demandando atencion. El camino adelante requiere sabiduria y coraje.""",
+            f"""After {choice_text}, the world responds. The echoes of this action extend, touching lives and altering destinies. What seemed clear now becomes complex. New questions emerge, demanding attention. The path ahead requires wisdom and courage.""",
         ]
 
         if self.deterministic:
@@ -163,25 +163,25 @@ class MockAdapter(AIAdapter):
             return random.choice(narratives)
 
     def _generate_summary(self, context: NarrativeContext, is_start: bool, is_forced: bool) -> str:
-        """Genera un summary de 1 linea."""
+        """Generates a one-line summary."""
         if is_start:
-            return f"La historia de {context.world_definition.name} comienza."
+            return f"The story of {context.world_definition.name} begins."
 
         if is_forced:
             event_type = context.forced_constraint.event_type.value
-            return f"Evento forzado: {event_type} ocurre como consecuencia de las decisiones previas."
+            return f"Forced event: {event_type} occurs as a consequence of previous decisions."
 
-        choice = context.player_choice if context.player_choice else "una accion"
-        return f"Tras {choice}, nuevos eventos se desarrollan y opciones emergen."
+        choice = context.player_choice if context.player_choice else "an action"
+        return f"After {choice}, new events unfold and options emerge."
 
     def _generate_choices(self, context: NarrativeContext, num: int) -> tuple[list[str], list[ChoicePreview]]:
-        """Genera opciones y sus previews."""
+        """Generates choices and their previews."""
         choice_templates = [
-            ("Actuar con cautela y observar", 5, 5, 0, "cauteloso"),
-            ("Tomar accion directa e inmediata", 15, -5, 5, "confrontacional"),
-            ("Buscar aliados antes de proceder", 5, 10, -5, "diplomatico"),
-            ("Explorar alternativas no obvias", 10, 0, 10, "creativo"),
-            ("Esperar y recopilar mas informacion", -5, 5, -10, "paciente"),
+            ("Act with caution and observe", 5, 5, 0, "cautious"),
+            ("Take direct and immediate action", 15, -5, 5, "confrontational"),
+            ("Seek allies before proceeding", 5, 10, -5, "diplomatic"),
+            ("Explore non-obvious alternatives", 10, 0, 10, "creative"),
+            ("Wait and gather more information", -5, 5, -10, "patient"),
         ]
 
         selected = choice_templates[:num]
@@ -200,9 +200,9 @@ class MockAdapter(AIAdapter):
         return choices, previews
 
     def _generate_dramatic_deltas(self, context: NarrativeContext, is_forced: bool) -> DramaticDeltaDict:
-        """Genera deltas dramaticos basados en el contexto."""
+        """Generates dramatic deltas based on context."""
         if is_forced:
-            # Evento forzado: impacto grande
+            # Forced event: large impact
             event_type = context.forced_constraint.event_type.value
             if event_type == "CLIMAX":
                 return DramaticDeltaDict(tension=25, hope=-10, saturation=20)
@@ -211,7 +211,7 @@ class MockAdapter(AIAdapter):
             else:
                 return DramaticDeltaDict(tension=10, hope=-5, chaos=10)
         else:
-            # Evento normal: impacto moderado
+            # Normal event: moderate impact
             return DramaticDeltaDict(
                 tension=5,
                 hope=0,
@@ -220,25 +220,25 @@ class MockAdapter(AIAdapter):
             )
 
     def _generate_causal_reason(self, context: NarrativeContext, is_start: bool) -> str:
-        """Genera la razon causal."""
+        """Generates the causal reason."""
         if is_start:
-            return "Este es el evento inicial que establece el estado del mundo."
+            return "This is the initial event that establishes the state of the world."
 
         if context.player_choice:
-            return f"Este evento ocurre como consecuencia directa de la decision: {context.player_choice}"
+            return f"This event occurs as a direct consequence of the decision: {context.player_choice}"
 
-        return "Este evento es una continuacion natural de los acontecimientos previos."
+        return "This event is a natural continuation of previous events."
 
     def _generate_invalid_response(self, context: NarrativeContext) -> NarrativeProposal:
-        """Genera una respuesta invalida para testing de error handling."""
-        # Crear una respuesta invalida SIN usar Pydantic (para bypassear validacion)
-        # Esto simula lo que pasaria si la IA retorna JSON invalido
+        """Generates an invalid response for testing error handling."""
+        # Create an invalid response WITHOUT using Pydantic (to bypass validation)
+        # This simulates what would happen if the AI returns invalid JSON
         from cne_core.models.event import DramaticDelta
 
         return NarrativeProposal(
-            narrative_text="Muy corto",  # Demasiado corto, < 50 caracteres
-            summary="X",  # Demasiado corto, < 10 caracteres
-            choices=[],  # Sin choices (invalido)
+            narrative_text="Too short",  # Too short, < 50 characters
+            summary="X",  # Too short, < 10 characters
+            choices=[],  # No choices (invalid)
             entity_deltas=[],
             world_deltas=[],
             dramatic_delta=DramaticDelta(tension=0, hope=0, chaos=0),
@@ -249,16 +249,16 @@ class MockAdapter(AIAdapter):
 
     async def validate_response(self, raw_response: str) -> NarrativeProposal:
         """
-        Valida y parsea la respuesta (no usado en mock, siempre retorna mock data).
+        Validates and parses the response (not used in mock, always returns mock data).
 
-        En un adapter real, esto parsearia JSON y validaria con Pydantic.
-        En el mock, simplemente genera una respuesta mock.
+        In a real adapter, this would parse JSON and validate with Pydantic.
+        In the mock, it simply generates a mock response.
         """
-        # El mock no usa raw_response, genera directamente
-        # Este metodo existe solo para cumplir con la interfaz
+        # The mock does not use raw_response, it generates directly
+        # This method exists only to comply with the interface
         return await self._generate_valid_response(
             NarrativeContext(
-                world_definition=None,  # No usado en mock validation
+                world_definition=None,  # Not used in mock validation
                 current_depth=0,
                 current_dramatic_state={},
                 current_entity_states={},
@@ -270,7 +270,7 @@ class MockAdapter(AIAdapter):
         )
 
     def get_model_info(self) -> dict[str, str]:
-        """Retorna informacion del modelo (mock)."""
+        """Returns model information (mock)."""
         return {
             "provider": "Mock",
             "model": "Deterministic" if self.deterministic else "Random",
@@ -278,7 +278,7 @@ class MockAdapter(AIAdapter):
         }
 
     def get_stats(self) -> dict:
-        """Retorna estadisticas del mock adapter."""
+        """Returns mock adapter statistics."""
         return {
             "total_calls": self.call_count,
             "deterministic": self.deterministic,

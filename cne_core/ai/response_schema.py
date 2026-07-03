@@ -1,19 +1,19 @@
 """
-cne_core/ai/response_schema.py - Schema de respuesta de la IA
+cne_core/ai/response_schema.py - AI response schema
 
-Define el contrato JSON que la IA debe retornar usando Pydantic.
-Esto garantiza que las respuestas sean válidas y puedan ser procesadas
-por el motor sin errores.
+Defines the JSON contract that the AI must return using Pydantic.
+This guarantees that responses are valid and can be processed
+by the engine without errors.
 
-Ejemplo de respuesta esperada:
+Expected response example:
 {
-  "narrative": "Texto inmersivo de 150-250 palabras...",
-  "summary": "Resumen causal de 1 oracion",
-  "choices": ["opcion A", "opcion B", "opcion C"],
+  "narrative": "Immersive text of 150-250 words...",
+  "summary": "1-sentence causal summary",
+  "choices": ["option A", "option B", "option C"],
   "choice_dramatic_preview": [
-    {"choice": "opcion A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontacional"},
-    {"choice": "opcion B", "tension_delta": -5, "hope_delta": 5, "tone": "diplomatico"},
-    {"choice": "opcion C", "tension_delta": 5, "hope_delta": 10, "tone": "inesperado"}
+    {"choice": "option A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontational"},
+    {"choice": "option B", "tension_delta": -5, "hope_delta": 5, "tone": "diplomatic"},
+    {"choice": "option C", "tension_delta": 5, "hope_delta": 10, "tone": "unexpected"}
   ],
   "entity_deltas": [
     {"entity_id": "uuid", "entity_name": "Lyra", "attribute": "health", "old_value": 100, "new_value": 85}
@@ -25,7 +25,7 @@ Ejemplo de respuesta esperada:
     "tension": 15, "hope": -8, "chaos": 5,
     "rhythm": 0, "saturation": 8, "connection": -3, "mystery": 10
   },
-  "causal_reason": "Por que este evento ocurre dado el estado actual",
+  "causal_reason": "Why this event occurs given the current state",
   "forced_event_type": null,
   "is_ending": false
 }
@@ -37,10 +37,10 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 class DramaticDeltaDict(BaseModel):
     """
-    Cambios en el vector dramatico propuestos por la IA.
+    Changes in the dramatic vector proposed by the AI.
 
-    Cada valor debe estar en rango [-100, +100].
-    Un valor de 0 significa "sin cambio".
+    Each value must be in the range [-100, +100].
+    A value of 0 means "no change".
     """
     tension: int = Field(default=0, ge=-100, le=100)
     hope: int = Field(default=0, ge=-100, le=100)
@@ -51,7 +51,7 @@ class DramaticDeltaDict(BaseModel):
     mystery: int = Field(default=0, ge=-100, le=100)
 
     def to_dramatic_delta(self):
-        """Convierte a DramaticDelta del core."""
+        """Converts to core DramaticDelta."""
         from cne_core.models.event import DramaticDelta
         return DramaticDelta(
             tension=self.tension,
@@ -66,19 +66,19 @@ class DramaticDeltaDict(BaseModel):
 
 class EntityDeltaDict(BaseModel):
     """
-    Cambio en un atributo de una entidad.
+    Change in an attribute of an entity.
 
-    La IA debe especificar entity_id (UUID), entity_name (para validacion),
-    el atributo que cambia, y los valores old/new.
+    The AI must specify entity_id (UUID), entity_name (for validation),
+    the attribute that changes, and the old/new values.
     """
-    entity_id: str = Field(..., description="UUID de la entidad")
-    entity_name: str = Field(..., description="Nombre de la entidad (para validacion)")
-    attribute: str = Field(..., description="Nombre del atributo que cambia")
-    old_value: Any = Field(..., description="Valor anterior")
-    new_value: Any = Field(..., description="Nuevo valor")
+    entity_id: str = Field(..., description="Entity UUID")
+    entity_name: str = Field(..., description="Entity name (for validation)")
+    attribute: str = Field(..., description="Name of the attribute that changes")
+    old_value: Any = Field(..., description="Previous value")
+    new_value: Any = Field(..., description="New value")
 
     def to_entity_delta(self):
-        """Convierte a EntityDelta del core."""
+        """Converts to core EntityDelta."""
         from cne_core.models.event import EntityDelta
         return EntityDelta(
             entity_id=self.entity_id,
@@ -91,19 +91,19 @@ class EntityDeltaDict(BaseModel):
 
 class EntityCreationDict(BaseModel):
     """
-    Creacion de una nueva entidad propuesta por la IA.
+    Creation of a new entity proposed by the AI.
 
-    La IA especifica nombre, tipo y atributos iniciales.
-    El motor asigna el UUID y created_at_depth automaticamente.
+    The AI specifies name, type, and initial attributes.
+    The engine assigns the UUID and created_at_depth automatically.
     """
-    entity_name: str = Field(..., description="Nombre de la nueva entidad")
+    entity_name: str = Field(..., description="Name of the new entity")
     entity_type: str = Field(
         ...,
-        description="Tipo: character, faction, artifact, location"
+        description="Type: character, faction, artifact, location"
     )
     attributes: dict[str, Any] = Field(
         default_factory=dict,
-        description="Atributos iniciales (ej: {health: 100, possessed_by: null})"
+        description="Initial attributes (e.g., {health: 100, possessed_by: null})"
     )
 
     @field_validator('entity_type')
@@ -111,11 +111,11 @@ class EntityCreationDict(BaseModel):
     def validate_entity_type(cls, v):
         valid_types = {"character", "faction", "artifact", "location"}
         if v.lower() not in valid_types:
-            raise ValueError(f"entity_type debe ser uno de {valid_types}, recibido: '{v}'")
+            raise ValueError(f"entity_type must be one of {valid_types}, received: '{v}'")
         return v.lower()
 
     def to_entity_creation(self):
-        """Convierte a EntityCreation del core."""
+        """Converts to core EntityCreation."""
         from cne_core.models.event import EntityCreation
         return EntityCreation(
             entity_name=self.entity_name,
@@ -126,14 +126,14 @@ class EntityCreationDict(BaseModel):
 
 class WorldDeltaDict(BaseModel):
     """
-    Cambio en una variable global del mundo.
+    Change in a global world variable.
     """
-    variable: str = Field(..., description="Nombre de la variable")
-    old_value: Any = Field(..., description="Valor anterior")
-    new_value: Any = Field(..., description="Nuevo valor")
+    variable: str = Field(..., description="Variable name")
+    old_value: Any = Field(..., description="Previous value")
+    new_value: Any = Field(..., description="New value")
 
     def to_world_delta(self):
-        """Convierte a WorldVariableDelta del core."""
+        """Converts to core WorldVariableDelta."""
         from cne_core.models.event import WorldVariableDelta
         return WorldVariableDelta(
             variable=self.variable,
@@ -144,19 +144,19 @@ class WorldDeltaDict(BaseModel):
 
 class ChoicePreview(BaseModel):
     """
-    Preview del impacto dramatico estimado de una opcion.
+    Preview of the estimated dramatic impact of an option.
 
-    Esto ayuda al jugador a entender las consecuencias potenciales
-    de cada decision antes de tomarla.
+    This helps the player understand the potential consequences
+    of each decision before making it.
     """
-    choice: str = Field(..., description="Texto de la opcion")
-    tension_delta: int = Field(default=0, ge=-50, le=50, description="Cambio estimado en tension")
-    hope_delta: int = Field(default=0, ge=-50, le=50, description="Cambio estimado en esperanza")
-    chaos_delta: int = Field(default=0, ge=-50, le=50, description="Cambio estimado en caos")
-    tone: str = Field(default="neutral", description="Tono de la opcion (confrontacional, diplomatico, etc.)")
+    choice: str = Field(..., description="Option text")
+    tension_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in tension")
+    hope_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in hope")
+    chaos_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in chaos")
+    tone: str = Field(default="neutral", description="Tone of the option (confrontational, diplomatic, etc.)")
 
     def to_narrative_choice(self):
-        """Convierte a NarrativeChoice del core."""
+        """Converts to core NarrativeChoice."""
         from cne_core.models.commit import NarrativeChoice
         return NarrativeChoice(
             text=self.choice,
@@ -171,59 +171,59 @@ class ChoicePreview(BaseModel):
 
 class NarrativeResponse(BaseModel):
     """
-    Respuesta completa de la IA.
+    Complete AI response.
 
-    Este es el schema que la IA debe seguir obligatoriamente.
-    El ResponseValidator verificara que todo sea coherente antes
-    de aplicarlo al motor.
+    This is the schema that the AI must follow mandatorily.
+    The ResponseValidator will verify that everything is coherent before
+    applying it to the engine.
     """
-    # Narrativa
+    # Narrative
     narrative: str = Field(
         ...,
         min_length=50,
         max_length=2000,
-        description="Texto narrativo inmersivo (150-250 palabras recomendado)"
+        description="Immersive narrative text (150-250 words recommended)"
     )
 
     summary: str = Field(
         ...,
         min_length=10,
         max_length=200,
-        description="Resumen causal de 1 oracion para el tronco activo"
+        description="1-sentence causal summary for the active trunk"
     )
 
-    # Opciones del jugador
+    # Player options
     choices: list[str] = Field(
         ...,
         min_length=2,
         max_length=5,
-        description="Opciones disponibles para el jugador (2-5 opciones)"
+        description="Available options for the player (2-5 options)"
     )
 
     choice_dramatic_preview: list[ChoicePreview] = Field(
         default_factory=list,
-        description="Preview del impacto de cada opcion"
+        description="Preview of the impact of each option"
     )
 
-    # Deltas de estado
+    # State deltas
     entity_deltas: list[EntityDeltaDict] = Field(
         default_factory=list,
-        description="Cambios en entidades causados por este evento"
+        description="Entity changes caused by this event"
     )
 
     entity_creations: list[EntityCreationDict] = Field(
         default_factory=list,
-        description="Nuevas entidades creadas durante este evento"
+        description="New entities created during this event"
     )
 
     world_deltas: list[WorldDeltaDict] = Field(
         default_factory=list,
-        description="Cambios en variables globales del mundo"
+        description="Changes in global world variables"
     )
 
     dramatic_deltas: DramaticDeltaDict = Field(
         default_factory=DramaticDeltaDict,
-        description="Cambios en el vector dramatico"
+        description="Changes in the dramatic vector"
     )
 
     # Metadata
@@ -231,73 +231,73 @@ class NarrativeResponse(BaseModel):
         ...,
         min_length=10,
         max_length=500,
-        description="Por que este evento ocurre dado el estado actual"
+        description="Why this event occurs given the current state"
     )
 
     forced_event_type: Optional[str] = Field(
         default=None,
-        description="Si hay un evento forzado, su tipo (CLIMAX, TRAGEDY, etc.)"
+        description="If there is a forced event, its type (CLIMAX, TRAGEDY, etc.)"
     )
 
     is_ending: bool = Field(
         default=False,
-        description="¿Es este el final de la historia?"
+        description="Is this the end of the story?"
     )
 
     @field_validator('choice_dramatic_preview')
     @classmethod
     def validate_preview_matches_choices(cls, v, info):
-        """Verifica que haya un preview para cada choice."""
+        """Verifies that there is a preview for each choice."""
         if 'choices' in info.data:
             choices = info.data['choices']
             if len(v) > 0 and len(v) != len(choices):
                 raise ValueError(
-                    f"Debe haber {len(choices)} previews, uno por cada opcion. "
-                    f"Encontrados: {len(v)}"
+                    f"There must be {len(choices)} previews, one per option. "
+                    f"Found: {len(v)}"
                 )
-            # Verificar que los textos coincidan
+            # Verify that the texts match
             if v:
                 preview_texts = {p.choice for p in v}
                 choice_texts = set(choices)
                 if preview_texts != choice_texts:
                     raise ValueError(
-                        f"Los textos de las opciones no coinciden entre choices y preview"
+                        f"The option texts do not match between choices and preview"
                     )
         return v
 
     @field_validator('narrative')
     @classmethod
     def validate_narrative_length(cls, v):
-        """Verifica que la narrativa tenga una longitud razonable."""
+        """Verifies that the narrative has a reasonable length."""
         word_count = len(v.split())
         if word_count < 30:
             raise ValueError(
-                f"La narrativa es demasiado corta ({word_count} palabras). "
-                f"Minimo recomendado: 50 palabras."
+                f"The narrative is too short ({word_count} words). "
+                f"Minimum recommended: 50 words."
             )
         if word_count > 400:
             raise ValueError(
-                f"La narrativa es demasiado larga ({word_count} palabras). "
-                f"Maximo recomendado: 250 palabras."
+                f"The narrative is too long ({word_count} words). "
+                f"Maximum recommended: 250 words."
             )
         return v
 
     @field_validator('is_ending')
     @classmethod
     def validate_ending_has_no_choices(cls, v, info):
-        """Si es el final, no debe haber opciones."""
+        """If it is the ending, there should be no choices."""
         if v and 'choices' in info.data:
             choices = info.data['choices']
             if len(choices) > 0:
                 raise ValueError(
-                    "Si is_ending=true, no debe haber choices. "
-                    "El final no tiene mas decisiones."
+                    "If is_ending=true, there should be no choices. "
+                    "The ending has no more decisions."
                 )
         return v
 
     def to_core_models(self):
         """
-        Convierte la respuesta a los modelos del core.
+        Converts the response to core models.
 
         Returns:
             tuple: (entity_deltas, entity_creations, world_deltas, dramatic_delta, choices)
@@ -318,31 +318,31 @@ class NarrativeResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "narrative": "La sala del trono esta en silencio cuando Lyra recibe la noticia...",
-                "summary": "El rey Aldric muere misteriosamente. Lyra asume el trono.",
+                "narrative": "The throne room falls silent as Lyra receives the news...",
+                "summary": "King Aldric dies mysteriously. Lyra takes the throne.",
                 "choices": [
-                    "Confrontar a Malachar directamente",
-                    "Ordenar una investigacion secreta",
-                    "Aceptar la 'ayuda' de Malachar"
+                    "Confront Malachar directly",
+                    "Order a secret investigation",
+                    "Accept Malachar's 'help'"
                 ],
                 "choice_dramatic_preview": [
                     {
-                        "choice": "Confrontar a Malachar directamente",
+                        "choice": "Confront Malachar directly",
                         "tension_delta": 15,
                         "hope_delta": -5,
-                        "tone": "confrontacional"
+                        "tone": "confrontational"
                     },
                     {
-                        "choice": "Ordenar una investigacion secreta",
+                        "choice": "Order a secret investigation",
                         "tension_delta": 5,
                         "hope_delta": 5,
-                        "tone": "cauteloso"
+                        "tone": "cautious"
                     },
                     {
-                        "choice": "Aceptar la 'ayuda' de Malachar",
+                        "choice": "Accept Malachar's 'help'",
                         "tension_delta": -5,
                         "hope_delta": -10,
-                        "tone": "sumiso"
+                        "tone": "submissive"
                     }
                 ],
                 "entity_deltas": [],
@@ -356,7 +356,7 @@ class NarrativeResponse(BaseModel):
                     "connection": 5,
                     "mystery": 10
                 },
-                "causal_reason": "La muerte del rey es el evento desencadenante que inicia el conflicto",
+                "causal_reason": "The king's death is the triggering event that initiates the conflict",
                 "forced_event_type": None,
                 "is_ending": False
             }

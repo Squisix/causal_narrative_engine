@@ -1,8 +1,8 @@
 """
-cne_core/models — Dataclasses del dominio
+cne_core/models — Domain dataclasses
 
-Todos los modelos son dataclasses inmutables (excepto los atributos internos).
-Usan str para IDs (UUIDs serializables) y Enum para tipos.
+All models are immutable dataclasses (except for internal attributes).
+They use str for IDs (serializable UUIDs) and Enum for types.
 """
 
 from cne_core.models.world import WorldDefinition, Entity, EntityType, NarrativeTone

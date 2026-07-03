@@ -1,10 +1,10 @@
 """
-persistence/queries/causal_queries.py — Queries para el grafo causal
+persistence/queries/causal_queries.py — Queries for the causal graph
 
-La query más importante: validar que no existan ciclos en el DAG.
+The most important query: validate that no cycles exist in the DAG.
 
-Antes de insertar A→B, verificamos que NO exista un camino B→...→A.
-Esto se hace con una CTE recursiva.
+Before inserting A→B, we verify that a path B→...→A does NOT exist.
+This is done with a recursive CTE.
 """
 
 from sqlalchemy import text
@@ -14,9 +14,9 @@ from typing import List
 
 class CausalGraphQueries:
     """
-    Queries especializadas para el grafo causal.
+    Specialized queries for the causal graph.
 
-    Todas las queries son async y retornan resultados procesados.
+    All queries are async and return processed results.
     """
 
     @staticmethod
@@ -26,26 +26,26 @@ class CausalGraphQueries:
         to_event_id: str
     ) -> bool:
         """
-        Verifica si existe un camino causal de from_event_id a to_event_id.
+        Checks whether a causal path exists from from_event_id to to_event_id.
 
-        Usa una CTE recursiva para recorrer el grafo.
+        Uses a recursive CTE to traverse the graph.
 
-        Esta es la query que previene ciclos:
-        Antes de insertar A→B, llamamos a check_causal_path_exists(B, A).
-        Si retorna True, significa que ya existe B→...→A, y crear A→B
-        crearía un ciclo.
+        This is the query that prevents cycles:
+        Before inserting A→B, we call check_causal_path_exists(B, A).
+        If it returns True, it means B→...→A already exists, and creating A→B
+        would create a cycle.
 
         Args:
-            session: Sesión async de SQLAlchemy.
-            from_event_id: Evento inicial del camino.
-            to_event_id: Evento final que buscamos alcanzar.
+            session: SQLAlchemy async session.
+            from_event_id: Starting event of the path.
+            to_event_id: Target event we are trying to reach.
 
         Returns:
-            True si existe un camino, False si no.
+            True if a path exists, False otherwise.
         """
         query = text("""
             WITH RECURSIVE causal_path AS (
-                -- Caso base: empezamos desde from_event_id
+                -- Base case: start from from_event_id
                 SELECT
                     cause_event_id,
                     effect_event_id,
@@ -55,14 +55,14 @@ class CausalGraphQueries:
 
                 UNION
 
-                -- Caso recursivo: seguimos las aristas causales
+                -- Recursive case: follow causal edges
                 SELECT
                     e.cause_event_id,
                     e.effect_event_id,
                     p.depth + 1
                 FROM event_edges e
                 INNER JOIN causal_path p ON e.cause_event_id = p.effect_event_id
-                WHERE p.depth < 100  -- Límite de seguridad contra loops infinitos
+                WHERE p.depth < 100  -- Safety limit against infinite loops
             )
             SELECT 1
             FROM causal_path
@@ -83,21 +83,21 @@ class CausalGraphQueries:
         max_depth: int = 50
     ) -> List[str]:
         """
-        Retorna todos los ancestros causales de un evento.
+        Returns all causal ancestors of an event.
 
-        Ancestros = eventos que causaron este, directa o indirectamente.
+        Ancestors = events that caused this one, directly or indirectly.
 
         Args:
-            session: Sesión async.
-            event_id: Evento del cual buscar ancestros.
-            max_depth: Máxima profundidad de búsqueda.
+            session: Async session.
+            event_id: Event to find ancestors for.
+            max_depth: Maximum search depth.
 
         Returns:
-            Lista de event_ids ancestros, ordenados por topo_order.
+            List of ancestor event_ids, ordered by topo_order.
         """
         query = text("""
             WITH RECURSIVE ancestors AS (
-                -- Caso base: padres directos
+                -- Base case: direct parents
                 SELECT
                     e.cause_event_id AS ancestor_id,
                     1 AS depth
@@ -106,7 +106,7 @@ class CausalGraphQueries:
 
                 UNION
 
-                -- Caso recursivo: subir por el árbol
+                -- Recursive case: traverse up the tree
                 SELECT
                     e.cause_event_id,
                     a.depth + 1
@@ -132,21 +132,21 @@ class CausalGraphQueries:
         max_depth: int = 50
     ) -> List[str]:
         """
-        Retorna todos los descendientes causales de un evento.
+        Returns all causal descendants of an event.
 
-        Descendientes = eventos causados por este, directa o indirectamente.
+        Descendants = events caused by this one, directly or indirectly.
 
         Args:
-            session: Sesión async.
-            event_id: Evento del cual buscar descendientes.
-            max_depth: Máxima profundidad de búsqueda.
+            session: Async session.
+            event_id: Event to find descendants for.
+            max_depth: Maximum search depth.
 
         Returns:
-            Lista de event_ids descendientes.
+            List of descendant event_ids.
         """
         query = text("""
             WITH RECURSIVE descendants AS (
-                -- Caso base: hijos directos
+                -- Base case: direct children
                 SELECT
                     e.effect_event_id AS descendant_id,
                     1 AS depth
@@ -155,7 +155,7 @@ class CausalGraphQueries:
 
                 UNION
 
-                -- Caso recursivo: bajar por el árbol
+                -- Recursive case: traverse down the tree
                 SELECT
                     e.effect_event_id,
                     d.depth + 1
@@ -180,25 +180,25 @@ class CausalGraphQueries:
         world_id: str
     ) -> List[str]:
         """
-        Retorna todos los eventos de un mundo en orden topológico.
+        Returns all events in a world in topological order.
 
-        Orden topológico: si A causó B, entonces A aparece antes que B.
+        Topological order: if A caused B, then A appears before B.
 
-        Esto es útil para:
-        - Reconstruir el estado desde el inicio
-        - Exportar la historia completa
-        - Validar que el DAG es coherente
+        This is useful for:
+        - Reconstructing state from the beginning
+        - Exporting the complete story
+        - Validating that the DAG is coherent
 
         Args:
-            session: Sesión async.
-            world_id: Mundo del cual obtener eventos.
+            session: Async session.
+            world_id: World to get events for.
 
         Returns:
-            Lista de event_ids en orden topológico.
+            List of event_ids in topological order.
         """
         query = text("""
             WITH RECURSIVE topo_sort AS (
-                -- Caso base: eventos raíz (sin padres)
+                -- Base case: root events (no parents)
                 SELECT
                     e.id AS event_id,
                     0 AS level
@@ -213,7 +213,7 @@ class CausalGraphQueries:
 
                 UNION
 
-                -- Caso recursivo: eventos con todos sus padres ya procesados
+                -- Recursive case: events with all their parents already processed
                 SELECT
                     e.id,
                     ts.level + 1
@@ -237,12 +237,12 @@ class CausalGraphQueries:
         world_id: str
     ) -> dict:
         """
-        Estadísticas del grafo causal para un mundo.
+        Statistics for the causal graph of a world.
 
-        Útil para el paper y para debugging.
+        Useful for the paper and for debugging.
 
         Returns:
-            Dict con: total_events, total_edges, avg_causes_per_event,
+            Dict with: total_events, total_edges, avg_causes_per_event,
                       root_events, leaf_events
         """
         query = text("""

@@ -1,33 +1,32 @@
 """
-engine/causal_validator.py — El guardián de la causalidad
+engine/causal_validator.py — The guardian of causality
 
-Esta es la pieza más importante del motor desde el punto de vista
-formal. Garantiza que el grafo de eventos sea siempre un DAG
-(Directed Acyclic Graph — Grafo Dirigido Acíclico).
+This is the most important component of the engine from a formal standpoint.
+It guarantees that the event graph is always a DAG (Directed Acyclic Graph).
 
-¿Por qué importa?
-- Sin esto, un evento podría ser su propia causa: A → B → A
-- Eso crearía paradojas narrativas (el rey muere porque murió)
-- El motor perdería la propiedad de reconstrucción determinista
+Why does it matter?
+- Without this, an event could be its own cause: A → B → A
+- That would create narrative paradoxes (e.g., the king dies because he died)
+- The engine would lose its deterministic reconstruction property
 
-Algoritmo: DFS (Depth-First Search) para detectar ciclos.
-Si al añadir la arista A→B ya existe un camino B→...→A,
-la arista se rechaza y se lanza CausalCycleError.
+Algorithm: DFS (Depth-First Search) to detect cycles.
+If adding the edge A→B already has a path B→...→A,
+the edge is rejected and a CausalCycleError is raised.
 
-Complejidad: O(V + E) donde V = eventos, E = aristas causales.
-Para historias típicas (< 1000 eventos), esto es instantáneo.
+Complexity: O(V + E) where V = events, E = causal edges.
+For typical stories (< 1000 events), this is instantaneous.
 """
 
 from collections import defaultdict, deque
 from cne_core.models.event import CausalEdge, CausalRelationType
 
 
-# ── Excepciones ───────────────────────────────────────────────────────────────
+# ── Exceptions ────────────────────────────────────────────────────────────────
 
 class CausalCycleError(Exception):
     """
-    Se lanza cuando intentar añadir una arista crearía un ciclo.
-    Incluye el camino del ciclo para facilitar el debugging.
+    Raised when attempting to add an edge would create a cycle.
+    Includes the cycle path to facilitate debugging.
     """
     def __init__(self, cause_id: str, effect_id: str, cycle_path: list[str]):
         self.cause_id  = cause_id
@@ -35,13 +34,13 @@ class CausalCycleError(Exception):
         self.cycle_path = cycle_path
         path_str = " -> ".join(p[:8] + "..." for p in cycle_path)
         super().__init__(
-            f"Ciclo causal detectado: aniadir {cause_id[:8]}->{effect_id[:8]} "
-            f"crearia el ciclo: {path_str}"
+            f"Causal cycle detected: adding {cause_id[:8]}->{effect_id[:8]} "
+            f"would create the cycle: {path_str}"
         )
 
 
 class EventNotFoundError(Exception):
-    """Se lanza cuando se referencia un evento que no existe en el grafo."""
+    """Raised when referencing an event that does not exist in the graph."""
     pass
 
 
@@ -49,46 +48,46 @@ class EventNotFoundError(Exception):
 
 class CausalValidator:
     """
-    Mantiene el grafo causal y valida su propiedad DAG.
+    Maintains the causal graph and validates its DAG property.
 
-    El grafo se almacena en memoria como lista de adyacencia.
-    En la Fase 2, esto se reemplazará por consultas a PostgreSQL,
-    pero la interface permanece igual gracias al Repository pattern.
+    The graph is stored in memory as an adjacency list.
+    In Phase 2, this will be replaced with PostgreSQL queries,
+    but the interface remains the same thanks to the Repository pattern.
 
-    Uso típico:
+    Typical usage:
         validator = CausalValidator()
-        validator.add_event("evento-1")
-        validator.add_event("evento-2")
-        validator.add_edge("evento-1", "evento-2")  # OK
-        validator.add_edge("evento-2", "evento-1")  # → CausalCycleError!
+        validator.add_event("event-1")
+        validator.add_event("event-2")
+        validator.add_edge("event-1", "event-2")  # OK
+        validator.add_edge("event-2", "event-1")  # → CausalCycleError!
     """
 
     def __init__(self):
-        # Lista de adyacencia: event_id → lista de IDs de eventos causados
-        # defaultdict(list) retorna [] automáticamente para claves nuevas
+        # Adjacency list: event_id → list of caused event IDs
+        # defaultdict(list) automatically returns [] for new keys
         self._adjacency: dict[str, list[str]] = defaultdict(list)
 
-        # Set de todos los eventos conocidos
+        # Set of all known events
         self._events: set[str] = set()
 
-        # Lista de aristas para persistencia y análisis
+        # List of edges for persistence and analysis
         self._edges: list[CausalEdge] = []
 
-        # Orden topológico asignado a cada evento
+        # Topological order assigned to each event
         self._topo_order: dict[str, int] = {}
         self._next_topo: int = 0
 
-    # ── Gestión de eventos ────────────────────────────────────────────────────
+    # ── Event Management ──────────────────────────────────────────────────────
 
     def add_event(self, event_id: str) -> int:
         """
-        Registra un nuevo evento en el grafo.
+        Registers a new event in the graph.
 
-        Retorna el topo_order asignado. Este número siempre será
-        mayor que el de todos sus futuros padres causales.
+        Returns the assigned topo_order. This number will always be
+        greater than that of all its future causal parents.
 
         Returns:
-            int: El orden topológico asignado al evento.
+            int: The topological order assigned to the event.
         """
         if event_id not in self._events:
             self._events.add(event_id)
@@ -99,7 +98,7 @@ class CausalValidator:
     def event_exists(self, event_id: str) -> bool:
         return event_id in self._events
 
-    # ── Gestión de aristas ────────────────────────────────────────────────────
+    # ── Edge Management ───────────────────────────────────────────────────────
 
     def add_edge(
         self,
@@ -109,46 +108,46 @@ class CausalValidator:
         strength:  float = 1.0,
     ) -> CausalEdge:
         """
-        Añade una arista causal cause → effect al grafo.
+        Adds a causal edge cause → effect to the graph.
 
-        Antes de añadirla, verifica que no crea un ciclo usando DFS.
-        Si hay ciclo, lanza CausalCycleError con la ruta del ciclo.
+        Before adding it, verifies that it does not create a cycle using DFS.
+        If a cycle is detected, raises CausalCycleError with the cycle path.
 
         Args:
-            cause_id:  ID del evento que causa.
-            effect_id: ID del evento causado.
-            relation:  Tipo de relación causal.
-            strength:  Intensidad de la relación [0.0 - 1.0].
+            cause_id:  ID of the causing event.
+            effect_id: ID of the caused event.
+            relation:  Type of causal relation.
+            strength:  Intensity of the relation [0.0 - 1.0].
 
         Returns:
-            CausalEdge: La arista creada.
+            CausalEdge: The created edge.
 
         Raises:
-            EventNotFoundError: Si algún evento no está registrado.
-            CausalCycleError:   Si la arista crearía un ciclo.
+            EventNotFoundError: If any event is not registered.
+            CausalCycleError:   If the edge would create a cycle.
         """
-        # Validar que ambos eventos existen
+        # Validate that both events exist
         for eid in (cause_id, effect_id):
             if not self.event_exists(eid):
                 raise EventNotFoundError(
-                    f"Evento {eid[:8]}... no registrado en el grafo causal. "
-                    f"Llama add_event() primero."
+                    f"Event {eid[:8]}... not registered in the causal graph. "
+                    f"Call add_event() first."
                 )
 
-        # Verificar que la arista no ya existe
+        # Verify that the edge does not already exist
         if effect_id in self._adjacency[cause_id]:
-            # Arista duplicada: la ignoramos silenciosamente
+            # Duplicate edge: ignore silently
             return self._get_existing_edge(cause_id, effect_id)
 
-        # ── PUNTO CRÍTICO: detección de ciclos ────────────────────────────────
-        # Pregunta: ¿existe ya un camino de effect_id → cause_id?
-        # Si sí, añadir cause_id → effect_id crearía un ciclo.
+        # ── CRITICAL POINT: cycle detection ───────────────────────────────────
+        # Question: does a path from effect_id → cause_id already exist?
+        # If so, adding cause_id → effect_id would create a cycle.
         cycle_path = self._find_path(effect_id, cause_id)
         if cycle_path is not None:
             raise CausalCycleError(cause_id, effect_id, cycle_path)
         # ─────────────────────────────────────────────────────────────────────
 
-        # Si llegamos aquí, la arista es segura
+        # If we reach here, the edge is safe
         self._adjacency[cause_id].append(effect_id)
 
         edge = CausalEdge(
@@ -159,8 +158,8 @@ class CausalValidator:
         )
         self._edges.append(edge)
 
-        # Actualizar topo_order del efecto si es necesario
-        # El efecto debe tener topo_order > que su causa
+        # Update the effect's topo_order if necessary
+        # The effect must have a topo_order > than its cause
         cause_order  = self._topo_order.get(cause_id, 0)
         effect_order = self._topo_order.get(effect_id, 0)
         if effect_order <= cause_order:
@@ -168,10 +167,10 @@ class CausalValidator:
 
         return edge
 
-    # ── Queries del grafo ─────────────────────────────────────────────────────
+    # ── Graph Queries ─────────────────────────────────────────────────────────
 
     def get_causes(self, event_id: str) -> list[str]:
-        """¿Qué eventos causaron este evento? (aristas entrantes)"""
+        """Which events caused this event? (incoming edges)"""
         return [
             edge.cause_event_id
             for edge in self._edges
@@ -179,14 +178,14 @@ class CausalValidator:
         ]
 
     def get_effects(self, event_id: str) -> list[str]:
-        """¿Qué eventos fueron causados por este evento? (aristas salientes)"""
+        """Which events were caused by this event? (outgoing edges)"""
         return self._adjacency.get(event_id, []).copy()
 
     def get_all_ancestors(self, event_id: str) -> set[str]:
         """
-        Retorna todos los ancestros causales de un evento.
-        Útil para verificar coherencia: si el ancestro X ocurrió,
-        todas las precondiciones de event_id están satisfechas.
+        Returns all causal ancestors of an event.
+        Useful for verifying consistency: if ancestor X occurred,
+        all preconditions of event_id are satisfied.
         """
         ancestors: set[str] = set()
         queue = deque(self.get_causes(event_id))
@@ -200,14 +199,14 @@ class CausalValidator:
         return ancestors
 
     def get_topo_order(self, event_id: str) -> int:
-        """Retorna el orden topológico asignado al evento."""
+        """Returns the topological order assigned to the event."""
         return self._topo_order.get(event_id, -1)
 
     def is_dag(self) -> bool:
         """
-        Verifica que el grafo completo sea un DAG.
-        Útil para tests y para el paper (demostración formal).
-        Usa coloración de nodos: blanco→gris→negro.
+        Verifies that the complete graph is a DAG.
+        Useful for tests and for the paper (formal demonstration).
+        Uses node coloring: white→gray→black.
         """
         WHITE, GRAY, BLACK = 0, 1, 2
         color = {eid: WHITE for eid in self._events}
@@ -216,7 +215,7 @@ class CausalValidator:
             color[node] = GRAY
             for neighbor in self._adjacency.get(node, []):
                 if color[neighbor] == GRAY:
-                    return False   # ciclo detectado
+                    return False   # cycle detected
                 if color[neighbor] == WHITE:
                     if not dfs(neighbor):
                         return False
@@ -229,10 +228,10 @@ class CausalValidator:
             if color[node] == WHITE
         )
 
-    # ── Stats para el paper ───────────────────────────────────────────────────
+    # ── Paper Stats ───────────────────────────────────────────────────────────
 
     def get_stats(self) -> dict:
-        """Estadísticas del grafo para métricas del paper."""
+        """Graph statistics for paper metrics."""
         return {
             "total_events": len(self._events),
             "total_edges":  len(self._edges),
@@ -245,22 +244,22 @@ class CausalValidator:
             ),
         }
 
-    # ── Helpers privados ──────────────────────────────────────────────────────
+    # ── Private Helpers ───────────────────────────────────────────────────────
 
     def _find_path(self, start: str, target: str) -> list[str] | None:
         """
-        BFS para encontrar si existe un camino de start → target.
+        BFS to find if a path exists from start → target.
 
-        Si existe, retorna la ruta (para mostrar en el error).
-        Si no existe, retorna None.
+        If it exists, returns the path (to display in the error).
+        If it does not exist, returns None.
 
-        Usamos BFS (Breadth-First Search) porque retorna el camino
-        más corto, lo que hace el mensaje de error más legible.
+        We use BFS (Breadth-First Search) because it returns the shortest
+        path, making the error message more readable.
         """
         if start == target:
             return [start]
 
-        # queue contiene (nodo_actual, camino_hasta_aquí)
+        # queue contains (current_node, path_so_far)
         queue: deque[tuple[str, list[str]]] = deque([(start, [start])])
         visited: set[str] = {start}
 
@@ -269,17 +268,17 @@ class CausalValidator:
 
             for neighbor in self._adjacency.get(current, []):
                 if neighbor == target:
-                    return path + [neighbor]   # ¡Encontrado!
+                    return path + [neighbor]   # Found!
 
                 if neighbor not in visited:
                     visited.add(neighbor)
                     queue.append((neighbor, path + [neighbor]))
 
-        return None   # No hay camino
+        return None   # No path found
 
     def _get_existing_edge(self, cause_id: str, effect_id: str) -> CausalEdge:
-        """Recupera una arista existente."""
+        """Retrieves an existing edge."""
         for edge in self._edges:
             if edge.cause_event_id == cause_id and edge.effect_event_id == effect_id:
                 return edge
-        raise EventNotFoundError("Arista no encontrada")
+        raise EventNotFoundError("Edge not found")

@@ -1,34 +1,34 @@
 """
-adapters/ - Implementaciones de AIAdapter
+adapters/ - AIAdapter implementations
 
-Este paquete contiene implementaciones concretas de la interfaz AIAdapter
-para diferentes proveedores de IA.
+This package contains concrete implementations of the AIAdapter interface
+for different AI providers.
 
-Implementaciones disponibles:
-- MockAdapter: Para tests sin API key
+Available implementations:
+- MockAdapter: For tests without API key
 - AnthropicAdapter: Claude (Anthropic)
-- OpenAIAdapter: GPT (OpenAI) - opcional
+- OpenAIAdapter: GPT (OpenAI) - optional
 """
 
 from adapters.mock_adapter import MockAdapter
 
 __all__ = ["MockAdapter"]
 
-# AnthropicAdapter se importa solo si anthropic esta instalado
+# AnthropicAdapter is imported only if anthropic is installed
 try:
     from adapters.anthropic_adapter import AnthropicAdapter
     __all__.append("AnthropicAdapter")
 except ImportError:
     pass
 
-# OllamaAdapter se importa solo si httpx esta instalado
+# OllamaAdapter is imported only if httpx is installed
 try:
     from adapters.ollama_adapter import OllamaAdapter
     __all__.append("OllamaAdapter")
 except ImportError:
     pass
 
-# OpenAIAdapter se importa solo si openai esta instalado
+# OpenAIAdapter is imported only if openai is installed
 try:
     from adapters.openai_adapter import OpenAIAdapter
     __all__.append("OpenAIAdapter")

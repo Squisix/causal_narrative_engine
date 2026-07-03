@@ -1,10 +1,10 @@
-"""Initial schema for CNE Fase 2
+"""Initial schema for CNE Phase 2
 
 Revision ID: 001_initial_schema
 Revises:
 Create Date: 2026-03-06
 
-Crea todas las tablas del CNE con sus índices y constraints.
+Creates all CNE tables with their indexes and constraints.
 """
 from typing import Sequence, Union
 
@@ -29,8 +29,8 @@ def upgrade() -> None:
         sa.Column('protagonist', sa.Text, nullable=False),
         sa.Column('era', sa.String(200), nullable=False),
         sa.Column('tone', sa.String(50), nullable=False),
-        sa.Column('antagonist', sa.Text, default='desconocido'),
-        sa.Column('rules', sa.Text, default='El mundo sigue sus propias leyes'),
+        sa.Column('antagonist', sa.Text, default='unknown'),
+        sa.Column('rules', sa.Text, default='The world follows its own laws'),
         sa.Column('constraints', sa.JSON, default=list),
         sa.Column('dramatic_config', sa.JSON, nullable=False),
         sa.Column('max_depth', sa.Integer, default=0),
@@ -60,7 +60,7 @@ def upgrade() -> None:
         sa.Column('world_id', sa.String(36), nullable=False),
         sa.Column('origin_commit_id', sa.String(36), nullable=False),
         sa.Column('leaf_commit_id', sa.String(36), nullable=True),
-        sa.Column('name', sa.String(200), default='Rama principal'),
+        sa.Column('name', sa.String(200), default='Main branch'),
         sa.Column('description', sa.Text, default=''),
         sa.Column('created_at', sa.DateTime, nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['world_id'], ['worlds.id'], ondelete='CASCADE'),
@@ -123,7 +123,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['cause_event_id'], ['events.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['effect_event_id'], ['events.id'], ondelete='CASCADE'),
     )
-    # ÍNDICES CRÍTICOS para queries causales (CTEs recursivas)
+    # CRITICAL INDEXES for causal queries (recursive CTEs)
     op.create_index('idx_edges_cause', 'event_edges', ['cause_event_id'])
     op.create_index('idx_edges_effect', 'event_edges', ['effect_event_id'])
     op.create_index('idx_edges_both', 'event_edges', ['cause_event_id', 'effect_event_id'], unique=True)
@@ -173,7 +173,7 @@ def upgrade() -> None:
         sa.Column('trigger_meter', sa.String(50), nullable=True),
         sa.Column('created_at', sa.DateTime, nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(['commit_id'], ['commits.id'], ondelete='CASCADE'),
-        # Constraints para validar rango [0-100]
+        # Constraints to validate range [0-100]
         sa.CheckConstraint('tension >= 0 AND tension <= 100', name='check_tension_range'),
         sa.CheckConstraint('hope >= 0 AND hope <= 100', name='check_hope_range'),
         sa.CheckConstraint('chaos >= 0 AND chaos <= 100', name='check_chaos_range'),
@@ -185,7 +185,7 @@ def upgrade() -> None:
     op.create_index('idx_dramatic_commit', 'dramatic_states', ['commit_id'])
     op.create_index('idx_dramatic_forced', 'dramatic_states', ['forced_event'], postgresql_where=sa.text('forced_event IS NOT NULL'))
 
-    # ── Dramatic Deltas (para el paper) ────────────────────────────────────────
+    # ── Dramatic Deltas (for the paper) ─────────────────────────────────────────
     op.create_table(
         'dramatic_deltas',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
@@ -201,7 +201,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Borrar en orden inverso (respetando foreign keys)
+    # Drop in reverse order (respecting foreign keys)
     op.drop_table('dramatic_deltas')
     op.drop_table('dramatic_states')
     op.drop_table('world_variable_deltas')

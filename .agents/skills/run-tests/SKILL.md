@@ -1,52 +1,52 @@
 ---
 name: run-tests
-description: Como ejecutar los tests del proyecto CNE
-trigger: Cuando el usuario pida correr tests, verificar que algo funciona, o antes de commit
+description: How to run CNE project tests
+trigger: When the user requests running tests, verifying work, or before committing
 ---
 
-# Ejecutar Tests — Causal Narrative Engine
+# Running Tests — Causal Narrative Engine
 
-## Tests disponibles
+## Available Tests
 
-| Archivo | Requiere | Que testea |
-|---------|----------|------------|
-| `tests/test_fase1.py` | Nada | Core Engine: DAG, SDMM, StateMachine, P1-P4 |
-| `tests/test_adapters.py` | Nada | MockAdapter, integracion engine, entity creation, 5-tuple |
-| `tests/test_api.py` | Docker + PostgreSQL | API REST completa (17 tests) |
-| `tests/test_persistence_integration.py` | Docker + PostgreSQL | PostgreSQLRepository |
-| `tests/test_anthropic_adapter.py` | ANTHROPIC_API_KEY | Generacion real con Claude (cuesta dinero) |
+| File | Requires | What It Tests |
+|------|----------|---------------|
+| `tests/test_fase1.py` | Nothing | Core Engine: DAG, SDMM, StateMachine, P1-P4 |
+| `tests/test_adapters.py` | Nothing | MockAdapter, engine integration, entity creation, 5-tuple |
+| `tests/test_api.py` | Docker + PostgreSQL | Full REST API (17 tests) |
+| `tests/test_persistence_integration.py` | Docker + PostgreSQL | PostgreSQLRepository integration |
+| `tests/test_anthropic_adapter.py` | ANTHROPIC_API_KEY | Real generation with Claude (consumes credits) |
 
-## Comandos
+## Commands
 
-### Rapido (sin dependencias externas)
+### Fast (No External Dependencies)
 
 ```bash
-pytest tests/test_fase1.py tests/test_adapters.py -v
+python -m pytest tests/test_fase1.py tests/test_adapters.py -v
 ```
 
-### Con Docker (API + persistencia)
+### With Docker (API + Persistence)
 
 ```bash
 docker-compose up -d
 alembic upgrade head
-pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
-### Sin API key de Anthropic
+### Without Anthropic API Key
 
 ```bash
-pytest -m "not anthropic_api" -v
+python -m pytest -m "not anthropic_api" -v
 ```
 
-### Coverage
+### Code Coverage
 
 ```bash
-pytest --cov=cne_core --cov=adapters --cov-report=html -v
+python -m pytest --cov=cne_core --cov=adapters --cov-report=html -v
 ```
 
-## Notas importantes
+## Important Notes
 
-- `conftest.py` tiene fixtures compartidos para PostgreSQL sessions
-- Los tests de API usan `httpx.AsyncClient` con `ASGITransport`
-- **CRITICO**: Todos los POST a `/advance` deben incluir `"adapter_type": "mock"` en el body JSON. Si no se pasa, defaultea a `"ollama"` y los tests fallan por timeout intentando conectar a Ollama local.
-- Los tests de Anthropic se skipean automaticamente si no hay API key configurada
+- `conftest.py` contains shared fixtures for PostgreSQL database sessions.
+- API tests utilize `httpx.AsyncClient` with `ASGITransport`.
+- **CRITICAL**: By default, `/advance` requests use `"adapter_type": "mock"`. If you want to use external local models during testing, pass `"adapter_type": "ollama"` explicitly.
+- Anthropic integration tests are skipped automatically if the API key is not configured in the environment.

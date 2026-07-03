@@ -1,61 +1,58 @@
-# Causal Narrative Engine (CNE) — Arbol Literario
+# Causal Narrative Engine (CNE) — Literary Tree
 
-> Lee esto antes de tocar cualquier archivo de codigo.
-> Skills disponibles en `.agents/skills/` para referencia detallada.
-
----
-
-## Que es este proyecto
-
-Un **motor narrativo independiente** basado en causalidad formal para generar
-historias ramificadas con IA manteniendo coherencia verificable. El motor es
-un framework reutilizable que cualquier proyecto puede integrar — un juego,
-una herramienta de escritura, una API, o un pipeline de generacion de contenido.
-
-**El motor es el producto.** Los clientes son responsabilidad del integrador.
-
-Objetivos:
-1. **Motor independiente**: `pip install cne-core` y funciona. Sin acoplamientos.
-2. **Extensible por diseno**: interfaces abstractas (ABC) para persistencia y IA.
-3. **Paper academico**: publicar en AIIDE / IEEE CoG.
+> Read this before modifying any source code.
+> Available skills are in `.agents/skills/` for detailed reference.
 
 ---
 
-## Modelo Formal
+## What is this Project
+
+An **independent narrative engine** based on formal causality for generating branching stories with AI while maintaining verifiable coherence. The engine is a reusable framework that any project can integrate — a game, a writing tool, an API, or a content generation pipeline.
+
+**The engine is the product.** Client integrations are the responsibility of the integrator.
+
+Goals:
+1. **Independent Engine**: `pip install cne-core` and it works. No coupling to clients.
+2. **Extensible by Design**: abstract interfaces (ABCs) for persistence and AI.
+3. **Academic Paper**: publish at AIIDE / IEEE CoG.
+
+---
+
+## Formal Model
 
 ```
 CNE = (W, E, S, D, T, C, Phi)
 ```
 
-| Simbolo | Nombre | Descripcion |
-|---------|--------|-------------|
-| `W` | WorldDefinition | Semilla inmutable: genero, tono, reglas, restricciones |
-| `E` | Event Space | Todos los eventos narrativos posibles |
+| Symbol | Name | Description |
+|--------|------|-------------|
+| `W` | WorldDefinition | Immutable Seed: genre, tone, rules, constraints |
+| `E` | Event Space | All possible narrative events |
 | `S(t)` | Narrative State | `(Entities(t), EntityCreations(t), WorldVars(t), D(t), History(t))` |
 | `D(t)` | Dramatic Vector | `(tension, hope, chaos, rhythm, saturation, connection, mystery) in [0,100]^7` |
-| `T` | Transition Function | `S(t+1) = T(S(t), choice, proposal_IA)` |
-| `C` | Causal Graph | DAG dirigido de eventos. Sin ciclos. |
-| `Phi` | Dramatic Function | Evalua umbrales de D(t) -> ForcedEventConstraint | None |
+| `T` | Transition Function | `S(t+1) = T(S(t), choice, AI_proposal)` |
+| `C` | Causal Graph | Directed Acyclic Graph (DAG) of events. No cycles. |
+| `Phi` | Dramatic Function | Evaluates D(t) thresholds -> ForcedEventConstraint | None |
 
-**4 propiedades garantizadas:**
-- **P1 Causalidad**: el grafo de eventos es siempre un DAG (sin ciclos)
-- **P2 Determinismo**: `S(t)` es reconstruible desde snapshots + deltas
-- **P3 Versionado**: cada decision = commit con parent_id (arbol Git-like)
-- **P4 Consistencia**: entidades muertas no actuan, variables en rango valido
+**4 guaranteed properties:**
+- **P1 Causality**: The event graph is always a DAG (Acyclic).
+- **P2 Determinism**: `S(t)` is fully reconstructible from snapshots + deltas.
+- **P3 Versioning**: Every choice = commit with parent_id (Git-like tree).
+- **P4 Consistency**: Dead entities cannot act, variables remain in valid range.
 
 ---
 
-## Arquitectura
+## Architecture
 
 ```
 +------------------------------------------------------+
-|              Cualquier cliente externo               |
-|   (juego, API, CLI, herramienta de escritura, etc.)  |
+|               Any External Client                    |
+|   (game, API, CLI, writer tool, etc.)                |
 +---------------------+--------------------------------+
                       | import cne_core  /  HTTP  /  SDK
 +---------------------v--------------------------------+
-|            FastAPI REST  [COMPLETADO]                |
-|    api/ — NarrativeServiceV2 + routers              |
+|            FastAPI REST API  [COMPLETED]             |
+|    api/ — NarrativeServiceV2 + routers               |
 +---------------------+--------------------------------+
                       |
 +---------------------v--------------------------------+
@@ -65,34 +62,34 @@ CNE = (W, E, S, D, T, C, Phi)
 +----------+------------------------------+-----------+
            |                              |
 +----------v----------+      +-----------v------------+
-|  Persistence Layer  |      |      AI Adapter          |
-|                     |      |                          |
-|  Interface ABC      |      |  Interface ABC           |
-|  PostgreSQL [OK]    |      |  Anthropic [OK]          |
-|  Redis Cache [OK]   |      |  Ollama [OK]             |
-|                     |      |  Mock [OK]               |
-+---------------------+      +--------------------------+
+|  Persistence Layer  |      |      AI Adapter        |
+|                     |      |                        |
+|  Interface ABC      |      |  Interface ABC         |
+|  PostgreSQL [OK]    |      |  Anthropic [OK]        |
+|  Redis Cache [OK]   |      |  Ollama [OK]           |
+|                     |      |  Mock [OK]             |
++---------------------+      +------------------------+
 ```
 
-**Principio clave**: la coherencia es propiedad estructural del motor, NO del LLM.
-La IA propone. El motor valida y decide.
+**Key Principle**: Coherence is a structural property of the engine, NOT of the LLM.
+The AI proposes. The engine validates and decides.
 
 ---
 
-## Estado del Proyecto
+## Project Status
 
-| Fase | Estado | Descripcion |
-|------|--------|-------------|
-| Fase 1 | COMPLETADA | Core Engine en memoria (sin dependencias) |
-| Fase 2 | COMPLETADA | Persistencia PostgreSQL + SQLAlchemy async |
-| Fase 3 | COMPLETADA | AI Adapter (Anthropic + Ollama + Mock) |
-| Fase 4 | COMPLETADA | FastAPI REST API |
-| Fase 5 | Pendiente | Release publico en PyPI |
-| Fase 6 | Pendiente | Paper academico |
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | COMPLETED | Memory-only Core Engine (no external dependencies) |
+| Phase 2 | COMPLETED | PostgreSQL persistence + async SQLAlchemy |
+| Phase 3 | COMPLETED | AI Adapter (Anthropic + Ollama + Mock) |
+| Phase 4 | COMPLETED | FastAPI REST API |
+| Phase 5 | Pending | Public PyPI release |
+| Phase 6 | Pending | Academic paper publication |
 
 ---
 
-## Estructura del Proyecto
+## Directory Structure
 
 ```
 cne_core/                          # Core Engine
@@ -102,124 +99,124 @@ cne_core/                          # Core Engine
 │   │                              # WorldVariableDelta, DramaticDelta
 │   └── commit.py                  # NarrativeCommit, Branch, NarrativeChoice
 ├── engine/
-│   ├── causal_validator.py        # CausalValidator: deteccion de ciclos DAG (BFS)
-│   ├── dramatic_engine.py         # DramaticEngine: SDMM completo con Phi
-│   └── state_machine.py           # StateMachine: orquestador en memoria
+│   ├── causal_validator.py        # CausalValidator: DAG cycle detection (BFS)
+│   ├── dramatic_engine.py         # DramaticEngine: Complete SDMM with Phi
+│   └── state_machine.py           # StateMachine: in-memory state orchestrator
 ├── interfaces/
 │   ├── repository.py              # NarrativeRepository ABC
 │   └── ai_adapter.py              # AIAdapter ABC + NarrativeContext/NarrativeProposal
 └── ai/
-    ├── context_builder.py         # ContextBuilder: tronco activo para LLMs
+    ├── context_builder.py         # ContextBuilder: active context trunk builder for LLMs
     ├── response_schema.py         # NarrativeResponse (Pydantic) + to_core_models()
-    └── response_validator.py      # Validacion del JSON de la IA
+    └── response_validator.py      # JSON schema and rule validation for AI proposals
 
-adapters/                          # Implementaciones de AIAdapter
-├── mock_adapter.py                # MockAdapter: determinista, para tests
-├── anthropic_adapter.py           # AnthropicAdapter: Claude API
-└── ollama_adapter.py              # OllamaAdapter: LLMs locales gratuitos
+adapters/                          # AIAdapter Implementations
+├── mock_adapter.py                # MockAdapter: deterministic for fast unit testing
+├── anthropic_adapter.py           # AnthropicAdapter: Claude API integration
+└── ollama_adapter.py              # OllamaAdapter: local open-source LLMs (gemma, llama)
 
-persistence/                       # Persistencia PostgreSQL y Cache
+persistence/                       # PostgreSQL Persistence & Caching
 ├── database.py                    # DatabaseConfig, async session factory
-├── cache.py                       # CacheBackend (RedisCache, NullCache) para optimización
+├── cache.py                       # CacheBackend (RedisCache, NullCache) for optimization
 ├── models/
 │   ├── world_orm.py               # WorldORM, EntityORM
 │   ├── event_orm.py               # EventORM, EntityDeltaORM, EntityCreationORM
 │   └── commit_orm.py              # CommitORM, BranchORM, ChoiceORM, DramaticStateORM
 ├── repositories/
-│   └── postgresql_repository.py   # PostgreSQLRepository
+│   └── postgresql_repository.py   # PostgreSQLRepository implementation
 └── queries/
-    └── causal_queries.py          # CTE recursiva para validacion causal en SQL
+    └── causal_queries.py          # CTE recursive query for causal path database verification
 
 api/                               # FastAPI REST API
-├── main.py                        # App FastAPI con routers
-├── config.py                      # Configuracion del servidor
-├── dependencies.py                # Inyeccion de dependencias
+├── main.py                        # FastAPI startup with routers
+├── config.py                      # Global environment settings
+├── dependencies.py                # Dependency injection providers
 ├── routers/
-│   ├── worlds.py                  # CRUD de mundos
-│   ├── narrative.py               # start, advance, goto, commits
-│   └── health.py                  # Health check
+│   ├── worlds.py                  # World CRUD endpoints
+│   ├── narrative.py               # start, advance, goto, commits endpoints
+│   └── health.py                  # Server health check
 ├── services/
-│   └── narrative_service_v2.py    # Orquestador con persistencia
+│   └── narrative_service_v2.py    # Service orchestrator connecting Core and DB
 └── models/
     ├── requests.py                # Pydantic request schemas
     └── responses.py               # Pydantic response schemas
 
-cli/                               # CLI interactivo
-migrations/                        # Alembic (4 migraciones)
-tests/                             # Tests
-web/                               # Interfaz web (en desarrollo)
+cli/                               # CLI interactive player
+migrations/                        # Alembic DB migrations
+tests/                             # Automated test suites
+web/                               # Web UI for playing and analyzing games
 ```
 
 ---
 
-## Contrato JSON de la IA
+## AI JSON Contract
 
-La IA debe retornar este JSON (validado por ResponseValidator):
+The AI must return the following JSON structure (validated by ResponseValidator):
 
 ```json
 {
-  "narrative": "Texto inmersivo 150-250 palabras",
-  "summary": "Resumen causal de 1 oracion para el tronco",
-  "choices": ["opcion A", "opcion B", "opcion C"],
+  "narrative": "Immersive narrative text of 150-250 words",
+  "summary": "1-sentence causal summary of this chapter for the history trunk",
+  "choices": ["option A", "option B", "option C"],
   "choice_dramatic_preview": [
-    { "choice": "opcion A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontacional" }
+    { "choice": "option A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontational" }
   ],
   "entity_deltas": [{"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}],
   "entity_creations": [
-    {"entity_name": "Nombre", "entity_type": "character|artifact|faction|location",
-     "attributes": {"health": 100, "possessed_by": null, "location": "lugar", "usable": true, "effect": "desc"}}
+    {"entity_name": "Name", "entity_type": "character|artifact|faction|location",
+     "attributes": {"health": 100, "possessed_by": null, "location": "place", "usable": true, "effect": "description"}}
   ],
   "world_deltas": [{"variable": "political_stability", "old_value": 60, "new_value": 48}],
   "dramatic_deltas": {
     "tension": 15, "hope": -8, "chaos": 5,
     "rhythm": 0, "saturation": 8, "connection": -3, "mystery": 10
   },
-  "causal_reason": "Por que este evento ocurre dado el estado actual",
+  "causal_reason": "Why this event occurs given the current state",
   "forced_event_type": null,
   "is_ending": false
 }
 ```
 
-`to_core_models()` retorna **5-tuple**:
+`to_core_models()` returns a **5-tuple**:
 ```python
 entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 ```
 
 ---
 
-## API REST Endpoints
+## REST API Endpoints
 
 ```
-POST   /worlds                       # Crear WorldDefinition
-GET    /worlds/{world_id}            # Obtener mundo
-DELETE /worlds/{world_id}            # Eliminar mundo
-POST   /worlds/{world_id}/start      # Iniciar historia
-GET    /worlds/{world_id}/commits    # Listar commits
-POST   /commits/{commit_id}/advance  # Tomar decision
-GET    /commits/{commit_id}          # Estado de un commit
-GET    /commits/{commit_id}/dramatic # Vector dramatico
-POST   /commits/{commit_id}/goto     # Navegar a commit anterior
-GET    /health                       # Estado del servidor
+POST   /worlds                       # Create WorldDefinition
+GET    /worlds/{world_id}            # Retrieve world metadata
+DELETE /worlds/{world_id}            # Delete world and all branches
+POST   /worlds/{world_id}/start      # Start story on a world seed
+GET    /worlds/{world_id}/commits    # List commits for world
+POST   /commits/{commit_id}/advance  # Advance story with a decision
+GET    /commits/{commit_id}          # Retrieve state of a commit
+GET    /commits/{commit_id}/dramatic # Get dramatic vector details
+POST   /commits/{commit_id}/goto     # Jump/rewind to a previous commit
+GET    /health                       # Get server health status
 ```
 
 ---
 
-## Convenciones de Codigo
+## Coding Conventions
 
-### Nombrado
-- **Clases**: PascalCase (`NarrativeCommit`, `DramaticEngine`)
-- **Metodos/variables**: snake_case (`advance_story`, `current_commit_id`)
-- **Constantes/enums**: UPPER_SNAKE o PascalCase para Enum
-- **IDs**: siempre `str` (UUID serializable)
+### Naming
+- **Classes**: PascalCase (`NarrativeCommit`, `DramaticEngine`)
+- **Methods/variables**: snake_case (`advance_story`, `current_commit_id`)
+- **Constants/enums**: UPPER_SNAKE or PascalCase for Enums
+- **IDs**: always `str` (serializable UUIDs)
 
-### Patrones
-- **Dataclasses** para modelos de dominio (`@dataclass`)
-- **`str` + `Enum`** para enums (serializables a JSON)
-- **`field(default_factory=...)`** para defaults mutables
-- **`ABC`** para interfaces (Repository, AIAdapter) — no implementar en Core
-- **Async** en persistence/api — el Core Engine es sincrono
+### Patterns
+- **Dataclasses** for domain models (`@dataclass`)
+- **`str` + `Enum`** for enums to ensure direct JSON serializability
+- **`field(default_factory=...)`** for mutable dataclass defaults
+- **`ABC`** for abstract interfaces (Repository, AIAdapter) — keep core free from database logic
+- **Async** in persistence/api layers — the Core Engine remains completely synchronous
 
-### Errores
+### Custom Exceptions
 ```python
 class CausalCycleError(Exception): ...
 class EventNotFoundError(Exception): ...
@@ -228,48 +225,45 @@ class ValidationError(Exception): ...
 
 ---
 
-## Implementaciones Incluidas
+## Included Implementations
 
-| Componente | Implementacion | Cuando usar |
-|------------|---------------|-------------|
-| Repository | `PostgreSQLRepository` | Produccion y tests de integracion |
-| Cache | `RedisCache` | Caching de trunks, mundos y choices en producción (opcional) |
-| Cache | `NullCache` | Caché no-op si Redis no está configurado (fallback automático) |
-| AIAdapter | `MockAdapter` | Tests sin API key (determinista) |
-| AIAdapter | `AnthropicAdapter` | Produccion con Claude |
-| AIAdapter | `OllamaAdapter` | LLMs locales gratuitos (gemma3, llama, etc.) |
+| Component | Implementation | When to Use |
+|-----------|----------------|-------------|
+| Repository | `PostgreSQLRepository` | Production and integration tests |
+| Cache | `RedisCache` | Redis-backed caching for trunks, worlds, and choices in production |
+| Cache | `NullCache` | No-op caching fallback when Redis is unconfigured |
+| AIAdapter | `MockAdapter` | Fast, deterministic mock AI for testing without API keys |
+| AIAdapter | `AnthropicAdapter` | Production deployment using Claude models |
+| AIAdapter | `OllamaAdapter` | Local open-source LLMs (gemma, llama) |
 
 ---
 
-## Comandos Utiles
+## Useful Commands
 
 ```bash
-# Core Engine (sin dependencias)
-python tests/test_fase1.py
+# Core Engine memory tests
+python -m pytest tests/test_fase1.py tests/test_adapters.py -v
 
-# Todos los tests (requiere Docker + PostgreSQL)
+# Full suite (requires Docker + PostgreSQL)
 docker-compose up -d
 alembic upgrade head
 pytest tests/ -v
 
-# Tests sin Docker (solo core + adapters)
-pytest tests/test_fase1.py tests/test_adapters.py -v
-
-# Levantar API REST
+# Run FastAPI Server
 uvicorn api.main:app --reload --port 8000
 ```
 
 ---
 
-## Notas Criticas
+## Critical Design Mandates
 
-- **No usar `vitality`** — fue reemplazado por `DramaticVector`.
-- **`StateMachine` es sincrono** — la capa async vive en `NarrativeServiceV2`.
-- **El Core Engine nunca importa de `persistence/`** — la dependencia va en direccion opuesta.
-- **La IA nunca modifica directamente el estado** — siempre propone, el motor valida.
-- **`go_to_commit()` restaura desde snapshots** — limpia `self._entities` y reconstruye completamente.
-- **Entity creation va ANTES de entity deltas** — para que los deltas referencien entidades nuevas.
-- **`to_core_models()` retorna 5 valores** — todos los adapters hacen unpacking de 5.
-- **`AdvanceNarrativeRequest` defaults a `adapter_type="ollama"`** — los tests deben pasar `adapter_type: "mock"`.
-- **No acoplar el core a ningun cliente** — si requiere importar FastAPI o Flutter, es un error.
-- **Redis Cache es opcional** — si `REDIS_URL` no está configurado o falla, se utiliza `NullCache` de fallback y la aplicación sigue funcionando de forma normal y silenciosa.
+- **Do not use `vitality`** — replaced entirely by `DramaticVector`.
+- **`StateMachine` is synchronous** — async mechanics belong exclusively in `NarrativeServiceV2`.
+- **The Core Engine never imports from `persistence/`** — dependencies always flow inwards.
+- **The AI never mutates state directly** — it proposes deltas, and the engine validates and applies them.
+- **`go_to_commit()` restores from snapshots** — clears `self._entities` and rebuilds the state.
+- **Entity creations run BEFORE entity deltas** — allowing deltas to reference newly introduced entities.
+- **`to_core_models()` returns a 5-tuple** — all adapters unpack exactly 5 variables.
+- **`AdvanceNarrativeRequest` defaults to `adapter_type="mock"`** — safe and fast by default.
+- **Do not couple the Core Engine to specific clients** — importing FastAPI or Flutter in core is a structural error.
+- **Redis Cache is optional** — if `REDIS_URL` is unconfigured, `NullCache` is used and the app functions normally.

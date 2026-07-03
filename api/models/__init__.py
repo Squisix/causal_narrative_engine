@@ -1,7 +1,7 @@
 """
 api/models - Request/Response schemas
 
-Schemas de Pydantic para validación automática de la API.
+Pydantic schemas for automatic API validation.
 """
 
 from api.models.requests import (

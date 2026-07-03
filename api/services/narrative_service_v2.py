@@ -1,8 +1,8 @@
 """
-api/services/narrative_service_v2.py - Servicio con persistencia PostgreSQL
+api/services/narrative_service_v2.py - Service with PostgreSQL persistence
 
-Versión integrada con Fase 2 (PostgreSQL).
-Reemplaza a narrative_service.py que usaba solo memoria.
+Version integrated with Phase 2 (PostgreSQL).
+Replaces narrative_service.py which used only in-memory storage.
 """
 
 from typing import Optional
@@ -15,41 +15,41 @@ from cne_core.interfaces.ai_adapter import NarrativeContext, AIAdapter
 from cne_core.interfaces.repository import NarrativeRepository
 from persistence.cache import CacheBackend, NullCache
 
-# Cache de engines a nivel de módulo (persiste entre requests HTTP)
+# Module-level engine cache (persists between HTTP requests)
 _engine_cache: dict[str, StateMachine] = {}
 
 
 class NarrativeServiceV2:
     """
-    Servicio de narrativa con persistencia PostgreSQL.
+    Narrative service with PostgreSQL persistence.
 
-    Persiste todos los mundos/commits en PostgreSQL,
-    soporta navegación de branches y estadísticas.
+    Persists all worlds/commits in PostgreSQL,
+    supports branch navigation and statistics.
     """
 
     def __init__(self, repository: NarrativeRepository, cache: CacheBackend | None = None):
         """
         Args:
-            repository: Implementación de NarrativeRepository (ej: PostgreSQLRepository)
-            cache: Backend de cache (Redis o NullCache). None = sin cache.
+            repository: NarrativeRepository implementation (e.g., PostgreSQLRepository)
+            cache: Cache backend (Redis or NullCache). None = no cache.
         """
         self.repo = repository
         self.cache: CacheBackend = cache or NullCache()
 
-        # Cache de choices por commit (per-request, para evitar doble query)
+        # Per-request choices cache by commit (to avoid double queries)
         self._commit_choices: dict[str, list[NarrativeChoice]] = {}
 
-        # Cache de forced event type por commit
+        # Forced event type cache by commit
         self._commit_forced_event: dict[str, str | None] = {}
 
     # ── World management ──────────────────────────────────────────────────────
 
     async def save_world(self, world: WorldDefinition) -> None:
-        """Guarda un mundo en PostgreSQL."""
+        """Saves a world to PostgreSQL."""
         await self.repo.save_world(world)
 
     async def get_world(self, world_id: str) -> Optional[WorldDefinition]:
-        """Obtiene un mundo desde cache o PostgreSQL."""
+        """Gets a world from cache or PostgreSQL."""
         cached = await self.cache.get_world(world_id)
         if cached:
             return cached
@@ -60,9 +60,9 @@ class NarrativeServiceV2:
 
     async def delete_world(self, world_id: str) -> bool:
         """
-        Elimina un mundo y todos sus commits/eventos (cascade).
+        Deletes a world and all its commits/events (cascade).
 
-        Retorna True si se eliminó, False si no existía.
+        Returns True if deleted, False if it did not exist.
         """
         deleted = await self.repo.delete_world(world_id)
 
@@ -81,23 +81,23 @@ class NarrativeServiceV2:
         adapter: AIAdapter,
     ) -> NarrativeCommit:
         """
-        Inicia una nueva narrativa en un mundo.
+        Starts a new narrative in a world.
 
         Args:
-            world_id: ID del mundo
-            adapter: AI adapter a usar (mock/anthropic)
+            world_id: World ID
+            adapter: AI adapter to use (mock/anthropic)
 
         Returns:
-            Primer commit de la narrativa
+            First commit of the narrative
         """
         world = await self.get_world(world_id)
         if not world:
             raise ValueError(f"World not found: {world_id}")
 
-        # Crear o recuperar engine
+        # Create or retrieve engine
         engine = await self._get_or_create_engine(world_id)
 
-        # Crear contexto inicial
+        # Create initial context
         context = NarrativeContext(
             world_definition=world,
             current_depth=0,
@@ -117,10 +117,10 @@ class NarrativeServiceV2:
             forced_constraint=None,
         )
 
-        # Generar narrativa con IA
+        # Generate narrative with AI
         proposal = await adapter.generate_narrative(context)
 
-        # Aplicar al engine
+        # Apply to engine
         result = engine.start(
             initial_narrative=proposal.narrative_text,
             initial_choices=proposal.choices,
@@ -129,10 +129,10 @@ class NarrativeServiceV2:
             causal_reason=proposal.causal_reason,
         )
 
-        # Extraer commit
+        # Extract commit
         commit = result.commit
 
-        # Crear y persistir branch si es el primer commit
+        # Create and persist branch if this is the first commit
         if commit.depth == 0:
             from cne_core.models.commit import Branch
             branch = Branch(
@@ -145,10 +145,10 @@ class NarrativeServiceV2:
             )
             await self.repo.save_branch(branch)
 
-        # Persistir commit en DB
+        # Persist commit in DB
         await self.repo.save_commit(commit)
 
-        # Persistir evento y datos relacionados
+        # Persist event and related data
         await self._persist_result(result)
 
         return commit
@@ -161,54 +161,54 @@ class NarrativeServiceV2:
         custom_choice: bool = False,
     ) -> NarrativeCommit:
         """
-        Avanza la narrativa tomando una decisión.
+        Advances the narrative by making a decision.
 
         Args:
-            commit_id: ID del commit actual
-            choice: Texto de la opción elegida
-            adapter: AI adapter a usar
+            commit_id: Current commit ID
+            choice: Text of the chosen option
+            adapter: AI adapter to use
 
         Returns:
-            Nuevo commit
+            New commit
         """
-        # Obtener commit actual
+        # Get current commit
         commit = await self.repo.get_commit(commit_id)
         if not commit:
             raise ValueError(f"Commit not found: {commit_id}")
 
-        # Obtener world
+        # Get world
         world = await self.get_world(commit.world_id)
         if not world:
             raise ValueError(f"World not found: {commit.world_id}")
 
-        # Obtener/crear engine
+        # Get/create engine
         engine = await self._get_or_create_engine(commit.world_id)
 
-        # Verificar que la choice es válida (skip para opciones custom del jugador)
+        # Verify the choice is valid (skip for custom player choices)
         if not custom_choice:
             commit_choices = await self.get_commit_choices(commit_id)
             valid_choices = [c.text for c in commit_choices]
             if choice not in valid_choices:
                 raise ValueError(f"Invalid choice. Valid: {valid_choices}")
 
-        # Si ya existe un hijo con esta misma choice, navegar a él en vez de crear uno nuevo
+        # If a child with this same choice already exists, navigate to it instead of creating a new one
         existing_children = await self.repo.get_children_commits(commit_id)
         for child in existing_children:
             if child.choice_text == choice:
                 engine.go_to_commit(child.id)
                 return child
 
-        # Obtener trunk (cache-aside: Redis → PostgreSQL)
+        # Get trunk (cache-aside: Redis -> PostgreSQL)
         trunk = await self.cache.get_trunk(commit_id)
         if not trunk:
             trunk = await self.repo.get_trunk(commit_id, max_depth=20)
             if trunk:
                 await self.cache.set_trunk(commit_id, trunk)
 
-        # Evaluar umbrales dramáticos
+        # Evaluate dramatic thresholds
         forced_constraint = engine._dramatic_engine.evaluate_thresholds()
 
-        # Crear contexto
+        # Create context
         context = NarrativeContext(
             world_definition=world,
             current_depth=commit.depth + 1,
@@ -220,10 +220,10 @@ class NarrativeServiceV2:
             forced_constraint=forced_constraint,
         )
 
-        # Generar narrativa con IA
+        # Generate narrative with AI
         proposal = await adapter.generate_narrative(context)
 
-        # Aplicar al engine (con entity_deltas, entity_creations y world_deltas)
+        # Apply to engine (with entity_deltas, entity_creations, and world_deltas)
         result = engine.advance_story(
             choice_text=choice,
             narrative_text=proposal.narrative_text,
@@ -239,17 +239,17 @@ class NarrativeServiceV2:
 
         new_commit = result.commit
 
-        # Persistir commit en DB
+        # Persist commit in DB
         await self.repo.save_commit(new_commit)
 
-        # Persistir evento y datos relacionados
+        # Persist event and related data
         await self._persist_result(result)
 
         return new_commit
 
     async def goto_commit(self, commit_id: str) -> NarrativeCommit:
         """
-        Navega a un commit específico, restaurando el estado del engine.
+        Navigates to a specific commit, restoring the engine state.
         """
         commit = await self.repo.get_commit(commit_id)
         if not commit:
@@ -263,11 +263,11 @@ class NarrativeServiceV2:
     # ── Commit queries ─────────────────────────────────────────────────────────
 
     async def get_commit(self, commit_id: str) -> Optional[NarrativeCommit]:
-        """Obtiene un commit desde PostgreSQL."""
+        """Gets a commit from PostgreSQL."""
         return await self.repo.get_commit(commit_id)
 
     async def get_commit_choices(self, commit_id: str) -> list[NarrativeChoice]:
-        """Obtiene las choices de un commit (memoria → Redis → BD)."""
+        """Gets the choices for a commit (memory -> Redis -> DB)."""
         if commit_id in self._commit_choices:
             return self._commit_choices[commit_id]
         cached = await self.cache.get_choices(commit_id)
@@ -279,7 +279,7 @@ class NarrativeServiceV2:
         return choices
 
     async def get_dramatic_state(self, commit_id: str) -> Optional[dict[str, int]]:
-        """Obtiene el estado dramático de un commit desde DB."""
+        """Gets the dramatic state of a commit from DB."""
         commit = await self.get_commit(commit_id)
         if not commit:
             return None
@@ -287,7 +287,7 @@ class NarrativeServiceV2:
         return commit.dramatic_snapshot
 
     async def get_forced_event_type(self, commit_id: str) -> Optional[str]:
-        """Obtiene el tipo de evento forzado (si existe)."""
+        """Gets the forced event type (if it exists)."""
         if commit_id in self._commit_forced_event:
             return self._commit_forced_event[commit_id]
         return await self.repo.get_forced_event_type(commit_id)
@@ -295,7 +295,7 @@ class NarrativeServiceV2:
     # ── Stats ──────────────────────────────────────────────────────────────────
 
     async def get_world_stats(self, world_id: str) -> dict:
-        """Obtiene estadísticas de un mundo desde DB."""
+        """Gets statistics for a world from DB."""
         branches = await self.repo.list_branches(world_id)
         total_commits = await self.repo.count_commits(world_id)
 
@@ -305,7 +305,7 @@ class NarrativeServiceV2:
         }
 
     async def get_global_stats(self) -> dict:
-        """Obtiene estadísticas globales."""
+        """Gets global statistics."""
         return {
             "total_worlds": await self.repo.count_worlds(),
             "total_commits": await self.repo.count_all_commits(),
@@ -315,18 +315,18 @@ class NarrativeServiceV2:
     # ── Helpers ────────────────────────────────────────────────────────────────
 
     async def _persist_result(self, result: StoryAdvanceResult) -> None:
-        """Persiste evento, aristas causales, dramatic state/deltas, y choices."""
+        """Persists event, causal edges, dramatic state/deltas, and choices."""
         commit = result.commit
 
-        # 1. Persistir evento
+        # 1. Persist event
         if result.event:
             await self.repo.save_event(result.event)
 
-            # 2. Persistir aristas causales
+            # 2. Persist causal edges
             for edge in result.causal_edges:
                 await self.repo.save_causal_edge(edge)
 
-            # 3. Persistir nuevas entidades creadas
+            # 3. Persist newly created entities
             for creation in result.event.entity_creations:
                 entity_type_map = {
                     "character": EntityType.CHARACTER,
@@ -344,7 +344,7 @@ class NarrativeServiceV2:
                 )
                 await self.repo.save_entity(entity, commit.world_id)
 
-            # 4. Persistir dramatic deltas individuales (para el paper)
+            # 4. Persist individual dramatic deltas (for the paper)
             if result.event.dramatic_delta and not result.event.dramatic_delta.is_empty():
                 for meter, value in result.event.dramatic_delta.to_dict().items():
                     if value != 0:
@@ -354,7 +354,7 @@ class NarrativeServiceV2:
                             delta=value,
                         )
 
-        # 5. Persistir estado dramático (snapshot)
+        # 5. Persist dramatic state (snapshot)
         forced_event_str = None
         trigger_meter_str = None
         if result.forced_event:
@@ -368,7 +368,7 @@ class NarrativeServiceV2:
             trigger_meter=trigger_meter_str,
         )
 
-        # 6. Persistir choices
+        # 6. Persist choices
         await self.repo.save_choices(commit.id, result.available_choices)
         self._commit_choices[commit.id] = result.available_choices
         self._commit_forced_event[commit.id] = forced_event_str
@@ -376,7 +376,7 @@ class NarrativeServiceV2:
 
     async def _get_or_create_engine(self, world_id: str) -> StateMachine:
         """
-        Obtiene el engine del cache global, o lo crea y reconstruye desde BD.
+        Gets the engine from the global cache, or creates it and rebuilds from DB.
         """
         if world_id in _engine_cache:
             return _engine_cache[world_id]
@@ -387,7 +387,7 @@ class NarrativeServiceV2:
 
         engine = StateMachine(world=world)
 
-        # Reconstruir desde BD: cargar TODOS los commits (incluye ramas)
+        # Rebuild from DB: load ALL commits (includes branches)
         all_commits = await self.repo.list_commits(world_id)
         if all_commits:
             engine.rebuild_from_commits(all_commits)

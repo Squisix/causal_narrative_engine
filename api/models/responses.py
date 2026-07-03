@@ -1,7 +1,7 @@
 """
 api/models/responses.py - Response schemas
 
-Schemas de Pydantic para responses de la API.
+Pydantic schemas for API responses.
 """
 
 from pydantic import BaseModel, Field
@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 class DramaticStateResponse(BaseModel):
-    """Estado del vector dramático."""
+    """Dramatic vector state response."""
     tension: int = Field(..., ge=0, le=100)
     hope: int = Field(..., ge=0, le=100)
     chaos: int = Field(..., ge=0, le=100)
@@ -21,14 +21,14 @@ class DramaticStateResponse(BaseModel):
 
 
 class ChoiceResponse(BaseModel):
-    """Una opción disponible para el jugador."""
+    """An available choice for the player."""
     text: str
     dramatic_preview: Optional[dict[str, int]] = None
     tone_hint: Optional[str] = None
 
 
 class ExistingPathResponse(BaseModel):
-    """Un camino ya explorado (hijo existente de este commit)."""
+    """An already explored path (existing child of this commit)."""
     commit_id: str
     choice_text: str
     depth: int
@@ -37,21 +37,21 @@ class ExistingPathResponse(BaseModel):
 
 class NarrativeCommitResponse(BaseModel):
     """
-    Respuesta con el estado de un commit narrativo.
+    Response containing the state of a narrative commit.
 
-    Incluye la narrativa generada, opciones, y estado del mundo.
+    Includes the generated narrative, options, and world state.
     """
     commit_id: str
     parent_id: Optional[str] = None
     depth: int
 
-    # Narrativa
+    # Narrative
     narrative_text: str
     summary: str
     choices: list[ChoiceResponse]
     existing_paths: list[ExistingPathResponse] = []
 
-    # Estado dramático
+    # Dramatic state
     dramatic_state: DramaticStateResponse
 
     # Metadata
@@ -67,18 +67,18 @@ class NarrativeCommitResponse(BaseModel):
             "example": {
                 "commit_id": "a1b2c3d4-...",
                 "depth": 1,
-                "narrative_text": "La sala del trono está en silencio cuando Lyra recibe la noticia...",
-                "summary": "El rey Aldric muere misteriosamente. Lyra asume el trono.",
+                "narrative_text": "The throne room is dead silent as Lyra receives the news...",
+                "summary": "King Aldric dies mysteriously. Lyra assumes the throne.",
                 "choices": [
                     {
-                        "text": "Confrontar a Malachar directamente",
+                        "text": "Confront Malachar directly",
                         "dramatic_preview": {"tension": 15, "hope": -5, "chaos": 5},
-                        "tone_hint": "confrontacional"
+                        "tone_hint": "confrontational"
                     },
                     {
-                        "text": "Ordenar una investigación secreta",
+                        "text": "Order a secret investigation",
                         "dramatic_preview": {"tension": 5, "hope": 5, "chaos": 0},
-                        "tone_hint": "cauteloso"
+                        "tone_hint": "cautious"
                     }
                 ],
                 "dramatic_state": {
@@ -90,7 +90,7 @@ class NarrativeCommitResponse(BaseModel):
                     "connection": 45,
                     "mystery": 60
                 },
-                "causal_reason": "Este es el evento inicial que establece el conflicto",
+                "causal_reason": "This is the initial event setting up the conflict",
                 "is_ending": False,
                 "forced_event_type": None,
                 "created_at": "2026-03-23T19:30:00Z"
@@ -99,7 +99,7 @@ class NarrativeCommitResponse(BaseModel):
 
 
 class CommitSummaryResponse(BaseModel):
-    """Resumen ligero de un commit para listados."""
+    """Lightweight summary of a commit for list views."""
     commit_id: str
     depth: int
     summary: str
@@ -110,7 +110,7 @@ class CommitSummaryResponse(BaseModel):
 
 class WorldResponse(BaseModel):
     """
-    Respuesta con información de un mundo.
+    Response with world information.
     """
     world_id: str
     name: str
@@ -122,8 +122,9 @@ class WorldResponse(BaseModel):
     rules: str
     constraints: list[str]
     max_depth: int
+    output_language: str = "es"
 
-    # Estado
+    # State
     created_at: datetime
     total_commits: int = 0
     active_branches: int = 0
@@ -132,15 +133,16 @@ class WorldResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "world_id": "w1x2y3z4-...",
-                "name": "Reino de Valdris",
-                "context": "Un reino medieval al borde de la guerra...",
-                "protagonist": "Lyra, la princesa heredera",
-                "era": "Medieval fantástico, año 843",
+                "name": "Kingdom of Valdris",
+                "context": "A medieval kingdom on the brink of war...",
+                "protagonist": "Lyra, the crown princess",
+                "era": "Medieval fantasy, year 843",
                 "tone": "dark",
-                "antagonist": "Malachar, el consejero corrupto",
-                "rules": "La magia existe pero tiene un precio",
-                "constraints": ["No viajes en el tiempo"],
+                "antagonist": "Malachar, the corrupt counselor",
+                "rules": "Magic exists but has a price",
+                "constraints": ["No time travel allowed"],
                 "max_depth": 20,
+                "output_language": "es",
                 "created_at": "2026-03-23T19:00:00Z",
                 "total_commits": 5,
                 "active_branches": 2
@@ -150,7 +152,7 @@ class WorldResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     """
-    Respuesta de error estándar.
+    Standard error response.
     """
     error: str
     detail: Optional[str] = None
@@ -168,13 +170,13 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """
-    Respuesta del health check.
+    Health check response.
     """
     status: str = "ok"
     version: str
     timestamp: datetime
 
-    # Servicios
+    # Services
     database: str = "unknown"
     ai_adapter: str = "unknown"
 
@@ -192,7 +194,7 @@ class HealthResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     """
-    Estadísticas del motor.
+    Engine statistics.
     """
     total_worlds: int
     total_commits: int

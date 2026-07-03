@@ -1,12 +1,12 @@
 """
 persistence/models — ORM models (SQLAlchemy)
 
-Mapean los dataclasses del core a tablas SQL.
+Map the core dataclasses to SQL tables.
 
-Convención de nombres:
+Naming convention:
 - Dataclass: WorldDefinition, NarrativeEvent, etc.
 - ORM model: WorldORM, EventORM, etc.
-- Tabla SQL: worlds, events, etc. (snake_case plural)
+- SQL table: worlds, events, etc. (snake_case plural)
 """
 
 from persistence.models.world_orm import WorldORM, EntityORM

@@ -1,16 +1,16 @@
 """
-adapters/anthropic_adapter.py - Implementacion con Anthropic API (Claude)
+adapters/anthropic_adapter.py - Implementation with Anthropic API (Claude)
 
-Este adapter usa Claude (Anthropic) para generar narrativa real.
+This adapter uses Claude (Anthropic) to generate real narrative.
 
-Requiere:
+Requirements:
 - pip install anthropic
-- API key: ANTHROPIC_API_KEY en variable de entorno o config
+- API key: ANTHROPIC_API_KEY in environment variable or config
 
-Modelos recomendados:
-- claude-3-5-sonnet-20241022 (mejor balance calidad/precio)
-- claude-opus-4 (maxima calidad, mas caro)
-- claude-haiku-3 (rapido y economico, para prototipos)
+Recommended models:
+- claude-3-5-sonnet-20241022 (best quality/price balance)
+- claude-opus-4 (highest quality, more expensive)
+- claude-haiku-3 (fast and economical, for prototypes)
 """
 
 import json
@@ -23,8 +23,8 @@ try:
     from anthropic import AsyncAnthropic
 except ImportError:
     raise ImportError(
-        "El paquete 'anthropic' no esta instalado.\n"
-        "Instalalo con: pip install anthropic"
+        "The 'anthropic' package is not installed.\n"
+        "Install with: pip install anthropic"
     )
 
 from cne_core.interfaces.ai_adapter import AIAdapter, NarrativeContext, NarrativeProposal
@@ -35,14 +35,14 @@ from cne_core.ai.response_validator import ResponseValidator
 
 class AnthropicAdapter(AIAdapter):
     """
-    AIAdapter que usa Claude (Anthropic) para generar narrativa.
+    AIAdapter that uses Claude (Anthropic) to generate narrative.
 
-    Maneja:
-    - Construccion de prompts optimizados
-    - Llamadas a la API de Anthropic
-    - Retry logic con exponential backoff
-    - Validacion de respuestas
-    - Logging de errores
+    Handles:
+    - Optimized prompt construction
+    - Anthropic API calls
+    - Retry logic with exponential backoff
+    - Response validation
+    - Error logging
     """
 
     def __init__(
@@ -56,30 +56,30 @@ class AnthropicAdapter(AIAdapter):
     ):
         """
         Args:
-            api_key: API key de Anthropic. Si None, se lee de ANTHROPIC_API_KEY env var.
-            model: Modelo de Claude a usar.
-            max_tokens: Maximo de tokens a generar.
-            temperature: Temperatura para generacion (0.0-1.0).
-            max_retries: Intentos maximos si hay error de API.
-            timeout: Timeout en segundos para llamadas a API.
+            api_key: Anthropic API key. If None, reads from ANTHROPIC_API_KEY env var.
+            model: Claude model to use.
+            max_tokens: Maximum tokens to generate.
+            temperature: Temperature for generation (0.0-1.0).
+            max_retries: Maximum attempts on API error.
+            timeout: Timeout in seconds for API calls.
         """
         # API key
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError(
-                "API key no encontrada. Provee api_key o setea ANTHROPIC_API_KEY env var."
+                "API key not found. Provide api_key or set ANTHROPIC_API_KEY env var."
             )
 
-        # Cliente async
+        # Async client
         self.client = AsyncAnthropic(api_key=self.api_key, timeout=timeout)
 
-        # Configuracion
+        # Configuration
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.max_retries = max_retries
 
-        # Componentes
+        # Components
         self.context_builder = ContextBuilder()
 
         # Stats
@@ -89,31 +89,31 @@ class AnthropicAdapter(AIAdapter):
 
     async def generate_narrative(self, context: NarrativeContext) -> NarrativeProposal:
         """
-        Genera narrativa usando Claude.
+        Generates narrative using Claude.
 
         Args:
-            context: Contexto narrativo con toda la informacion necesaria.
+            context: Narrative context with all necessary information.
 
         Returns:
-            NarrativeProposal con la narrativa generada.
+            NarrativeProposal with the generated narrative.
 
         Raises:
-            Exception: Si falla despues de max_retries intentos.
+            Exception: If it fails after max_retries attempts.
         """
         self.total_calls += 1
 
-        # 1. Construir el prompt completo
+        # 1. Build the complete prompt
         prompt = self._build_prompt(context)
 
-        # 2. Llamar a Claude con retry logic
+        # 2. Call Claude with retry logic
         for attempt in range(1, self.max_retries + 1):
             try:
                 response_text = await self._call_claude(prompt)
 
-                # 3. Parsear respuesta JSON
+                # 3. Parse JSON response
                 response = self._parse_response(response_text)
 
-                # 4. Validar respuesta
+                # 4. Validate response
                 validator = ResponseValidator(
                     world=context.world_definition,
                     current_entities=context.current_entity_states,
@@ -121,27 +121,27 @@ class AnthropicAdapter(AIAdapter):
                 )
                 validation_result = validator.validate(response)
 
-                # Si es valida, retornar
+                # If valid, return
                 if validation_result.is_valid:
                     return self._convert_to_proposal(response)
 
-                # Si no es valida, reintentar con feedback
+                # If not valid, retry with feedback
                 if attempt < self.max_retries:
-                    # Añadir feedback al prompt
+                    # Add feedback to prompt
                     feedback = self._build_validation_feedback(validation_result)
                     prompt = prompt + "\n\n" + feedback
                     continue
                 else:
-                    # Maximo intentos alcanzado
+                    # Maximum attempts reached
                     raise ValueError(
-                        f"Respuesta invalida despues de {self.max_retries} intentos: "
+                        f"Invalid response after {self.max_retries} attempts: "
                         f"{validation_result}"
                     )
 
             except anthropic.APIError as e:
-                # Error de API, reintentar con backoff exponencial
+                # API error, retry with exponential backoff
                 if attempt < self.max_retries:
-                    wait_time = 2 ** attempt  # 2, 4, 8 segundos
+                    wait_time = 2 ** attempt  # 2, 4, 8 seconds
                     print(f"API error (attempt {attempt}/{self.max_retries}): {e}")
                     print(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
@@ -151,7 +151,7 @@ class AnthropicAdapter(AIAdapter):
                     raise
 
             except json.JSONDecodeError as e:
-                # Error parseando JSON
+                # JSON parsing error
                 if attempt < self.max_retries:
                     print(f"JSON parse error (attempt {attempt}/{self.max_retries}): {e}")
                     print(f"Response was: {response_text[:200]}...")
@@ -161,17 +161,17 @@ class AnthropicAdapter(AIAdapter):
                     raise ValueError(f"Failed to parse JSON after {self.max_retries} attempts: {e}")
 
             except Exception as e:
-                # Otro error
+                # Other error
                 self.failed_calls += 1
                 raise
 
-        # No deberia llegar aqui
+        # Should not reach here
         self.failed_calls += 1
         raise RuntimeError("Unexpected error in generate_narrative")
 
     def _build_prompt(self, context: NarrativeContext) -> str:
-        """Construye el prompt completo usando ContextBuilder."""
-        # Obtener cadena de commits
+        """Builds the complete prompt using ContextBuilder."""
+        # Get commit chain
         commit_chain = context.commit_chain if context.commit_chain else []
 
         return self.context_builder.build_context(
@@ -186,18 +186,18 @@ class AnthropicAdapter(AIAdapter):
 
     async def _call_claude(self, prompt: str) -> str:
         """
-        Llama a la API de Claude.
+        Calls the Claude API.
 
         Args:
-            prompt: El prompt completo.
+            prompt: The complete prompt.
 
         Returns:
-            str: La respuesta de Claude (texto JSON).
+            str: Claude's response (JSON text).
         """
         # System prompt
         system_prompt = self.context_builder.build_system_prompt()
 
-        # Llamar a Claude
+        # Call Claude
         message = await self.client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
@@ -211,67 +211,67 @@ class AnthropicAdapter(AIAdapter):
             ],
         )
 
-        # Actualizar stats
+        # Update stats
         self.total_tokens_used += message.usage.input_tokens + message.usage.output_tokens
 
-        # Extraer texto de respuesta
+        # Extract response text
         response_text = message.content[0].text
 
         return response_text
 
     def _parse_response(self, response_text: str) -> NarrativeResponse:
         """
-        Parsea la respuesta JSON de Claude.
+        Parses the JSON response from Claude.
 
         Args:
-            response_text: Texto de respuesta (debe ser JSON).
+            response_text: Response text (must be JSON).
 
         Returns:
-            NarrativeResponse parseada.
+            Parsed NarrativeResponse.
 
         Raises:
-            json.JSONDecodeError: Si no es JSON valido.
-            ValidationError: Si el schema de Pydantic falla.
+            json.JSONDecodeError: If not valid JSON.
+            ValidationError: If Pydantic schema fails.
         """
-        # Claude a veces incluye markdown code blocks, removerlos
+        # Claude sometimes includes markdown code blocks, remove them
         text = response_text.strip()
         if text.startswith("```json"):
-            text = text[7:]  # Remover ```json
+            text = text[7:]  # Remove ```json
         if text.startswith("```"):
-            text = text[3:]  # Remover ```
+            text = text[3:]  # Remove ```
         if text.endswith("```"):
-            text = text[:-3]  # Remover ``` final
+            text = text[:-3]  # Remove trailing ```
         text = text.strip()
 
-        # Parsear JSON
+        # Parse JSON
         data = json.loads(text)
 
-        # Validar con Pydantic
+        # Validate with Pydantic
         response = NarrativeResponse(**data)
 
         return response
 
     def _build_validation_feedback(self, validation_result) -> str:
-        """Construye feedback para la IA si la validacion fallo."""
-        errors = validation_result.errors[:3]  # Top 3 errores
+        """Builds feedback for the AI if validation failed."""
+        errors = validation_result.errors[:3]  # Top 3 errors
         error_text = "\n".join(f"- {e}" for e in errors)
 
         return f"""
 ========================================
-RESPUESTA INVALIDA - CORRIGE LOS SIGUIENTES ERRORES
+INVALID RESPONSE - FIX THE FOLLOWING ERRORS
 ========================================
 
 {error_text}
 
-Por favor, genera una nueva respuesta JSON que corrija estos problemas.
-Asegurate de:
-1. Seguir el schema exacto especificado
-2. Respetar todas las constraints del mundo
-3. No incluir texto adicional fuera del JSON
+Please generate a new JSON response that fixes these issues.
+Make sure to:
+1. Follow the exact specified schema
+2. Respect all world constraints
+3. Do not include additional text outside the JSON
 """
 
     def _convert_to_proposal(self, response: NarrativeResponse) -> NarrativeProposal:
-        """Convierte NarrativeResponse a NarrativeProposal."""
+        """Converts NarrativeResponse to NarrativeProposal."""
         entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 
         return NarrativeProposal(
@@ -288,13 +288,13 @@ Asegurate de:
         )
 
     async def validate_response(self, raw_response: str) -> NarrativeProposal:
-        """Parsea y valida una respuesta raw de Claude."""
+        """Parses and validates a raw Claude response."""
         validator = ResponseValidator()
         response = validator.parse_and_validate(raw_response)
         return self._convert_to_proposal(response)
 
     def get_model_info(self) -> dict[str, str]:
-        """Retorna informacion del modelo."""
+        """Returns model information."""
         return {
             "provider": "Anthropic",
             "model": self.model,
@@ -302,7 +302,7 @@ Asegurate de:
         }
 
     def get_stats(self) -> dict:
-        """Retorna estadisticas del adapter."""
+        """Returns adapter statistics."""
         success_rate = (
             (self.total_calls - self.failed_calls) / self.total_calls
             if self.total_calls > 0
@@ -325,12 +325,12 @@ Asegurate de:
 
 class AnthropicConfig:
     """
-    Helper para configuracion de Anthropic desde archivo o env vars.
+    Helper for Anthropic configuration from file or env vars.
     """
 
     @staticmethod
     def from_env() -> dict:
-        """Carga configuracion desde variables de entorno."""
+        """Loads configuration from environment variables."""
         return {
             "api_key": os.getenv("ANTHROPIC_API_KEY"),
             "model": os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
@@ -340,6 +340,6 @@ class AnthropicConfig:
 
     @staticmethod
     def from_file(filepath: str) -> dict:
-        """Carga configuracion desde archivo JSON."""
+        """Loads configuration from JSON file."""
         with open(filepath, "r") as f:
             return json.load(f)

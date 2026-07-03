@@ -1,7 +1,7 @@
 """
 api/routers/narrative.py - Narrative flow endpoints
 
-Endpoints para generar narrativa y avanzar la historia.
+Endpoints to generate narrative and advance the story.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -24,29 +24,29 @@ async def start_narrative(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Inicia una nueva narrativa en un mundo.
+    Starts a new narrative in a world.
 
-    Genera el primer commit con la IA y retorna las opciones iniciales.
+    Generates the first commit with AI and returns the initial choices.
     """
     try:
-        # Verificar que el mundo existe
+        # Verify that the world exists
         world = await service.get_world(world_id)
         if not world:
             raise HTTPException(status_code=404, detail=f"World not found: {world_id}")
 
-        # Obtener AI adapter
+        # Get AI adapter
         adapter = get_ai_adapter(
             adapter_type=request.adapter_type,
             adapter_config=request.adapter_config or {}
         )
 
-        # Iniciar narrativa
+        # Start narrative
         commit = await service.start_narrative(
             world_id=world_id,
             adapter=adapter
         )
 
-        # Convertir a response
+        # Convert to response
         return await _commit_to_response(commit, service)
 
     except HTTPException:
@@ -62,12 +62,12 @@ async def advance_narrative(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Avanza la narrativa tomando una decisión.
+    Advances the narrative by making a decision.
 
-    Genera el siguiente commit basado en la elección del jugador.
+    Generates the next commit based on the player's choice.
     """
     try:
-        # Verificar que el commit existe
+        # Verify that the commit exists
         commit = await service.get_commit(commit_id)
         if not commit:
             raise HTTPException(status_code=404, detail=f"Commit not found: {commit_id}")
@@ -77,7 +77,7 @@ async def advance_narrative(
             adapter_config=request.adapter_config or {}
         )
 
-        # Avanzar narrativa
+        # Advance narrative
         new_commit = await service.advance_narrative(
             commit_id=commit_id,
             choice=request.choice,
@@ -85,7 +85,7 @@ async def advance_narrative(
             custom_choice=request.custom,
         )
 
-        # Convertir a response
+        # Convert to response
         return await _commit_to_response(new_commit, service)
 
     except HTTPException:
@@ -99,7 +99,7 @@ async def list_commits(
     world_id: str,
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
-    """Lista todos los commits de un mundo (resumen ligero)."""
+    """Lists all commits of a world (lightweight summary)."""
     commits = await service.repo.list_commits(world_id)
     return [
         CommitSummaryResponse(
@@ -119,7 +119,7 @@ async def get_latest_commit(
     world_id: str,
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
-    """Obtiene el ultimo commit de un mundo (para continuar una historia)."""
+    """Gets the latest commit of a world (to continue a story)."""
     latest_id = await service.repo.get_latest_commit_id(world_id)
     if not latest_id:
         raise HTTPException(status_code=404, detail=f"No commits found for world: {world_id}")
@@ -136,7 +136,7 @@ async def goto_commit(
     commit_id: str,
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
-    """Navega a un commit específico, restaurando el estado del engine."""
+    """Navigates to a specific commit, restoring the engine state."""
     try:
         commit = await service.goto_commit(commit_id)
         return await _commit_to_response(commit, service)
@@ -152,7 +152,7 @@ async def get_commit(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Obtiene información de un commit específico.
+    Gets information about a specific commit.
     """
     commit = await service.get_commit(commit_id)
 
@@ -168,14 +168,14 @@ async def get_dramatic_state(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Obtiene el estado dramático de un commit.
+    Gets the dramatic state of a commit.
     """
     commit = await service.get_commit(commit_id)
 
     if not commit:
         raise HTTPException(status_code=404, detail=f"Commit not found: {commit_id}")
 
-    # Obtener dramatic state del commit (guardado como dramatic_snapshot)
+    # Get dramatic state from the commit (stored as dramatic_snapshot)
     dramatic_snapshot = commit.dramatic_snapshot or {}
 
     return DramaticStateResponse(
@@ -190,10 +190,10 @@ async def get_dramatic_state(
 
 
 async def _commit_to_response(commit, service: NarrativeServiceV2) -> NarrativeCommitResponse:
-    """Helper para convertir NarrativeCommit a NarrativeCommitResponse."""
+    """Helper to convert NarrativeCommit to NarrativeCommitResponse."""
     commit_choices = await service.get_commit_choices(commit.id)
 
-    # Convertir choices
+    # Convert choices
     choices = [
         ChoiceResponse(
             text=choice.text,
@@ -203,7 +203,7 @@ async def _commit_to_response(commit, service: NarrativeServiceV2) -> NarrativeC
         for choice in commit_choices
     ]
 
-    # Dramatic state (el commit lo guarda como dramatic_snapshot)
+    # Dramatic state (the commit stores it as dramatic_snapshot)
     dramatic_snapshot = commit.dramatic_snapshot or {}
     dramatic_state = DramaticStateResponse(
         tension=dramatic_snapshot.get("tension", 30),
@@ -215,10 +215,10 @@ async def _commit_to_response(commit, service: NarrativeServiceV2) -> NarrativeC
         mystery=dramatic_snapshot.get("mystery", 50),
     )
 
-    # Forced event type (si existe)
+    # Forced event type (if it exists)
     forced_event_type = await service.get_forced_event_type(commit.id)
 
-    # Caminos ya explorados (hijos existentes)
+    # Already explored paths (existing children)
     children = await service.repo.get_children_commits(commit.id)
     existing_paths = [
         ExistingPathResponse(

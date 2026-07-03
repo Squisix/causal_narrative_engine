@@ -1,11 +1,11 @@
-# docker-compose.yml — Causal Narrative Engine (completo)
+# docker-compose.yml — Causal Narrative Engine (full stack)
 #
-# Uso:
-#   docker-compose up -d              Levantar todo
-#   docker-compose up -d app postgres  Solo app + DB (sin Ollama)
-#   docker-compose logs -f app         Ver logs de la app
-#   docker-compose down                Detener servicios
-#   docker-compose down -v             Detener y borrar volumenes
+# Usage:
+#   docker-compose up -d              Start everything
+#   docker-compose up -d app postgres  Only app + DB (no Ollama)
+#   docker-compose logs -f app         View app logs
+#   docker-compose down                Stop services
+#   docker-compose down -v             Stop and delete volumes
 
 services:
   # ── App (FastAPI + Web UI) ───────────────────────────────
@@ -64,7 +64,7 @@ services:
       retries: 10
       start_period: 30s
 
-  # ── Redis (cache, opcional) ──────────────────────────────
+  # ── Redis (cache, optional) ──────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: cne_redis

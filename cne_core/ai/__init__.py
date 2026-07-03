@@ -1,8 +1,8 @@
 """
 cne_core/ai/ - AI integration layer
 
-Este paquete contiene todo lo relacionado con la generación de narrativa con IA.
-Es independiente del proveedor específico (Anthropic, OpenAI, etc.)
+This package contains everything related to AI-powered narrative generation.
+It is independent of the specific provider (Anthropic, OpenAI, etc.)
 """
 
 from cne_core.ai.response_schema import (

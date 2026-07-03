@@ -1,63 +1,63 @@
 """
-engine/dramatic_engine.py — El Sistema Dramático Multi-Medidor (SDMM)
+engine/dramatic_engine.py — The Multi-Meter Dramatic System (MMDS)
 
-Este módulo implementa la función Φ del modelo formal:
-    Φ(D(t)) → constraint de evento forzado (o None)
+This module implements the Φ function of the formal model:
+    Φ(D(t)) → forced event constraint (or None)
 
-El DramaticEngine mantiene el vector dramático de 7 medidores
-y evalúa si alguno ha cruzado un umbral que requiera forzar
-un tipo de evento específico.
+The DramaticEngine maintains the dramatic vector of 7 meters
+and evaluates whether any has crossed a threshold that requires forcing
+a specific event type.
 
-La clave innovadora: cuando el motor fuerza un evento (ej: CLÍMAX
-porque la tensión > 85), ese evento NO es una interrupción externa.
-Se integra causalmente en el DAG: tiene causas formales en todos
-los eventos que elevaron la tensión hasta ese punto.
+The innovative key: when the engine forces an event (e.g., CLIMAX
+because tension > 85), that event is NOT an external disruption.
+It is integrated causally into the DAG: it has formal causes in all
+the events that raised the tension up to that point.
 """
 
 from dataclasses import dataclass, field
 from enum import Enum
 
 
-# ── Tipos de eventos forzados ─────────────────────────────────────────────────
+# ── Forced Event Types ────────────────────────────────────────────────────────
 
 class ForcedEventType(str, Enum):
     """
-    Tipos de eventos que el motor puede forzar cuando un medidor
-    cruza su umbral. La IA debe respetar este constraint.
+    Types of events that the engine can force when a meter
+    crosses its threshold. The AI must respect this constraint.
     """
-    CLIMAX              = "CLIMAX"              # Tensión > 85
-    DISRUPTIVE          = "DISRUPTIVE"          # Tensión < 15
-    TRAGEDY             = "TRAGEDY"             # Esperanza < 10
-    UNEXPECTED_THREAT   = "UNEXPECTED_THREAT"   # Esperanza > 90
-    PLOT_TWIST          = "PLOT_TWIST"          # Saturación > 85
-    ARC_CLOSURE         = "ARC_CLOSURE"         # Saturación > 95
-    CHAOS_STORM         = "CHAOS_STORM"         # Caos > 80
-    NARRATIVE_REST      = "NARRATIVE_REST"      # Ritmo > 90 por 3 turnos
-    CLIMAX_REVELATION   = "CLIMAX_REVELATION"   # Misterio > 65 Y Tensión > 65
-    EMOTIONAL_MOMENT    = "EMOTIONAL_MOMENT"    # Conexión > 70 Y Tensión > 60
+    CLIMAX              = "CLIMAX"              # Tension > 85
+    DISRUPTIVE          = "DISRUPTIVE"          # Tension < 15
+    TRAGEDY             = "TRAGEDY"             # Hope < 10
+    UNEXPECTED_THREAT   = "UNEXPECTED_THREAT"   # Hope > 90
+    PLOT_TWIST          = "PLOT_TWIST"          # Saturation > 85
+    ARC_CLOSURE         = "ARC_CLOSURE"         # Saturation > 95
+    CHAOS_STORM         = "CHAOS_STORM"         # Chaos > 80
+    NARRATIVE_REST      = "NARRATIVE_REST"      # Rhythm > 90 for 3 turns
+    CLIMAX_REVELATION   = "CLIMAX_REVELATION"   # Mystery > 65 AND Tension > 65
+    EMOTIONAL_MOMENT    = "EMOTIONAL_MOMENT"    # Connection > 70 AND Tension > 60
 
 
 @dataclass
 class ForcedEventConstraint:
     """
-    El constraint que el motor pasa a la IA cuando se fuerza un evento.
+    The constraint that the engine passes to the AI when an event is forced.
 
-    La IA recibe esto en el system prompt y DEBE generar una narrativa
-    que corresponda al tipo de evento forzado.
+    The AI receives this in the system prompt and MUST generate a narrative
+    that corresponds to the forced event type.
     """
     event_type:    ForcedEventType
-    trigger_meter: str     # Qué medidor lo disparó
-    trigger_value: int     # Valor en el que estaba el medidor
-    description:   str     # Instrucción clara para la IA
+    trigger_meter: str     # What meter triggered it
+    trigger_value: int     # Value of the triggering meter
+    description:   str     # Clear instruction for the AI
 
     def to_prompt_constraint(self) -> str:
-        """Texto a incluir en el prompt de la IA."""
+        """Text to include in the AI prompt."""
         return (
-            f"⚠️ CONSTRAINT DRAMÁTICO OBLIGATORIO: {self.description}\n"
-            f"Tipo de evento requerido: {self.event_type.value}\n"
-            f"Disparado por: {self.trigger_meter} = {self.trigger_value}\n"
-            f"La narrativa DEBE reflejar este momento dramático. "
-            f"No puede ignorarse ni posponerse."
+            f"⚠️ MANDATORY DRAMATIC CONSTRAINT: {self.description}\n"
+            f"Required event type: {self.event_type.value}\n"
+            f"Triggered by: {self.trigger_meter} = {self.trigger_value}\n"
+            f"The generated narrative MUST reflect this dramatic moment. "
+            f"It cannot be ignored or postponed."
         )
 
 
@@ -66,16 +66,16 @@ class ForcedEventConstraint:
 @dataclass
 class DramaticVector:
     """
-    El vector de estado dramático D(t).
+    The dramatic state vector D(t).
 
-    7 medidores que capturan el estado emocional y estructural
-    de la historia en un momento dado. Todos en rango [0, 100].
+    7 meters that capture the emotional and structural state
+    of the story at a given moment. All in the range [0, 100].
 
-    El motor los actualiza después de cada evento:
-    1. Aplica el DramaticDelta del evento
-    2. Aplica las interacciones entre medidores
-    3. Clampea todos los valores a [0, 100]
-    4. Evalúa umbrales → ForcedEventConstraint o None
+    The engine updates them after each event:
+    1. Applies the event's DramaticDelta
+    2. Applies interactions between meters
+    3. Clamps all values to [0, 100]
+    4. Evaluates thresholds → ForcedEventConstraint or None
     """
     tension:    int = 30
     hope:       int = 60
@@ -85,19 +85,19 @@ class DramaticVector:
     connection: int = 40
     mystery:    int = 50
 
-    # Contador de turnos con ritmo alto (para el umbral de descanso)
+    # Counter of turns with high rhythm (for the rest threshold)
     _high_rhythm_turns: int = field(default=0, repr=False)
 
     def apply_delta(self, delta: "DramaticDelta") -> None:
         """
-        Aplica un delta al vector y luego las interacciones entre medidores.
+        Applies a delta to the vector and then the interactions between meters.
 
-        El orden importa:
-        1. Aplicar el delta del evento
-        2. Aplicar interacciones causales entre medidores
-        3. Clampear a [0, 100]
+        The order matters:
+        1. Apply the event's direct delta
+        2. Apply causal interactions between meters
+        3. Clamp to [0, 100]
         """
-        # 1. Aplicar delta directo
+        # 1. Apply direct delta
         self.tension    = self.tension    + delta.tension
         self.hope       = self.hope       + delta.hope
         self.chaos      = self.chaos      + delta.chaos
@@ -106,13 +106,13 @@ class DramaticVector:
         self.connection = self.connection + delta.connection
         self.mystery    = self.mystery    + delta.mystery
 
-        # 2. Aplicar interacciones entre medidores
+        # 2. Apply interactions between meters
         self._apply_interactions(delta)
 
-        # 3. Clampear al rango válido
+        # 3. Clamp to valid range
         self._clamp()
 
-        # 4. Actualizar contador de ritmo alto
+        # 4. Update high rhythm turn counter
         if self.rhythm > 70:
             self._high_rhythm_turns += 1
         else:
@@ -120,37 +120,38 @@ class DramaticVector:
 
     def _apply_interactions(self, delta: "DramaticDelta") -> None:
         """
-        Interacciones causales entre medidores.
+        Causal interactions between meters.
 
-        Estas son las relaciones que hacen el sistema coherente con
-        la teoría dramática. Se aplican DESPUÉS del delta directo.
+        These are the relationships that make the system coherent with
+        dramatic theory. They are applied AFTER the direct delta.
         """
-        # Tensión alta erosiona la esperanza
-        # Por cada 10 puntos de tensión > 50, esperanza baja -2
+        # High tension erodes hope
+        # For every 10 points of tension > 50, hope drops by -2
         if self.tension > 50:
             hope_erosion = ((self.tension - 50) // 10) * 2
             self.hope -= hope_erosion
 
-        # Caos alto acelera el ritmo
+        # High chaos accelerates rhythm
         if self.chaos > 60:
             rhythm_boost = (self.chaos - 60) // 10
             self.rhythm += rhythm_boost
 
-        # Saturación alta desconecta emocionalmente
+        # High saturation disconnects emotionally
         if self.saturation > 70:
             connection_loss = (self.saturation - 70) // 5
             self.connection -= connection_loss
 
-        # Esperanza muy baja aumenta el misterio (¿qué está pasando?)
+        # Very low hope increases mystery (what is happening?)
         if self.hope < 20:
             self.mystery += 3
 
-        # Conexión alta amplifica el impacto de la tensión
-        # (no modifica el vector, pero afecta cómo se evalúan los umbrales)
-        # → ver evaluate_thresholds()
+        # High connection amplifies the impact of tension
+        # (does not modify the vector, but affects how thresholds are evaluated)
+        # → see evaluate_thresholds()
+
 
     def _clamp(self) -> None:
-        """Mantiene todos los valores en [0, 100]."""
+        """Clamps all values in [0, 100]."""
         self.tension    = max(0, min(100, self.tension))
         self.hope       = max(0, min(100, self.hope))
         self.chaos      = max(0, min(100, self.chaos))
@@ -160,7 +161,7 @@ class DramaticVector:
         self.mystery    = max(0, min(100, self.mystery))
 
     def to_dict(self) -> dict[str, int]:
-        """Serializa para persistencia y contexto IA."""
+        """Serializes for persistence and AI context."""
         return {
             "tension": self.tension, "hope": self.hope,
             "chaos": self.chaos, "rhythm": self.rhythm,
@@ -169,7 +170,7 @@ class DramaticVector:
         }
 
     def from_dict(self, d: dict[str, int]) -> None:
-        """Restaura el vector desde un dict (al cargar un commit)."""
+        """Restores the vector from a dict (when loading a commit)."""
         self.tension    = d.get("tension", 30)
         self.hope       = d.get("hope", 60)
         self.chaos      = d.get("chaos", 20)
@@ -189,8 +190,8 @@ class DramaticVector:
 
 # ── DramaticEngine ────────────────────────────────────────────────────────────
 
-# Necesitamos importar DramaticDelta aquí pero está en models/event.py
-# Usamos TYPE_CHECKING para evitar importación circular en runtime
+# We need to import DramaticDelta here but it is in models/event.py
+# We use TYPE_CHECKING to avoid circular import at runtime
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from cne_core.models.event import DramaticDelta
@@ -198,18 +199,18 @@ if TYPE_CHECKING:
 
 class DramaticEngine:
     """
-    La función Φ del modelo formal: evalúa el vector dramático
-    y determina si se debe forzar un evento.
+    The Φ function of the formal model: evaluates the dramatic vector
+    and determines if an event should be forced.
 
-    Uso típico:
+    Typical usage:
         engine = DramaticEngine(world_def.dramatic_config)
 
-        # Después de cada decisión del jugador:
+        # After each player decision:
         engine.apply_delta(event.dramatic_delta)
         constraint = engine.evaluate_thresholds()
 
         if constraint:
-            # Pasar constraint a la IA como instrucción obligatoria
+            # Pass constraint to the AI as a mandatory instruction
             prompt = build_prompt(..., forced_constraint=constraint)
         else:
             prompt = build_prompt(...)
@@ -218,15 +219,15 @@ class DramaticEngine:
     def __init__(self, initial_config: dict[str, int] | None = None):
         """
         Args:
-            initial_config: Valores iniciales del vector desde WorldDefinition.
-                           Si es None, usa los defaults del DramaticVector.
+            initial_config: Initial values of the vector from WorldDefinition.
+                           If None, uses defaults from DramaticVector.
         """
         self.vector = DramaticVector()
 
         if initial_config:
             self.vector.from_dict(initial_config)
 
-        # Historial de medidores para análisis (paper)
+        # Meter history for analysis (paper)
         self._history: list[dict[str, int]] = [self.vector.to_dict()]
 
     @property
@@ -235,8 +236,8 @@ class DramaticEngine:
 
     def apply_delta_from_dict(self, delta_dict: dict[str, int]) -> None:
         """
-        Aplica un delta recibido como dict (desde la respuesta de la IA).
-        Crea un DramaticDelta y lo aplica al vector.
+        Applies a delta received as a dict (from the AI response).
+        Creates a DramaticDelta and applies it to the vector.
         """
         from cne_core.models.event import DramaticDelta
         delta = DramaticDelta(
@@ -251,24 +252,24 @@ class DramaticEngine:
         self.apply_delta(delta)
 
     def apply_delta(self, delta: "DramaticDelta") -> None:
-        """Aplica un DramaticDelta al vector y guarda en historial."""
+        """Applies a DramaticDelta to the vector and saves in history."""
         self.vector.apply_delta(delta)
         self._history.append(self.vector.to_dict())
 
     def evaluate_thresholds(self) -> ForcedEventConstraint | None:
         """
-        Φ: evalúa si algún medidor ha cruzado un umbral.
+        Φ: evaluates if any meter has crossed a threshold.
 
-        Los umbrales se evalúan en orden de prioridad. Si hay múltiples
-        umbrales cruzados, solo se reporta el de mayor prioridad.
+        The thresholds are evaluated in order of priority. If multiple
+        thresholds are crossed, only the one with the highest priority is reported.
 
         Returns:
-            ForcedEventConstraint si hay un umbral cruzado,
-            None si la historia puede continuar libremente.
+            ForcedEventConstraint if a threshold is crossed,
+            None if the story can continue freely.
         """
         v = self.vector
 
-        # Calcular turnos consecutivos con tensión alta (> 80) desde el historial de la sesión
+        # Calculate consecutive turns with high tension (> 80) from session history
         high_tension_turns = 0
         for state in reversed(self._history):
             if state.get("tension", 0) > 80:
@@ -276,7 +277,7 @@ class DramaticEngine:
             else:
                 break
 
-        # Calcular turnos consecutivos con caos alto (> 75) desde el historial de la sesión
+        # Calculate consecutive turns with high chaos (> 75) from session history
         high_chaos_turns = 0
         for state in reversed(self._history):
             if state.get("chaos", 0) > 75:
@@ -284,26 +285,24 @@ class DramaticEngine:
             else:
                 break
 
-        # ── Prioridad 1: Combinaciones de dos medidores ────────────────────
-        # Estas condiciones tienen mayor precedencia porque son más específicas
+        # ── Priority 1: Combinations of two meters ────────────────────────────
+        # These conditions have higher precedence because they are more specific
 
-        # Clímax de revelación: misterio alto + tensión alta
+        # Revelation Climax: high mystery + high tension
         if v.mystery > 65 and v.tension > 65:
             if high_tension_turns <= 2:
                 description = (
-                    f"El misterio central DEBE revelarse ahora, en el momento de máxima tensión "
-                    f"(Turno {high_tension_turns} de Clímax). Una verdad oculta sale a la luz. "
-                    f"Mantén la intensidad dramática muy alta y el conflicto activo."
+                    f"The central mystery MUST be revealed now, at the moment of peak tension "
+                    f"(Turn {high_tension_turns} of Climax). An ignored truth comes to light. "
+                    f"Keep the dramatic intensity extremely high and the conflict active."
                 )
             else:
                 description = (
-                    f"La tensión y el misterio han estado en niveles extremos durante "
-                    f"{high_tension_turns} capítulos. El clímax ha alcanzado su límite natural "
-                    f"de agotamiento. DEBES iniciar la fase de resolución/descompresión "
-                    f"de esta escena en la narrativa. Además, estás obligado a retornar en "
-                    f"'dramatic_deltas' valores significativamente negativos para 'mystery' "
-                    f"(entre -20 y -40) y 'tension' (entre -20 y -35) para enfriar el estado dramático "
-                    f"y permitir que la historia avance."
+                    f"Tension and mystery have been at extreme levels for {high_tension_turns} chapters. "
+                    f"The climax has reached its natural exhaustion threshold. You MUST initiate the "
+                    f"resolution/decompression phase of this scene in your narrative. Furthermore, you are "
+                    f"required to return significantly negative dramatic_deltas for 'mystery' (between -20 and -40) "
+                    f"and 'tension' (between -20 and -35) to cool down the dramatic state and let the story advance."
                 )
 
             return ForcedEventConstraint(
@@ -313,49 +312,45 @@ class DramaticEngine:
                 description   = description
             )
 
-        # Momento emocional: conexión alta + tensión alta
+        # Emotional Moment: high connection + high tension
         if v.connection > 70 and v.tension > 60:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.EMOTIONAL_MOMENT,
                 trigger_meter = "connection+tension",
                 trigger_value = v.connection,
                 description   = (
-                    "La alta conexión emocional con los personajes combinada "
-                    "con la tensión actual exige un momento de impacto emocional: "
-                    "una decisión moral imposible, una traición, un sacrificio."
+                    "The high emotional connection with characters combined with the current tension "
+                    "demands a moment of emotional impact: an impossible moral decision, a betrayal, or a sacrifice."
                 )
             )
 
-        # ── Prioridad 2: Umbrales individuales ────────────────────────────
+        # ── Priority 2: Individual Thresholds ─────────────────────────────────
 
-        # Cierre de arco (precedencia sobre Plot Twist)
+        # Arc Closure (precedence over Plot Twist)
         if v.saturation > 95:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.ARC_CLOSURE,
                 trigger_meter = "saturation",
                 trigger_value = v.saturation,
                 description   = (
-                    "El arco narrativo actual está completamente agotado. "
-                    "DEBE resolverse o cerrarse ahora. La historia entra en "
-                    "un nuevo capítulo o llega a su final."
+                    "The current narrative arc is completely exhausted. It MUST be resolved or closed now. "
+                    "The story enters a new chapter or reaches its final conclusion."
                 )
             )
 
-        # Clímax (tensión extrema)
+        # Climax (extreme tension)
         if v.tension > 85:
             if high_tension_turns <= 2:
                 description = (
-                    f"La tensión ha llegado a su punto máximo (Turno {high_tension_turns} de Tensión Extrema). "
-                    f"DEBE ocurrir una confrontación directa con el conflicto central. "
-                    f"No puede posponerse más."
+                    f"Tension has reached its absolute peak (Turn {high_tension_turns} of Extreme Tension). "
+                    f"A direct confrontation with the central conflict MUST occur. It cannot be postponed."
                 )
             else:
                 description = (
-                    f"La tensión ha estado extremadamente alta por {high_tension_turns} capítulos. "
-                    f"La confrontación entra en su fase final. DEBES iniciar la resolución/liberación "
-                    f"de la tensión en la narrativa. Estás obligado a retornar en 'dramatic_deltas' "
-                    f"un valor significativamente negativo para 'tension' (entre -20 y -45) "
-                    f"para iniciar la fase de resolución."
+                    f"Tension has been extremely high for {high_tension_turns} chapters. The confrontation is "
+                    f"entering its final phase. You MUST begin the resolution or release of tension in the narrative. "
+                    f"You are required to return a significantly negative 'tension' delta (between -20 and -45) "
+                    f"to cool down the scene."
                 )
 
             return ForcedEventConstraint(
@@ -365,32 +360,30 @@ class DramaticEngine:
                 description   = description
             )
 
-        # Tragedia (esperanza al límite)
+        # Tragedy (hope at its limit)
         if v.hope < 10:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.TRAGEDY,
                 trigger_meter = "hope",
                 trigger_value = v.hope,
                 description   = (
-                    "La esperanza ha colapsado. Un evento de pérdida "
-                    "irreversible DEBE ocurrir, confirmando que la situación "
-                    "es tan grave como parece."
+                    "Hope has collapsed. An irreversible event of loss MUST occur, confirming "
+                    "that the situation is as dire as it seems."
                 )
             )
 
-        # Tormenta de caos
+        # Chaos Storm
         if v.chaos > 80:
             if high_chaos_turns <= 2:
                 description = (
-                    f"El mundo está en caos total (Turno {high_chaos_turns} de Caos Extremo). "
-                    f"Un evento externo impredecible DEBE irrumpir, fuera del control del protagonista."
+                    f"The world is in absolute chaos (Turn {high_chaos_turns} of Extreme Chaos). "
+                    f"An unpredictable external event MUST disrupt the environment, outside the control of the protagonist."
                 )
             else:
                 description = (
-                    f"El caos se ha prolongado por {high_chaos_turns} capítulos. La situación debe empezar "
-                    f"a asentarse. DEBES narrar cómo se estabiliza la escena tras la tormenta de caos "
-                    f"y retornar en 'dramatic_deltas' un valor significativamente negativo para 'chaos' "
-                    f"(entre -20 y -40) para asentar el mundo."
+                    f"Chaos has persisted for {high_chaos_turns} chapters. The situation must begin to settle down. "
+                    f"You MUST narrate how the scene stabilizes after the storm and return a significantly negative "
+                    f"'chaos' delta (between -20 and -40) to settle the world state."
                 )
 
             return ForcedEventConstraint(
@@ -400,84 +393,81 @@ class DramaticEngine:
                 description   = description
             )
 
-        # Giro argumental (saturación alta)
+        # Plot Twist (high saturation)
         if v.saturation > 85:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.PLOT_TWIST,
                 trigger_meter = "saturation",
                 trigger_value = v.saturation,
                 description   = (
-                    "La historia necesita un giro. DEBE introducirse algo "
-                    "nuevo: un personaje inesperado, una revelación, o un "
-                    "cambio de escenario que renueve el conflicto."
+                    "The story needs a twist. Something new MUST be introduced: "
+                    "an unexpected character, a sudden revelation, or a change of scenery that renews the conflict."
                 )
             )
 
-        # Historia demasiado tranquila (tensión muy baja)
+        # Too Quiet Story (very low tension)
         if v.tension < 15:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.DISRUPTIVE,
                 trigger_meter = "tension",
                 trigger_value = v.tension,
                 description   = (
-                    "La historia está demasiado tranquila. DEBE introducirse "
-                    "una nueva amenaza o conflicto que reactive el drama."
+                    "The story is too quiet. A new threat or conflict MUST be introduced to reactivate the drama."
                 )
             )
 
-        # Amenaza inesperada (demasiado optimismo)
+        # Unexpected Threat (too much optimism)
         if v.hope > 90:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.UNEXPECTED_THREAT,
                 trigger_meter = "hope",
                 trigger_value = v.hope,
                 description   = (
-                    "Todo va demasiado bien. Un problema inesperado DEBE "
-                    "aparecer para evitar un final demasiado cómodo."
+                    "Everything is going too well. An unexpected problem MUST emerge to "
+                    "prevent a too comfortable or safe ending."
                 )
             )
 
-        # Descanso narrativo (ritmo sostenido alto)
+        # Narrative Rest (sustained high rhythm)
         if v.rhythm > 90 and v._high_rhythm_turns >= 3:
             return ForcedEventConstraint(
                 event_type    = ForcedEventType.NARRATIVE_REST,
                 trigger_meter = "rhythm",
                 trigger_value = v.rhythm,
                 description   = (
-                    "El ritmo ha sido intenso por varios turnos. DEBE haber "
-                    "una escena de pausa: introspección, diálogo significativo, "
-                    "o un momento de calma antes de la siguiente tormenta."
+                    "The pace has been intense for several turns. There MUST be a scene of pause: "
+                    "introspection, meaningful dialogue, or a moment of calm before the next storm."
                 )
             )
 
-        # Sin umbrales cruzados: la historia avanza libremente
+        # No thresholds crossed: the story advances freely
         return None
 
     def get_dramatic_summary(self) -> str:
         """
-        Resumen del estado dramático para incluir en el contexto de la IA.
-        La IA usa esto para entender el 'clima emocional' actual.
+        Summary of the dramatic state to include in the AI context.
+        The AI uses this to understand the current 'emotional climate'.
         """
         v = self.vector
         lines = [
-            "ESTADO DRAMÁTICO ACTUAL:",
-            f"  Tensión:    {v.tension}/100  {'🔴' if v.tension > 70 else '🟡' if v.tension > 40 else '🟢'}",
-            f"  Esperanza:  {v.hope}/100  {'🟢' if v.hope > 60 else '🟡' if v.hope > 30 else '🔴'}",
-            f"  Caos:       {v.chaos}/100",
-            f"  Ritmo:      {v.rhythm}/100",
-            f"  Saturación: {v.saturation}/100",
-            f"  Conexión:   {v.connection}/100",
-            f"  Misterio:   {v.mystery}/100",
+            "CURRENT DRAMATIC STATE:",
+            f"  Tension:     {v.tension}/100  {'🔴' if v.tension > 70 else '🟡' if v.tension > 40 else '🟢'}",
+            f"  Hope:        {v.hope}/100  {'🟢' if v.hope > 60 else '🟡' if v.hope > 30 else '🔴'}",
+            f"  Chaos:       {v.chaos}/100",
+            f"  Rhythm:      {v.rhythm}/100",
+            f"  Saturation:  {v.saturation}/100",
+            f"  Connection:  {v.connection}/100",
+            f"  Mystery:     {v.mystery}/100",
         ]
         return "\n".join(lines)
 
     def get_arc_analysis(self) -> dict:
         """
-        Análisis del arco dramático para el paper.
-        Calcula métricas sobre la curva de tensión a lo largo de la historia.
+        Analysis of the dramatic arc for the paper.
+        Calculates metrics on the tension curve throughout the story.
         """
         if len(self._history) < 2:
-            return {"error": "Historia demasiado corta para análisis"}
+            return {"error": "Story too short for analysis"}
 
         tension_curve = [h["tension"] for h in self._history]
         hope_curve    = [h["hope"] for h in self._history]

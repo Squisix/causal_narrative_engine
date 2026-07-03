@@ -1,13 +1,13 @@
 """
-models/world.py — La Semilla del Árbol Literario
+models/world.py — The Seed of the Literary Tree
 
-En Python, @dataclass genera automáticamente __init__, __repr__ y __eq__
-a partir de los campos que defines. Es equivalente a un 'data class' en
-Kotlin, un 'record' en Java 17+, o una 'struct' en Go.
+In Python, @dataclass automatically generates __init__, __repr__, and __eq__
+from the defined fields. It is equivalent to a 'data class' in Kotlin, 
+a 'record' in Java 17+, or a 'struct' in Go.
 
-field(default_factory=...) se usa para valores por defecto que son
-objetos mutables (listas, dicts). En Python nunca pongas [] o {} como
-default directo en una dataclass — se compartiría entre instancias.
+field(default_factory=...) is used for default values of mutable objects 
+(lists, dicts). In Python, never assign [] or {} directly as a default 
+value in a dataclass — it would be shared among all instances.
 """
 
 from dataclasses import dataclass, field
@@ -21,8 +21,8 @@ import uuid
 
 class EntityType(str, Enum):
     """
-    str + Enum: el valor es una string serializable directamente a JSON.
-    Útil cuando persistamos o mandemos datos a la IA.
+    str + Enum: the value is a string, which makes it directly JSON serializable.
+    Useful when persisting or sending data to the AI.
     """
     CHARACTER = "character"
     FACTION   = "faction"
@@ -31,12 +31,13 @@ class EntityType(str, Enum):
 
 
 class NarrativeTone(str, Enum):
-    EPIC        = "épico"
-    DARK        = "oscuro"
-    MYSTERIOUS  = "misterioso"
-    ADVENTUROUS = "aventurero"
-    PHILOSOPHICAL = "filosófico"
-    BLACK_HUMOR = "humor_negro"
+    """Supported narrative tones for story generation."""
+    EPIC          = "epic"
+    DARK          = "dark"
+    MYSTERIOUS    = "mysterious"
+    ADVENTUROUS   = "adventurous"
+    PHILOSOPHICAL = "philosophical"
+    BLACK_HUMOR   = "black_humor"
 
 
 # ── Entity ────────────────────────────────────────────────────────────────────
@@ -44,39 +45,37 @@ class NarrativeTone(str, Enum):
 @dataclass
 class Entity:
     """
-    Una entidad persistente del mundo narrativo.
+    A persistent entity in the narrative world.
 
-    El motor NUNCA borra entidades — solo las marca como destruidas.
-    Esto preserva la historia completa y permite reconstruir cualquier
-    estado pasado.
+    The engine NEVER deletes entities — it only marks them as destroyed.
+    This preserves the complete history and allows reconstructing any past state.
 
     Attributes:
-        id:           Identificador único. uuid4() genera uno aleatorio.
-        name:         Nombre del personaje/objeto/lugar.
-        entity_type:  Qué tipo de entidad es (ver EntityType).
-        attributes:   Dict flexible para cualquier atributo del mundo.
-                      Ej: {"alive": True, "health": 100, "loyalty": 80}
-        created_at_depth: En qué profundidad narrativa fue creada.
-        destroyed_at_depth: None si está viva, número si fue destruida.
+        id:                 Unique identifier. uuid4() generates a random one.
+        name:               Name of the character, object, or location.
+        entity_type:        Type of entity (see EntityType).
+        attributes:         Flexible dictionary for any world attribute.
+                            E.g., {"alive": True, "health": 100, "loyalty": 80}
+        created_at_depth:   Narrative depth at which it was created.
+        destroyed_at_depth: None if active, or narrative depth if destroyed.
     """
     name:        str
     entity_type: EntityType
     attributes:  dict[str, Any]       = field(default_factory=dict)
     id:          str                  = field(default_factory=lambda: str(uuid.uuid4()))
     created_at_depth:    int          = 0
-    destroyed_at_depth:  int | None   = None   # None = viva
+    destroyed_at_depth:  int | None   = None   # None = active/alive
 
     @property
     def is_alive(self) -> bool:
         """
-        Una property en Python es un método que se accede como atributo.
-        entity.is_alive  →  llama a este getter automáticamente.
+        A property in Python is a method accessed like an attribute.
+        entity.is_alive  →  automatically calls this getter.
         """
-        # Si destroyed_at_depth es None, la entidad sigue viva
         return self.destroyed_at_depth is None
 
     def get_attr(self, key: str, default: Any = None) -> Any:
-        """Acceso seguro a atributos con valor por defecto."""
+        """Safe access to attributes with a default fallback."""
         return self.attributes.get(key, default)
 
     def __str__(self) -> str:
@@ -84,33 +83,33 @@ class Entity:
         return f"[{status}] {self.name} ({self.entity_type.value})"
 
 
-# ── WorldDefinition (La Semilla) ──────────────────────────────────────────────
+# ── WorldDefinition (The Seed) ──────────────────────────────────────────────
 
 @dataclass
 class WorldDefinition:
     """
-    La Semilla — inmutable una vez creada.
+    The Seed — immutable once created.
 
-    Define el espacio de estados posibles de la historia. La IA siempre
-    recibe esta definición como parte del contexto. Las reglas aquí son
-    el 'contrato narrativo': ni la IA ni el jugador pueden violarlas.
+    Defines the state space of possible stories. The AI always receives 
+    this definition as part of the context. The rules defined here represent 
+    the 'narrative contract' which neither the AI nor the player can violate.
 
     Attributes:
-        name:           Nombre del mundo/historia.
-        context:        Descripción detallada del universo narrativo.
-        protagonist:    Nombre y descripción del personaje principal.
-        era:            Época/ambientación (ej: "Medieval fantástico, año 843").
-        tone:           Tono narrativo general.
-        antagonist:     Conflicto o antagonista central.
-        rules:          Reglas del mundo (ej: "La magia existe pero tiene precio").
-        constraints:    Lista de cosas PROHIBIDAS narrativamente.
-                        El motor y la IA deben respetar estas restricciones.
-        initial_entities: Personajes/objetos/lugares que existen desde el inicio.
-        dramatic_config:  Configuración inicial del vector dramático.
-        max_depth:      Máximo de decisiones antes de forzar un final.
-                        0 = ilimitado.
-        id:             UUID generado automáticamente.
-        created_at:     Timestamp de creación.
+        name:               Name of the world/story.
+        context:            Detailed description of the narrative universe.
+        protagonist:        Name and description of the main character.
+        era:                Era/setting (e.g., "Medieval fantasy, year 843").
+        tone:               Overall narrative tone.
+        antagonist:         Central conflict or antagonist.
+        rules:              World rules (e.g., "Magic exists but has a blood price").
+        constraints:        List of narratively FORBIDDEN occurrences.
+                            Both the engine and the AI must respect these constraints.
+        initial_entities:   Characters, objects, or locations existing from the start.
+        dramatic_config:    Initial settings of the dramatic vector.
+        max_depth:          Maximum narrative depth before forcing an ending (0 = unlimited).
+        output_language:    The target language for generated narratives (e.g., 'es', 'en').
+        id:                 Automatically generated UUID.
+        created_at:         Creation timestamp.
     """
     name:       str
     context:    str
@@ -118,15 +117,15 @@ class WorldDefinition:
     era:        str
     tone:       NarrativeTone
 
-    antagonist:  str              = "desconocido"
-    rules:       str              = "El mundo sigue sus propias leyes"
+    antagonist:  str              = "unknown"
+    rules:       str              = "The world follows its own laws"
     constraints: list[str]        = field(default_factory=list)
 
-    # Entidades iniciales del mundo
+    # Initial world entities
     initial_entities: list[Entity] = field(default_factory=list)
 
-    # Configuración dramática: valores iniciales de cada medidor [0-100]
-    # El motor usará estos como punto de partida del DramaticVector
+    # Dramatic configuration: initial values for each meter [0-100]
+    # The engine uses this as the starting point for the DramaticVector
     dramatic_config: dict[str, int] = field(default_factory=lambda: {
         "tension":    30,
         "hope":       60,
@@ -137,13 +136,14 @@ class WorldDefinition:
         "mystery":    50,
     })
 
-    max_depth: int  = 0   # 0 = sin límite
+    max_depth: int  = 0   # 0 = no limit
+    output_language: str = "es"
 
     id:         str       = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime  = field(default_factory=datetime.now)
 
     def get_entity_by_name(self, name: str) -> Entity | None:
-        """Busca una entidad inicial por nombre. Retorna None si no existe."""
+        """Search an initial entity by name. Returns None if not found."""
         for entity in self.initial_entities:
             if entity.name.lower() == name.lower():
                 return entity
@@ -151,26 +151,27 @@ class WorldDefinition:
 
     def to_context_string(self) -> str:
         """
-        Serializa la semilla a texto para enviar a la IA.
-        Este es el bloque que siempre estará presente en el tronco activo.
+        Serializes the seed to text for sending to the AI.
+        This block is always present in the active context trunk.
         """
         lines = [
-            f"MUNDO: {self.name}",
-            f"CONTEXTO: {self.context}",
-            f"PROTAGONISTA: {self.protagonist}",
-            f"ÉPOCA: {self.era}",
-            f"TONO: {self.tone.value}",
-            f"ANTAGONISTA/CONFLICTO: {self.antagonist}",
-            f"REGLAS DEL MUNDO: {self.rules}",
+            f"WORLD: {self.name}",
+            f"CONTEXT: {self.context}",
+            f"PROTAGONIST: {self.protagonist}",
+            f"ERA: {self.era}",
+            f"TONE: {self.tone.value}",
+            f"ANTAGONIST/CONFLICT: {self.antagonist}",
+            f"WORLD RULES: {self.rules}",
+            f"OUTPUT LANGUAGE: {self.output_language}",
         ]
 
         if self.constraints:
-            lines.append("RESTRICCIONES ABSOLUTAS:")
+            lines.append("ABSOLUTE CONSTRAINTS:")
             for c in self.constraints:
                 lines.append(f"  - {c}")
 
         if self.initial_entities:
-            lines.append("ENTIDADES INICIALES:")
+            lines.append("INITIAL ENTITIES:")
             for e in self.initial_entities:
                 attrs_str = ", ".join(f"{k}={v}" for k, v in e.attributes.items())
                 lines.append(f"  - {e.name} ({e.entity_type.value}): {attrs_str}")
@@ -178,4 +179,4 @@ class WorldDefinition:
         return "\n".join(lines)
 
     def __str__(self) -> str:
-        return f"WorldDefinition('{self.name}', tono={self.tone.value}, entidades={len(self.initial_entities)})"
+        return f"WorldDefinition('{self.name}', tone={self.tone.value}, entities={len(self.initial_entities)}, lang={self.output_language})"

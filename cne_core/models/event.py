@@ -1,15 +1,15 @@
 """
-models/event.py — Eventos y el Grafo Causal
+models/event.py — Events and the Causal Graph
 
-Un NarrativeEvent es la unidad atómica del motor.
-Cada cosa que pasa en la historia es un evento: una batalla,
-una conversación, una muerte, un descubrimiento.
+A NarrativeEvent is the atomic unit of the engine.
+Everything that happens in the story is an event: a battle,
+a conversation, a death, a discovery.
 
-Los eventos se conectan entre sí formando un DAG (Directed Acyclic Graph):
-    muerte_del_rey → guerra_civil → invasión_extranjera
+Events connect to each other forming a DAG (Directed Acyclic Graph):
+    king_death → civil_war → foreign_invasion
 
-La restricción DAG (sin ciclos) es lo que garantiza que la historia
-sea causalmente coherente: ningún evento puede ser causa de sí mismo.
+The DAG constraint (no cycles) is what guarantees that the story
+is causally coherent: no event can be the cause of itself.
 """
 
 from dataclasses import dataclass, field
@@ -22,63 +22,63 @@ import uuid
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
 class EventType(str, Enum):
-    """Tipos de eventos que puede procesar el motor."""
-    DECISION    = "decision"     # Acción tomada por el jugador
-    CONSEQUENCE = "consequence"  # Consecuencia directa de una decisión
-    FORCED      = "forced"       # Evento forzado por el DramaticEngine (umbrales)
-    CLIMAX      = "climax"       # Clímax narrativo forzado
-    REVELATION  = "revelation"   # Revelación de misterio
-    ENDING      = "ending"       # Final de la historia
+    """Types of events the engine can process."""
+    DECISION    = "decision"     # Action taken by the player
+    CONSEQUENCE = "consequence"  # Direct consequence of a decision
+    FORCED      = "forced"       # Event forced by the DramaticEngine (thresholds)
+    CLIMAX      = "climax"       # Forced narrative climax
+    REVELATION  = "revelation"   # Mystery revelation
+    ENDING      = "ending"       # End of the story
 
 
 class CausalRelationType(str, Enum):
     """
-    Tipo de relación causal entre dos eventos.
-    Útil para el paper y para que la IA comprenda el grafo.
+    Type of causal relationship between two events.
+    Useful for the paper and for the AI to understand the graph.
     """
-    DIRECT      = "direct"       # A causó directamente B
-    ENABLES     = "enables"      # A hizo posible B
-    TRIGGERS    = "triggers"     # A detonó B (con cierto delay)
-    PREVENTS    = "prevents"     # A impidió que ocurriera C (negativo)
-    AMPLIFIES   = "amplifies"    # A hizo B más intenso
+    DIRECT      = "direct"       # A directly caused B
+    ENABLES     = "enables"      # A made B possible
+    TRIGGERS    = "triggers"     # A triggered B (with some delay)
+    PREVENTS    = "prevents"     # A prevented C from happening (negative)
+    AMPLIFIES   = "amplifies"    # A made B more intense
 
 
-# ── Deltas de estado ──────────────────────────────────────────────────────────
+# ── State deltas ──────────────────────────────────────────────────────────────
 
 @dataclass
 class EntityDelta:
     """
-    Representa el cambio en un atributo de una entidad.
+    Represents the change in an attribute of an entity.
 
-    Ejemplo: hero.health cambia de 100 a 90.
-        entity_id = "uuid-del-hero"
+    Example: hero.health changes from 100 to 90.
+        entity_id = "uuid-of-hero"
         attribute = "health"
         old_value = 100
         new_value = 90
 
-    Guardamos old_value Y new_value para poder:
-    - Reconstruir el estado en cualquier dirección
-    - Detectar inconsistencias
-    - Generar el historial legible para la IA
+    We store both old_value AND new_value so we can:
+    - Reconstruct the state in any direction
+    - Detect inconsistencies
+    - Generate a readable history for the AI
     """
     entity_id:  str
-    entity_name: str      # Para legibilidad en logs y contexto IA
+    entity_name: str      # For readability in logs and AI context
     attribute:  str
     old_value:  Any
     new_value:  Any
 
     @property
     def delta_summary(self) -> str:
-        """Resumen legible para incluir en el contexto de la IA."""
+        """Readable summary to include in the AI context."""
         return f"{self.entity_name}.{self.attribute}: {self.old_value} → {self.new_value}"
 
 
 @dataclass
 class WorldVariableDelta:
     """
-    Cambio en una variable global del mundo.
+    Change in a global world variable.
 
-    Ejemplo: political_stability baja de 60 a 45.
+    Example: political_stability drops from 60 to 45.
     """
     variable:  str
     old_value: Any
@@ -86,16 +86,16 @@ class WorldVariableDelta:
 
     @property
     def delta_summary(self) -> str:
-        return f"mundo.{self.variable}: {self.old_value} → {self.new_value}"
+        return f"world.{self.variable}: {self.old_value} → {self.new_value}"
 
 
 @dataclass
 class EntityCreation:
     """
-    Representa la creacion de una nueva entidad durante la historia.
+    Represents the creation of a new entity during the story.
 
-    Ejemplo: Un misterioso extranjero aparece en el capitulo 3.
-        entity_name = "Zara la Errante"
+    Example: A mysterious stranger appears in chapter 3.
+        entity_name = "Zara the Wanderer"
         entity_type = "character"
         attributes = {"health": 100, "loyalty": 50}
     """
@@ -113,10 +113,10 @@ class EntityCreation:
 @dataclass
 class DramaticDelta:
     """
-    Cambio en el vector dramático causado por este evento.
+    Change in the dramatic vector caused by this event.
 
-    El DramaticEngine aplica estos deltas DESPUÉS de que el evento
-    es validado y antes de que se persista el commit.
+    The DramaticEngine applies these deltas AFTER the event
+    is validated and before the commit is persisted.
     """
     tension:    int = 0
     hope:       int = 0
@@ -127,7 +127,7 @@ class DramaticDelta:
     mystery:    int = 0
 
     def is_empty(self) -> bool:
-        """¿Este delta no cambia nada?"""
+        """Does this delta change nothing?"""
         return all(v == 0 for v in [
             self.tension, self.hope, self.chaos, self.rhythm,
             self.saturation, self.connection, self.mystery
@@ -148,7 +148,7 @@ class DramaticDelta:
             if v != 0:
                 sign = "+" if v > 0 else ""
                 parts.append(f"{k}{sign}{v}")
-        return ", ".join(parts) if parts else "sin cambios dramáticos"
+        return ", ".join(parts) if parts else "no dramatic changes"
 
 
 # ── NarrativeEvent ────────────────────────────────────────────────────────────
@@ -156,68 +156,68 @@ class DramaticDelta:
 @dataclass
 class NarrativeEvent:
     """
-    La unidad atómica del motor narrativo.
+    The atomic unit of the narrative engine.
 
-    Un evento representa algo que sucedió en la historia, con:
-    - Su narrativa (el texto que ve el jugador)
-    - Sus causas (qué eventos previos lo hicieron posible)
-    - Sus efectos (qué cambia en el mundo)
-    - Su impacto dramático (cómo mueve los medidores)
+    An event represents something that happened in the story, with:
+    - Its narrative (the text the player sees)
+    - Its causes (which previous events made it possible)
+    - Its effects (what changes in the world)
+    - Its dramatic impact (how it moves the meters)
 
-    Invariante crítico: caused_by solo puede contener IDs de eventos
-    anteriores (depth menor). Esto garantiza el DAG sin ciclos.
+    Critical invariant: caused_by can only contain IDs of earlier
+    events (lower depth). This guarantees the cycle-free DAG.
     """
-    commit_id:       str           # A qué commit narrativo pertenece
+    commit_id:       str           # Which narrative commit it belongs to
     event_type:      EventType
-    narrative_text:  str           # El texto que ve el jugador
-    summary:         str           # Resumen de 1 oración para el tronco activo
+    narrative_text:  str           # The text the player sees
+    summary:         str           # 1-sentence summary for the active trunk
 
-    # Grafo causal: IDs de los eventos que causaron este
-    # Si está vacío, es un evento inicial (raíz del DAG)
+    # Causal graph: IDs of the events that caused this one
+    # If empty, this is an initial event (DAG root)
     caused_by:       list[str]     = field(default_factory=list)
 
-    # Qué decisión del jugador lo disparó (None si fue forzado)
+    # Which player decision triggered it (None if forced)
     triggered_by_decision: str | None = None
 
-    # Razón causal generada por la IA (por qué ocurre este evento)
+    # Causal reason generated by the AI (why this event occurs)
     causal_reason: str | None = None
 
-    # Los efectos del evento sobre el mundo
+    # The effects of the event on the world
     entity_deltas:    list[EntityDelta]        = field(default_factory=list)
     entity_creations: list[EntityCreation]     = field(default_factory=list)
     world_deltas:     list[WorldVariableDelta] = field(default_factory=list)
     dramatic_delta:   DramaticDelta            = field(default_factory=DramaticDelta)
 
-    # Si es un evento FORCED, qué medidor lo disparó
+    # If this is a FORCED event, which meter triggered it
     forced_by_meter: str | None    = None
 
-    # Metadatos
+    # Metadata
     id:         str      = field(default_factory=lambda: str(uuid.uuid4()))
-    depth:      int      = 0       # Profundidad narrativa en que ocurrió
+    depth:      int      = 0       # Narrative depth at which it occurred
     created_at: datetime = field(default_factory=datetime.now)
 
-    # Para el paper: orden topológico en el DAG
-    # Un evento hijo siempre tiene topo_order > que sus padres
+    # For the paper: topological order in the DAG
+    # A child event always has topo_order > than its parents
     topo_order: int = 0
 
     def is_root(self) -> bool:
-        """¿Es un evento raíz (sin causas previas)?"""
+        """Is this a root event (no prior causes)?"""
         return len(self.caused_by) == 0
 
     def affects_entity(self, entity_id: str) -> bool:
-        """¿Este evento modifica a la entidad dada?"""
+        """Does this event modify the given entity?"""
         return any(d.entity_id == entity_id for d in self.entity_deltas)
 
     def get_summary_for_context(self) -> str:
         """
-        Retorna una representación compacta para incluir en el tronco activo.
-        Los eventos lejanos se comprimen a esta forma para ahorrar tokens.
+        Returns a compact representation to include in the active trunk.
+        Distant events are compressed to this form to save tokens.
         """
         prefix = ""
         if self.triggered_by_decision:
-            prefix = f'[Decisión: "{self.triggered_by_decision}"] '
+            prefix = f'[Decision: "{self.triggered_by_decision}"] '
         elif self.forced_by_meter:
-            prefix = f"[Evento forzado por {self.forced_by_meter}] "
+            prefix = f"[Forced event by {self.forced_by_meter}] "
 
         return f"• {prefix}{self.summary}"
 
@@ -235,20 +235,20 @@ class NarrativeEvent:
 @dataclass
 class CausalEdge:
     """
-    Una arista del grafo causal: evento A causó evento B.
+    An edge of the causal graph: event A caused event B.
 
-    El CausalValidator usa estas aristas para detectar ciclos.
-    Antes de crear una arista A→B, verifica que NO exista
-    un camino de B→A (lo que crearía un ciclo).
+    The CausalValidator uses these edges to detect cycles.
+    Before creating an edge A->B, it verifies that there is NO
+    path from B->A (which would create a cycle).
 
-    Para el paper: la relación_type permite analizar el tipo de
-    causalidad predominante en diferentes géneros narrativos.
+    For the paper: the relation_type allows analyzing the type of
+    causality predominant in different narrative genres.
     """
-    cause_event_id:  str    # El evento que causó
-    effect_event_id: str    # El evento causado
+    cause_event_id:  str    # The event that caused
+    effect_event_id: str    # The event that was caused
 
     relation_type:   CausalRelationType = CausalRelationType.DIRECT
-    strength:        float              = 1.0   # [0.0 - 1.0] fuerza causal
+    strength:        float              = 1.0   # [0.0 - 1.0] causal strength
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 

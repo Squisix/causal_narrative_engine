@@ -1,16 +1,16 @@
 """
-models/commit.py — Versionado tipo Git del árbol narrativo
+models/commit.py — Git-like versioning of the narrative tree
 
-Un NarrativeCommit es como un commit de Git:
-- Tiene un parent (el commit anterior)
-- Registra qué decisión se tomó
-- Guarda el estado del mundo en ese momento
-- Puede ramificarse (un commit puede tener múltiples hijos)
+A NarrativeCommit is like a Git commit:
+- It has a parent (the previous commit)
+- It records what decision was made
+- It saves the state of the world at that moment
+- It can branch (a commit can have multiple children)
 
-Esto es lo que hace posible:
-- Volver atrás en la historia
-- Explorar ramas alternativas
-- Comparar qué hubiera pasado con otra decisión
+This is what makes it possible to:
+- Go back in the story
+- Explore alternative branches
+- Compare what would have happened with a different decision
 """
 
 from dataclasses import dataclass, field
@@ -24,45 +24,45 @@ import uuid
 @dataclass
 class NarrativeCommit:
     """
-    Un punto en la historia. Equivalente a un commit de Git.
+    A point in the story. Equivalent to a Git commit.
 
-    La historia no se guarda como texto lineal, sino como una cadena
-    de commits. Cada commit apunta a su padre (parent_id), formando
-    un árbol que puede ramificarse.
+    The story is not saved as linear text, but as a chain
+    of commits. Each commit points to its parent (parent_id), forming
+    a tree that can branch.
 
-    Ejemplo de árbol:
-        commit_0 (inicio)
-            └─ commit_1 (decisión: "hablar con el rey")
-                ├─ commit_2a (decisión: "aceptar la misión")  ← rama A
-                └─ commit_2b (decisión: "rechazar la misión") ← rama B
+    Tree example:
+        commit_0 (start)
+            └─ commit_1 (decision: "talk to the king")
+                ├─ commit_2a (decision: "accept the mission")  ← branch A
+                └─ commit_2b (decision: "reject the mission") ← branch B
 
     Attributes:
-        world_id:        A qué WorldDefinition pertenece.
-        parent_id:       El commit anterior. None solo para el primero.
-        event_id:        El NarrativeEvent que generó este commit.
-        choice_text:     La decisión en texto (lo que eligió el jugador).
-        narrative_text:  El texto narrativo completo de este momento.
-        summary:         Resumen de 1 oración (para comprimir el tronco).
-        depth:           Cuántas decisiones se han tomado hasta aquí.
-        branch_id:       Identificador de la rama en la que estamos.
-        dramatic_snapshot: Estado del DramaticVector en este commit.
-        world_state_snapshot: Estado de las variables globales del mundo.
-        entity_states:   Estado de las entidades en este commit.
-        is_ending:       ¿Es el final de la historia?
-        children_ids:    IDs de los commits hijos (ramas alternativas).
+        world_id:        Which WorldDefinition this belongs to.
+        parent_id:       The previous commit. None only for the first one.
+        event_id:        The NarrativeEvent that generated this commit.
+        choice_text:     The decision as text (what the player chose).
+        narrative_text:  The full narrative text for this moment.
+        summary:         1-sentence summary (for trunk compression).
+        depth:           How many decisions have been made up to here.
+        branch_id:       Identifier of the branch we are on.
+        dramatic_snapshot: State of the DramaticVector at this commit.
+        world_state_snapshot: State of the global world variables.
+        entity_states:   State of entities at this commit.
+        is_ending:       Is this the end of the story?
+        children_ids:    IDs of child commits (alternative branches).
     """
     world_id:      str
     event_id:      str
     depth:         int
 
-    parent_id:     str | None     = None   # None solo en el commit raíz
-    choice_text:   str | None     = None   # None en el commit inicial
+    parent_id:     str | None     = None   # None only for the root commit
+    choice_text:   str | None     = None   # None for the initial commit
     narrative_text: str           = ""
     summary:       str            = ""
 
     branch_id:     str            = field(default_factory=lambda: str(uuid.uuid4()))
 
-    # Estado del mundo en este commit (snapshot ligero)
+    # World state at this commit (lightweight snapshot)
     dramatic_snapshot:    dict[str, int]  = field(default_factory=dict)
     world_state_snapshot: dict[str, Any]  = field(default_factory=dict)
     entity_states:        dict[str, Any]  = field(default_factory=dict)
@@ -75,28 +75,28 @@ class NarrativeCommit:
 
     @property
     def is_root(self) -> bool:
-        """¿Es el primer commit de la historia?"""
+        """Is this the first commit in the story?"""
         return self.parent_id is None
 
     @property
     def has_branches(self) -> bool:
-        """¿Tiene múltiples caminos desde aquí?"""
+        """Does it have multiple paths from here?"""
         return len(self.children_ids) > 1
 
     def add_child(self, child_id: str) -> None:
-        """Registra un commit hijo (cuando el jugador toma una decisión aquí)."""
+        """Registers a child commit (when the player makes a decision here)."""
         if child_id not in self.children_ids:
             self.children_ids.append(child_id)
 
     def get_dramatic_meter(self, meter: str) -> int:
-        """Acceso seguro a un medidor del snapshot dramático."""
+        """Safe access to a meter from the dramatic snapshot."""
         return self.dramatic_snapshot.get(meter, 0)
 
     def to_trunk_entry(self) -> str:
         """
-        Representación compacta para el tronco activo.
-        Los commits lejanos se incluyen en el contexto de la IA
-        con esta representación de una sola línea.
+        Compact representation for the active trunk.
+        Distant commits are included in the AI context
+        using this single-line representation.
         """
         prefix = ""
         if self.choice_text:
@@ -106,12 +106,12 @@ class NarrativeCommit:
         hope    = self.get_dramatic_meter("hope")
 
         return (
-            f"[Cap.{self.depth}] {prefix}{self.summary} "
-            f"(tension={tension}, esperanza={hope})"
+            f"[Ch.{self.depth}] {prefix}{self.summary} "
+            f"(tension={tension}, hope={hope})"
         )
 
     def __str__(self) -> str:
-        choice = f'"{self.choice_text}"' if self.choice_text else "inicio"
+        choice = f'"{self.choice_text}"' if self.choice_text else "beginning"
         return (
             f"NarrativeCommit("
             f"depth={self.depth}, "
@@ -125,19 +125,19 @@ class NarrativeCommit:
 @dataclass
 class Branch:
     """
-    Metadatos de una rama del árbol narrativo.
+    Metadata for a branch of the narrative tree.
 
-    Una rama es una secuencia de commits desde un punto de divergencia
-    hasta la hoja actual (o un final). Cuando el jugador vuelve atrás
-    y toma una decisión diferente, se crea una nueva rama.
+    A branch is a sequence of commits from a divergence point
+    to the current leaf (or an ending). When the player goes back
+    and makes a different decision, a new branch is created.
 
-    El branch_id se propaga a todos los commits de esa rama.
+    The branch_id is propagated to all commits on that branch.
     """
     world_id:      str
-    origin_commit_id: str    # Desde qué commit se divergió
-    name:          str       = "Rama principal"
+    origin_commit_id: str    # From which commit it diverged
+    name:          str       = "Main branch"
     description:   str       = ""
-    leaf_commit_id: str | None = None   # El commit más reciente de esta rama
+    leaf_commit_id: str | None = None   # The most recent commit on this branch
 
     id:            str       = field(default_factory=lambda: str(uuid.uuid4()))
     created_at:    datetime  = field(default_factory=datetime.now)
@@ -151,23 +151,23 @@ class Branch:
 @dataclass
 class NarrativeChoice:
     """
-    Una opción disponible para el jugador en un momento dado.
+    An available option for the player at a given moment.
 
-    Las hojas del árbol literario. La IA las genera, el motor las valida
-    y las presenta. El jugador elige una → nuevo commit → nueva rama si
-    ya había un commit hijo en este punto.
+    The leaves of the literary tree. The AI generates them, the engine validates
+    them and presents them. The player chooses one -> new commit -> new branch if
+    there was already a child commit at this point.
 
-    dramatic_preview muestra cómo ESTIMAMOS que cambiará el vector
-    dramático si se elige esta opción. Es una predicción de la IA,
-    no una garantía del motor.
+    dramatic_preview shows how we ESTIMATE the dramatic vector will change
+    if this option is chosen. It is an AI prediction,
+    not an engine guarantee.
     """
-    text:             str                    # El texto de la opción
+    text:             str                    # The option text
     dramatic_preview: dict[str, int]         = field(default_factory=dict)
-    tone_hint:        str                    = ""   # "confrontacional", "diplomático", etc.
+    tone_hint:        str                    = ""   # "confrontational", "diplomatic", etc.
     estimated_depth_until_ending: int | None = None
 
     def get_preview_str(self) -> str:
-        """Resumen del impacto dramático estimado para mostrar al jugador."""
+        """Summary of the estimated dramatic impact to show the player."""
         if not self.dramatic_preview:
             return ""
         parts = []
@@ -176,7 +176,7 @@ class NarrativeChoice:
                 sign  = "+" if delta > 0 else ""
                 arrow = "^" if delta > 0 else "v"
                 parts.append(f"{arrow}{meter}{sign}{delta}")
-        return "  ".join(parts[:3])   # Mostrar máximo 3 para no saturar la UI
+        return "  ".join(parts[:3])   # Show at most 3 to avoid cluttering the UI
 
     def __str__(self) -> str:
         return f"NarrativeChoice('{self.text[:40]}...')"

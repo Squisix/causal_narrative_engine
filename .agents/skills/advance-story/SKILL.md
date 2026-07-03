@@ -1,25 +1,25 @@
 ---
 name: advance-story
-description: Como funciona el flujo de avanzar la historia y el sistema de entity creation
-trigger: Cuando se trabaje con StateMachine.advance_story, entity creation, o el 5-tuple de to_core_models
+description: How the advance story flow and the entity creation system work
+trigger: When working with StateMachine.advance_story, entity creation, or the 5-tuple from to_core_models
 ---
 
-# Flujo de advance_story y Entity Creation
+# Flow of advance_story and Entity Creation
 
-## Orden de ejecucion en StateMachine.advance_story()
+## Execution Order in StateMachine.advance_story()
 
-1. **_apply_entity_creations()** — Crea nuevas entidades (personajes, artifacts, locations)
-2. **_apply_entity_deltas()** — Modifica atributos de entidades existentes
-3. **_apply_world_deltas()** — Modifica variables globales del mundo
-4. **DramaticEngine.apply_delta()** — Actualiza el vector dramatico de 7 dimensiones
-5. **DramaticEngine.evaluate_thresholds()** — Evalua si se cruzo un umbral (-> evento forzado)
-6. **Crear NarrativeEvent** — Con todos los deltas, creations, y causal_reason
-7. **CausalValidator.add_edge()** — Validar que el DAG no tenga ciclos
-8. **Crear NarrativeCommit** — Con snapshots de estado completo
+1. **_apply_entity_creations()** — Creates new entities (characters, artifacts, locations)
+2. **_apply_entity_deltas()** — Modifies attributes of existing entities
+3. **_apply_world_deltas()** — Modifies global variables of the world
+4. **DramaticEngine.apply_delta()** — Updates the 7-dimensional dramatic vector
+5. **DramaticEngine.evaluate_thresholds()** — Evaluates if any threshold is crossed (-> forced event)
+6. **Create NarrativeEvent** — With all deltas, creations, and causal_reason
+7. **CausalValidator.add_edge()** — Validates that the DAG contains no cycles
+8. **Create NarrativeCommit** — With full-state snapshots
 
-**IMPORTANTE**: Entity creation va ANTES de entity deltas para que los deltas puedan referenciar entidades recien creadas en el mismo turno.
+**CRITICAL**: Entity creation runs BEFORE entity deltas so that deltas can reference newly created entities in the same turn.
 
-## EntityCreation dataclass
+## EntityCreation Dataclass
 
 ```python
 @dataclass
@@ -30,41 +30,41 @@ class EntityCreation:
     entity_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 ```
 
-Archivo: `cne_core/models/event.py`
+File: `cne_core/models/event.py`
 
-## Atributos especiales para artifacts/items
+## Special Attributes for Artifacts/Items
 
 ```python
 {
-    "possessed_by": null,    # quien lo tiene (null = disponible en el entorno)
-    "location": "altar",     # donde esta
-    "usable": true,          # si se puede usar
-    "effect": "Abre puertas" # que efecto tiene
+    "possessed_by": null,    # who holds it (null = available in the environment)
+    "location": "altar",     # where it is located
+    "usable": true,          # whether it can be used right now
+    "effect": "Opens doors"  # what effect or utility it has
 }
 ```
 
-## 5-tuple de to_core_models()
+## 5-Tuple of to_core_models()
 
-`NarrativeResponse.to_core_models()` retorna exactamente 5 valores:
+`NarrativeResponse.to_core_models()` returns exactly 5 values:
 
 ```python
 entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
 ```
 
-Todos los adapters (mock, anthropic, ollama) hacen unpacking de estos 5 valores en `_convert_to_proposal`.
+All AI adapters (mock, anthropic, ollama) unpack these 5 values in `_convert_to_proposal`.
 
-## go_to_commit y entidades dinamicas
+## go_to_commit and Dynamic Entities
 
-Cuando se navega a un commit anterior con `go_to_commit()`:
-- Se ejecuta `self._entities.clear()` — limpia TODAS las entidades
-- Se reconstruye completamente desde el snapshot del commit target
-- Entidades creadas despues de ese commit NO aparecen
-- Se usa el campo `created_at_depth` en el snapshot para reconstruir con `Entity()` constructor
+When jumping to a previous commit with `go_to_commit()`:
+- Executing `self._entities.clear()` — clears ALL active entities
+- Reconstructs the state entirely from the snapshot of the target commit
+- Entities created after that commit will NOT appear
+- Uses the `created_at_depth` field in the snapshot to reconstruct with the `Entity()` constructor
 
-## Persistencia de entity creation
+## Persistence of Entity Creation
 
-En `NarrativeServiceV2._persist_result()`:
-1. Se guarda el evento con `repo.save_event()` (incluye EntityCreationORM records)
-2. Se crea un `Entity` object y se persiste con `repo.save_entity(entity, world_id)`
+In `NarrativeServiceV2._persist_result()`:
+1. The event is saved with `repo.save_event()` (includes EntityCreationORM records)
+2. An `Entity` object is created and persisted with `repo.save_entity(entity, world_id)`
 
-Tabla de auditoria: `entity_creations` (migration 004)
+Audit table: `entity_creations` (migration 004)

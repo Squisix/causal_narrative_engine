@@ -1,7 +1,7 @@
 """
 api/dependencies.py - Dependency Injection
 
-Provee dependencias para FastAPI (Repository, AI Adapters, etc.)
+Provides dependencies for FastAPI (Repository, AI Adapters, etc.)
 """
 
 from functools import lru_cache
@@ -38,9 +38,9 @@ except ImportError:
 
 async def get_repository() -> AsyncGenerator[NarrativeRepository, None]:
     """
-    Dependency para obtener el Repository.
+    Dependency to obtain the Repository.
 
-    Crea una sesión de DB y la cierra automáticamente al terminar la request.
+    Creates a DB session and closes it automatically when the request ends.
     """
     async for session in get_session():
         repo = PostgreSQLRepository(session)
@@ -55,9 +55,9 @@ _mock_adapter_instance = None
 
 def get_mock_adapter() -> MockAdapter:
     """
-    Retorna una instancia singleton del MockAdapter.
+    Returns a singleton instance of MockAdapter.
 
-    Útil para testing y desarrollo sin API keys.
+    Useful for testing and development without API keys.
     """
     global _mock_adapter_instance
     if _mock_adapter_instance is None:
@@ -70,9 +70,9 @@ _anthropic_adapter_instance = None
 
 def get_anthropic_adapter() -> AnthropicAdapter:
     """
-    Retorna una instancia singleton del AnthropicAdapter.
+    Returns a singleton instance of AnthropicAdapter.
 
-    Usa la configuración de settings (API key, modelo, etc.)
+    Uses the settings configuration (API key, model, etc.)
     """
     if not ANTHROPIC_AVAILABLE:
         raise ValueError("Anthropic adapter not available. Install: pip install anthropic")
@@ -101,7 +101,7 @@ _ollama_adapter_instance = None
 
 
 def get_ollama_adapter() -> OllamaAdapter:
-    """Retorna una instancia singleton del OllamaAdapter."""
+    """Returns a singleton instance of OllamaAdapter."""
     if not OLLAMA_AVAILABLE:
         raise ValueError("Ollama adapter not available. Install: pip install httpx")
 
@@ -119,14 +119,14 @@ def get_ollama_adapter() -> OllamaAdapter:
 
 def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
     """
-    Factory para obtener un AI adapter.
+    Factory to obtain an AI adapter.
 
     Args:
-        adapter_type: "mock", "anthropic", o "ollama"
-        adapter_config: Configuracion especifica (opcional)
+        adapter_type: "mock", "anthropic", or "ollama"
+        adapter_config: Specific configuration (optional)
 
     Returns:
-        AIAdapter instancia
+        AIAdapter instance
     """
     if adapter_type == "mock":
         return get_mock_adapter()
@@ -164,7 +164,7 @@ def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
 
 
 def get_cache(request: Request) -> CacheBackend:
-    """Retorna el cache backend inicializado en el lifespan."""
+    """Returns the cache backend initialized in the lifespan."""
     return getattr(request.app.state, "cache", NullCache())
 
 
@@ -176,8 +176,8 @@ async def get_narrative_service_v2(
     cache: CacheBackend = Depends(get_cache),
 ) -> NarrativeServiceV2:
     """
-    Dependency para obtener el NarrativeServiceV2.
+    Dependency to obtain the NarrativeServiceV2.
 
-    Usa el Repository inyectado (PostgreSQL) y el cache (Redis o NullCache).
+    Uses the injected Repository (PostgreSQL) and the cache (Redis or NullCache).
     """
     return NarrativeServiceV2(repository=repo, cache=cache)

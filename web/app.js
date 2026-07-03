@@ -1,5 +1,55 @@
 const API = window.location.origin;
 
+// --- i18n ---
+let currentLocale = localStorage.getItem('cne-locale') || 'en';
+let translations = {};
+
+async function loadLocale(lang) {
+    try {
+        const res = await fetch(`/web/locales/${lang}.json`);
+        translations = await res.json();
+        currentLocale = lang;
+        localStorage.setItem('cne-locale', lang);
+        document.documentElement.lang = lang;
+        applyTranslations();
+    } catch (e) {
+        console.error('Failed to load locale:', lang, e);
+    }
+}
+
+function t(key, params = {}) {
+    let str = translations[key] || key;
+    for (const [k, v] of Object.entries(params)) {
+        str = str.replace(`{${k}}`, v);
+    }
+    return str;
+}
+
+function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+    document.querySelectorAll('[data-i18n-value]').forEach(el => {
+        if (el.tagName === 'TEXTAREA') {
+            el.textContent = t(el.getAttribute('data-i18n-value'));
+        }
+        el.value = t(el.getAttribute('data-i18n-value'));
+    });
+    // Update lang select
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) langSelect.value = currentLocale;
+}
+
+function switchLanguage(lang) {
+    loadLocale(lang);
+}
+
+// --- State ---
+
 let state = {
     worldId: null,
     worldName: null,
@@ -34,7 +84,7 @@ async function loadExistingWorlds() {
 
         const worlds = await res.json();
         if (worlds.length === 0) {
-            container.innerHTML = '<p class="no-worlds">No hay mundos creados aun.</p>';
+            container.innerHTML = `<p class="no-worlds">${escapeHtml(t('setup.noWorlds'))}</p>`;
             return;
         }
 
@@ -45,24 +95,24 @@ async function loadExistingWorlds() {
                     <p>${escapeHtml(w.protagonist)} — ${escapeHtml(w.era)}</p>
                 </div>
                 <div class="world-card-stats">
-                    <div class="commits">${w.total_commits} capitulos</div>
+                    <div class="commits">${w.total_commits} ${escapeHtml(t('setup.chapters'))}</div>
                     <div>${escapeHtml(w.tone)}</div>
                     <div class="world-card-actions">
-                        <button class="btn-continue" onclick="resumeWorld('${w.world_id}', '${escapeAttr(w.name)}', '${escapeAttr(w.protagonist)}', '${escapeAttr(w.era)}')">Continuar</button>
-                        <button class="btn-delete" onclick="deleteWorld(event, '${w.world_id}', '${escapeAttr(w.name)}')">Eliminar</button>
+                        <button class="btn-continue" onclick="resumeWorld('${w.world_id}', '${escapeAttr(w.name)}', '${escapeAttr(w.protagonist)}', '${escapeAttr(w.era)}')">${escapeHtml(t('setup.continue'))}</button>
+                        <button class="btn-delete" onclick="deleteWorld(event, '${w.world_id}', '${escapeAttr(w.name)}')">${escapeHtml(t('setup.delete'))}</button>
                     </div>
                 </div>
             </div>
         `).join('');
     } catch (err) {
         console.error('Error loading worlds:', err);
-        container.innerHTML = '<p class="no-worlds">Error cargando mundos.</p>';
+        container.innerHTML = `<p class="no-worlds">${escapeHtml(t('setup.errorLoading'))}</p>`;
     }
 }
 
 async function deleteWorld(event, worldId, name) {
     event.stopPropagation();
-    if (!confirm(`Eliminar "${name}" y toda su historia? Esta accion no se puede deshacer.`)) {
+    if (!confirm(t('setup.deleteConfirm', { name }))) {
         return;
     }
 
@@ -72,7 +122,7 @@ async function deleteWorld(event, worldId, name) {
             loadExistingWorlds();
         } else {
             const err = await res.json();
-            alert('Error eliminando: ' + (err.detail || 'Error desconocido'));
+            alert(t('setup.errorDeleting') + (err.detail || t('setup.errorUnknown')));
         }
     } catch (err) {
         alert('Error: ' + err.message);
@@ -89,7 +139,7 @@ async function resumeWorld(worldId, name, protagonist, era) {
     state.adapterType = document.getElementById('adapter-type').value;
 
     document.getElementById('chapters-title').textContent = name;
-    document.getElementById('chapters-subtitle').textContent = 'Selecciona un capitulo para continuar.';
+    document.getElementById('chapters-subtitle').textContent = t('chapters.subtitle');
     showScreen('chapters-screen');
 
     await loadChapters(worldId);
@@ -97,40 +147,40 @@ async function resumeWorld(worldId, name, protagonist, era) {
 
 async function loadChapters(worldId) {
     const container = document.getElementById('chapters-list');
-    container.innerHTML = '<p class="no-worlds">Cargando capitulos...</p>';
+    container.innerHTML = `<p class="no-worlds">${escapeHtml(t('chapters.loading'))}</p>`;
 
     try {
         const res = await fetch(`${API}/worlds/${worldId}/commits`);
-        if (!res.ok) throw new Error('Error cargando capitulos');
+        if (!res.ok) throw new Error(t('chapters.error'));
 
         const commits = await res.json();
         if (commits.length === 0) {
             container.innerHTML = `
-                <p class="no-worlds">Este mundo no tiene capitulos aun.</p>
-                <button class="btn btn-primary" style="max-width:300px;margin:16px auto;display:block" onclick="startFromWorld()">Iniciar Historia</button>
+                <p class="no-worlds">${escapeHtml(t('chapters.noChapters'))}</p>
+                <button class="btn btn-primary" style="max-width:300px;margin:16px auto;display:block" onclick="startFromWorld()">${escapeHtml(t('chapters.startStory'))}</button>
             `;
             return;
         }
 
         container.innerHTML = commits.map(c => `
             <div class="chapter-card" onclick="selectChapter('${c.commit_id}')">
-                <span class="depth-badge">Cap ${c.depth}</span>
+                <span class="depth-badge">${escapeHtml(t('game.chapter'))} ${c.depth}</span>
                 <div class="chapter-card-info">
                     <div class="summary">${escapeHtml(c.summary)}</div>
                     ${c.choice_text ? `<div class="choice-label">${escapeHtml(c.choice_text)}</div>` : ''}
                 </div>
-                ${c.is_ending ? '<span class="forced-event-badge">FIN</span>' : ''}
+                ${c.is_ending ? `<span class="forced-event-badge">${escapeHtml(t('chapters.end'))}</span>` : ''}
             </div>
         `).join('');
     } catch (err) {
-        container.innerHTML = '<p class="no-worlds">Error cargando capitulos.</p>';
+        container.innerHTML = `<p class="no-worlds">${escapeHtml(t('chapters.error'))}.</p>`;
     }
 }
 
 async function startFromWorld() {
     updateWorldInfo({ name: state.worldName, protagonist: state.worldProtagonist, era: state.worldEra });
     showScreen('game-screen');
-    showLoading('Generando el inicio de la historia...');
+    showLoading(t('game.generatingStart'));
 
     try {
         const res = await fetch(`${API}/worlds/${state.worldId}/start`, {
@@ -140,7 +190,7 @@ async function startFromWorld() {
         });
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Error iniciando narrativa');
+            throw new Error(err.detail || t('game.errorStarting'));
         }
         const commit = await res.json();
         state.commitId = commit.commit_id;
@@ -157,13 +207,13 @@ async function startFromWorld() {
 async function selectChapter(commitId) {
     updateWorldInfo({ name: state.worldName, protagonist: state.worldProtagonist, era: state.worldEra });
     showScreen('game-screen');
-    showLoading('Cargando capitulo...');
+    showLoading(t('game.loadingChapter'));
 
     try {
         const res = await fetch(`${API}/commits/${commitId}/goto`, { method: 'POST' });
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Error cargando capitulo');
+            throw new Error(err.detail || t('game.errorLoading'));
         }
         const commit = await res.json();
         state.commitId = commit.commit_id;
@@ -178,7 +228,11 @@ async function selectChapter(commitId) {
     }
 }
 
-loadExistingWorlds();
+// ── Init ──────────────────────────────────────
+
+loadLocale(currentLocale).then(() => {
+    loadExistingWorlds();
+});
 
 // ── Setup ──────────────────────────────────────
 
@@ -186,7 +240,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     btn.disabled = true;
-    btn.textContent = 'Creando mundo...';
+    btn.textContent = t('game.creatingWorld');
 
     state.adapterType = document.getElementById('adapter-type').value;
 
@@ -198,6 +252,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
             era: document.getElementById('world-era').value,
             tone: document.getElementById('world-tone').value,
             initial_entities: getEntities(),
+            output_language: document.getElementById('world-language').value,
         };
 
         const worldRes = await fetch(`${API}/worlds`, {
@@ -208,7 +263,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
 
         if (!worldRes.ok) {
             const err = await worldRes.json();
-            throw new Error(err.detail || 'Error creando mundo');
+            throw new Error(err.detail || t('game.errorCreatingWorld'));
         }
 
         const world = await worldRes.json();
@@ -219,7 +274,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
 
         updateWorldInfo(worldData);
         showScreen('game-screen');
-        showLoading('Generando el inicio de la historia...');
+        showLoading(t('game.generatingStart'));
 
         const startRes = await fetch(`${API}/worlds/${state.worldId}/start`, {
             method: 'POST',
@@ -229,7 +284,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
 
         if (!startRes.ok) {
             const err = await startRes.json();
-            throw new Error(err.detail || 'Error iniciando narrativa');
+            throw new Error(err.detail || t('game.errorStarting'));
         }
 
         const commit = await startRes.json();
@@ -242,7 +297,7 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
         hideLoading();
         alert('Error: ' + err.message);
         btn.disabled = false;
-        btn.textContent = 'Crear Mundo e Iniciar Historia';
+        btn.textContent = t('setup.createAndStart');
     }
 });
 
@@ -253,7 +308,7 @@ async function makeChoice(choiceText, custom = false) {
     const customInput = document.getElementById('custom-choice-input');
     if (customInput) customInput.disabled = true;
 
-    showLoading('Generando siguiente capitulo...');
+    showLoading(t('game.generatingNext'));
 
     try {
         const res = await fetch(`${API}/commits/${state.commitId}/advance`, {
@@ -268,7 +323,7 @@ async function makeChoice(choiceText, custom = false) {
 
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Error avanzando narrativa');
+            throw new Error(err.detail || t('game.errorAdvancing'));
         }
 
         const commit = await res.json();
@@ -297,13 +352,13 @@ function submitCustomChoice() {
 async function goBack() {
     if (!state.parentId) return;
 
-    showLoading('Regresando...');
+    showLoading(t('game.goingBack'));
 
     try {
         const res = await fetch(`${API}/commits/${state.parentId}/goto`, { method: 'POST' });
         if (!res.ok) {
             const err = await res.json();
-            throw new Error(err.detail || 'Error regresando');
+            throw new Error(err.detail || t('game.errorGoingBack'));
         }
 
         const commit = await res.json();
@@ -332,13 +387,13 @@ function renderCommit(commit) {
     const btnBack = document.getElementById('btn-back');
     const indicator = document.getElementById('chapter-indicator');
     btnBack.style.display = commit.parent_id ? 'inline-block' : 'none';
-    indicator.textContent = `Capitulo ${commit.depth}`;
+    indicator.textContent = `${t('game.chapter')} ${commit.depth}`;
 
     let html = '';
 
     // Chapter header
     html += '<div class="chapter-header">';
-    html += `<span class="depth-badge">Capitulo ${commit.depth}</span>`;
+    html += `<span class="depth-badge">${escapeHtml(t('game.chapter'))} ${commit.depth}</span>`;
     if (commit.forced_event_type) {
         html += `<span class="forced-event-badge">${commit.forced_event_type}</span>`;
     }
@@ -352,20 +407,20 @@ function renderCommit(commit) {
 
     // Causal reason
     if (commit.causal_reason) {
-        html += `<div class="causal-reason"><strong>Causa:</strong> ${escapeHtml(commit.causal_reason)}</div>`;
+        html += `<div class="causal-reason"><strong>${escapeHtml(t('game.cause'))}</strong> ${escapeHtml(commit.causal_reason)}</div>`;
     }
 
     // Ending
     if (commit.is_ending) {
         html += `
             <div class="ending-banner">
-                <h2>Fin de la Historia</h2>
-                <p>La narrativa ha llegado a su conclusion.</p>
-                <button class="btn btn-restart" onclick="backToSetup()">Nueva Historia</button>
+                <h2>${escapeHtml(t('game.endOfStory'))}</h2>
+                <p>${escapeHtml(t('game.endDescription'))}</p>
+                <button class="btn btn-restart" onclick="backToSetup()">${escapeHtml(t('game.newStory'))}</button>
             </div>`;
     } else {
         // Choices
-        html += '<div class="choices-section"><h3>Elige tu camino</h3>';
+        html += `<div class="choices-section"><h3>${escapeHtml(t('game.chooseYourPath'))}</h3>`;
         for (const choice of commit.choices) {
             html += `<button class="choice-btn" onclick="makeChoice('${escapeAttr(choice.text)}')">`;
             html += escapeHtml(choice.text);
@@ -386,19 +441,19 @@ function renderCommit(commit) {
         // Custom choice input
         html += `
             <div class="custom-choice">
-                <input type="text" id="custom-choice-input" placeholder="Escribe tu propia opcion..."
+                <input type="text" id="custom-choice-input" placeholder="${escapeAttr(t('game.customPlaceholder'))}"
                     onkeydown="if(event.key==='Enter')submitCustomChoice()">
-                <button onclick="submitCustomChoice()">Enviar</button>
+                <button onclick="submitCustomChoice()">${escapeHtml(t('game.send'))}</button>
             </div>`;
 
         html += '</div>';
 
         // Existing paths (already explored branches)
         if (commit.existing_paths && commit.existing_paths.length > 0) {
-            html += '<div class="existing-paths-section"><h3>Caminos ya explorados</h3>';
+            html += `<div class="existing-paths-section"><h3>${escapeHtml(t('game.exploredPaths'))}</h3>`;
             for (const path of commit.existing_paths) {
                 html += `<button class="choice-btn explored" onclick="selectChapter('${path.commit_id}')">`;
-                html += `<span class="explored-label">Cap ${path.depth}</span> `;
+                html += `<span class="explored-label">${escapeHtml(t('game.chapter'))} ${path.depth}</span> `;
                 html += escapeHtml(path.choice_text);
                 html += `<div class="choice-preview"><span class="explored-summary">${escapeHtml(path.summary)}</span></div>`;
                 html += '</button>';
@@ -409,10 +464,10 @@ function renderCommit(commit) {
 
     // History
     if (state.history.length > 1) {
-        html += '<div class="history-section"><h3>Historia anterior</h3>';
+        html += `<div class="history-section"><h3>${escapeHtml(t('game.previousHistory'))}</h3>`;
         for (let i = state.history.length - 2; i >= 0; i--) {
             const entry = state.history[i];
-            html += `<div class="history-entry"><span class="depth">Cap. ${entry.depth}</span> — ${escapeHtml(entry.summary)}</div>`;
+            html += `<div class="history-entry"><span class="depth">${escapeHtml(t('game.chapter'))} ${entry.depth}</span> — ${escapeHtml(entry.summary)}</div>`;
         }
         html += '</div>';
     }
@@ -428,15 +483,6 @@ function renderCommit(commit) {
 
 function updateMeters(dramatic) {
     const meters = ['tension', 'hope', 'chaos', 'rhythm', 'saturation', 'connection', 'mystery'];
-    const labels = {
-        tension: 'Tension',
-        hope: 'Esperanza',
-        chaos: 'Caos',
-        rhythm: 'Ritmo',
-        saturation: 'Saturacion',
-        connection: 'Conexion',
-        mystery: 'Misterio',
-    };
 
     const container = document.getElementById('meters');
     let html = '';
@@ -446,7 +492,7 @@ function updateMeters(dramatic) {
         html += `
             <div class="meter">
                 <div class="meter-label">
-                    <span class="meter-name">${labels[m]}</span>
+                    <span class="meter-name">${escapeHtml(t('meters.' + m))}</span>
                     <span class="meter-value">${val}/100</span>
                 </div>
                 <div class="meter-bar">
@@ -471,7 +517,7 @@ function updateWorldInfo(world) {
 
 function showLoading(msg) {
     const el = document.getElementById('loading');
-    el.querySelector('.loading-text').textContent = msg || 'Generando...';
+    el.querySelector('.loading-text').textContent = msg || t('game.generating');
     el.classList.add('active');
 }
 
@@ -483,16 +529,15 @@ function hideLoading() {
 
 function addEntityField() {
     const list = document.getElementById('entities-list');
-    const idx = list.children.length;
     const div = document.createElement('div');
     div.className = 'entity-row';
     div.innerHTML = `
-        <input type="text" class="entity-name" placeholder="Nombre (ej: Lyra)" required>
+        <input type="text" class="entity-name" placeholder="Lyra" required>
         <select class="entity-type">
-            <option value="character">Personaje</option>
-            <option value="location">Lugar</option>
-            <option value="artifact">Artefacto</option>
-            <option value="faction">Faccion</option>
+            <option value="character">${escapeHtml(t('entities.character'))}</option>
+            <option value="location">${escapeHtml(t('entities.location'))}</option>
+            <option value="artifact">${escapeHtml(t('entities.artifact'))}</option>
+            <option value="faction">${escapeHtml(t('entities.faction'))}</option>
         </select>
         <button type="button" class="btn-remove-entity" onclick="this.parentElement.remove()">x</button>
     `;

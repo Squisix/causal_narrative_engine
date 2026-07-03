@@ -1,20 +1,20 @@
 """
-scripts/verify_fase2.py - Verificación de prerrequisitos para Fase 2
+scripts/verify_fase2.py - Phase 2 prerequisite verification
 
-Ejecutar antes de los tests para verificar que todo está listo.
+Run before tests to verify that everything is ready.
 """
 
 import asyncio
 import sys
 import os
 
-# Agregar el directorio raíz al path
+# Add root directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 
 async def verify_docker():
-    """Verifica que Docker esté corriendo."""
-    print("\n[1/5] Verificando Docker...")
+    """Verify that Docker is running."""
+    print("\n[1/5] Verifying Docker...")
     try:
         proc = await asyncio.create_subprocess_exec(
             'docker', 'ps',
@@ -24,14 +24,14 @@ async def verify_docker():
         stdout, stderr = await proc.communicate()
 
         if proc.returncode == 0:
-            print("  [OK] Docker está corriendo")
+            print("  [OK] Docker is running")
             return True
         else:
-            print("  [FAIL] Docker no está respondiendo")
+            print("  [FAIL] Docker is not responding")
             print(f"  Error: {stderr.decode()}")
             return False
     except FileNotFoundError:
-        print("  [FAIL] Docker no está instalado o no está en el PATH")
+        print("  [FAIL] Docker is not installed or is not in the PATH")
         return False
     except Exception as e:
         print(f"  [ERROR] {e}")
@@ -39,8 +39,8 @@ async def verify_docker():
 
 
 async def verify_docker_compose():
-    """Verifica que los servicios de docker-compose estén corriendo."""
-    print("\n[2/5] Verificando servicios de Docker Compose...")
+    """Verify that docker-compose services are running."""
+    print("\n[2/5] Verifying Docker Compose services...")
     try:
         proc = await asyncio.create_subprocess_exec(
             'docker-compose', 'ps', '--format', 'json',
@@ -52,17 +52,17 @@ async def verify_docker_compose():
         if proc.returncode == 0:
             output = stdout.decode()
             if 'cne_postgres' in output:
-                print("  [OK] PostgreSQL container está corriendo")
+                print("  [OK] PostgreSQL container is running")
                 return True
             else:
-                print("  [WARN] PostgreSQL container no está corriendo")
-                print("  Ejecuta: docker-compose up -d")
+                print("  [WARN] PostgreSQL container is not running")
+                print("  Run: docker-compose up -d")
                 return False
         else:
-            print("  [WARN] No se pudieron verificar los servicios")
+            print("  [WARN] Could not verify services")
             return False
     except FileNotFoundError:
-        print("  [FAIL] docker-compose no está instalado")
+        print("  [FAIL] docker-compose is not installed")
         return False
     except Exception as e:
         print(f"  [ERROR] {e}")
@@ -70,8 +70,8 @@ async def verify_docker_compose():
 
 
 async def verify_postgres_connection():
-    """Verifica conexión a PostgreSQL."""
-    print("\n[3/5] Verificando conexión a PostgreSQL...")
+    """Verify connection to PostgreSQL."""
+    print("\n[3/5] Verifying PostgreSQL connection...")
     try:
         from persistence.database import DatabaseConfig
         from sqlalchemy import text
@@ -84,26 +84,26 @@ async def verify_postgres_connection():
         async with config.get_session() as session:
             result = await session.execute(text("SELECT 1"))
             if result.scalar() == 1:
-                print("  [OK] Conexión a PostgreSQL exitosa")
+                print("  [OK] PostgreSQL connection successful")
                 await config.dispose()
                 return True
     except ImportError as e:
-        print(f"  [FAIL] No se pudo importar DatabaseConfig: {e}")
-        print("  Verifica que asyncpg esté instalado: pip install asyncpg")
+        print(f"  [FAIL] Could not import DatabaseConfig: {e}")
+        print("  Verify that asyncpg is installed: pip install asyncpg")
         return False
     except Exception as e:
-        print(f"  [FAIL] No se pudo conectar a PostgreSQL")
+        print(f"  [FAIL] Could not connect to PostgreSQL")
         print(f"  Error: {e}")
-        print("\n  Posibles soluciones:")
-        print("  1. Verifica que Docker esté corriendo")
-        print("  2. Ejecuta: docker-compose up -d")
-        print("  3. Espera unos segundos a que PostgreSQL inicie")
+        print("\n  Possible solutions:")
+        print("  1. Verify that Docker is running")
+        print("  2. Run: docker-compose up -d")
+        print("  3. Wait a few seconds for PostgreSQL to start")
         return False
 
 
 async def verify_tables():
-    """Verifica que las tablas estén creadas."""
-    print("\n[4/5] Verificando tablas en PostgreSQL...")
+    """Verify that tables have been created."""
+    print("\n[4/5] Verifying PostgreSQL tables...")
     try:
         from persistence.database import DatabaseConfig
         from sqlalchemy import text
@@ -131,26 +131,26 @@ async def verify_tables():
             missing_tables = [t for t in expected_tables if t not in tables]
 
             if not missing_tables:
-                print(f"  [OK] Todas las tablas existen ({len(tables)} tablas)")
+                print(f"  [OK] All tables exist ({len(tables)} tables)")
                 await config.dispose()
                 return True
             else:
-                print(f"  [WARN] Faltan {len(missing_tables)} tablas:")
+                print(f"  [WARN] Missing {len(missing_tables)} tables:")
                 for table in missing_tables:
                     print(f"    - {table}")
-                print("\n  Ejecuta: alembic upgrade head")
+                print("\n  Run: alembic upgrade head")
                 await config.dispose()
                 return False
 
     except Exception as e:
-        print(f"  [FAIL] No se pudieron verificar las tablas")
+        print(f"  [FAIL] Could not verify tables")
         print(f"  Error: {e}")
         return False
 
 
 async def verify_dependencies():
-    """Verifica que las dependencias de Python estén instaladas."""
-    print("\n[5/5] Verificando dependencias de Python...")
+    """Verify that Python dependencies are installed."""
+    print("\n[5/5] Verifying Python dependencies...")
 
     required_packages = [
         ('sqlalchemy', 'SQLAlchemy'),
@@ -163,10 +163,10 @@ async def verify_dependencies():
     for module_name, package_name in required_packages:
         try:
             __import__(module_name)
-            print(f"  [OK] {package_name} instalado")
+            print(f"  [OK] {package_name} installed")
         except ImportError:
-            print(f"  [FAIL] {package_name} NO instalado")
-            print(f"    Ejecuta: pip install {package_name}")
+            print(f"  [FAIL] {package_name} NOT installed")
+            print(f"    Run: pip install {package_name}")
             all_installed = False
 
     return all_installed
@@ -174,36 +174,36 @@ async def verify_dependencies():
 
 async def main():
     print("=" * 60)
-    print("  VERIFICACION DE FASE 2 - Causal Narrative Engine")
+    print("  PHASE 2 VERIFICATION - Causal Narrative Engine")
     print("=" * 60)
 
     results = []
 
-    # Ejecutar todas las verificaciones
+    # Run all verifications
     results.append(await verify_docker())
     results.append(await verify_docker_compose())
     results.append(await verify_postgres_connection())
     results.append(await verify_tables())
     results.append(await verify_dependencies())
 
-    # Resumen
+    # Summary
     print("\n" + "=" * 60)
-    print("  RESUMEN")
+    print("  SUMMARY")
     print("=" * 60)
 
     passed = sum(results)
     total = len(results)
 
-    print(f"\nVerificaciones pasadas: {passed}/{total}")
+    print(f"\nVerifications passed: {passed}/{total}")
 
     if all(results):
-        print("\n[SUCCESS] Todo listo para ejecutar tests de Fase 2!")
-        print("\nEjecuta:")
+        print("\n[SUCCESS] All ready to run Phase 2 tests!")
+        print("\nRun:")
         print("  pytest tests/test_fase2.py -v")
         return 0
     else:
-        print("\n[WARNING] Hay problemas que resolver antes de ejecutar tests")
-        print("\nConsulta FASE2_STEPS.md para más información")
+        print("\n[WARNING] There are issues to resolve before running tests")
+        print("\nSee FASE2_STEPS.md for more information")
         return 1
 
 

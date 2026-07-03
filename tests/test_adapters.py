@@ -1,10 +1,10 @@
 """
-tests/test_adapters.py - Tests de AI Adapters (MockAdapter + integracion con engine)
+tests/test_adapters.py - AI Adapter Tests (MockAdapter + engine integration)
 
-Verifica que los adapters generen propuestas validas y que el motor
-las procese correctamente. No requiere API keys ni servicios externos.
+Verifies that adapters generate valid proposals and that the engine
+processes them correctly. Does not require API keys or external services.
 
-Ejecutar:
+Run:
     pytest tests/test_adapters.py -v
 """
 
@@ -32,19 +32,19 @@ def world_with_entities():
         attributes={"health": 80, "influence": 90},
     )
     castle = Entity(
-        name="Castillo Real",
+        name="Royal Castle",
         entity_type=EntityType.LOCATION,
         attributes={"danger_level": 30, "accessible": True},
     )
     return WorldDefinition(
-        name="Reino de Eldoria",
-        context="Un reino medieval en crisis politica",
-        protagonist="Princesa Lyra",
+        name="Kingdom of Eldoria",
+        context="A medieval kingdom in political crisis",
+        protagonist="Princess Lyra",
         era="Medieval",
         tone=NarrativeTone.DARK,
-        antagonist="Malachar el Corrupto",
-        rules="La magia tiene coste vital",
-        constraints=["Los muertos no resucitan"],
+        antagonist="Malachar the Corrupt",
+        rules="Magic has a life cost",
+        constraints=["The dead do not resurrect"],
         initial_entities=[lyra, malachar, castle],
         dramatic_config={
             "tension": 40, "hope": 55, "chaos": 25,
@@ -77,7 +77,7 @@ def _make_context(world, **kwargs):
     return NarrativeContext(**defaults)
 
 
-# -- MockAdapter: generacion basica --
+# -- MockAdapter: basic generation --
 
 @pytest.mark.asyncio
 async def test_basic_generation(world_with_entities, mock_adapter):
@@ -110,17 +110,17 @@ async def test_player_choice_in_proposal(world_with_entities, mock_adapter):
     context = _make_context(
         world_with_entities,
         current_depth=1,
-        player_choice="Confrontar a Malachar directamente",
+        player_choice="Confront Malachar directly",
     )
     proposal = await mock_adapter.generate_narrative(context)
 
     assert proposal is not None
     assert proposal.causal_reason is not None
     text_lower = (proposal.causal_reason + " " + proposal.summary).lower()
-    assert "confrontar" in text_lower or "malachar" in text_lower or "decision" in text_lower
+    assert "confront" in text_lower or "malachar" in text_lower or "decision" in text_lower
 
 
-# -- MockAdapter: dramatic deltas y choices --
+# -- MockAdapter: dramatic deltas and choices --
 
 @pytest.mark.asyncio
 async def test_dramatic_deltas_in_range(world_with_entities, mock_adapter):
@@ -130,7 +130,7 @@ async def test_dramatic_deltas_in_range(world_with_entities, mock_adapter):
     delta = proposal.dramatic_delta
     for meter in ["tension", "hope", "chaos", "rhythm", "saturation", "connection", "mystery"]:
         value = getattr(delta, meter)
-        assert -100 <= value <= 100, f"{meter}={value} fuera de rango"
+        assert -100 <= value <= 100, f"{meter}={value} out of range"
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_choices_have_previews(world_with_entities, mock_adapter):
 async def test_forced_event_constraint(world_with_entities, mock_adapter):
     forced = ForcedEventConstraint(
         event_type=ForcedEventType.CLIMAX,
-        description="La tension ha alcanzado su punto maximo. Debe ocurrir un climax.",
+        description="Tension has reached its peak. A climax must occur.",
         trigger_meter="tension",
         trigger_value=90,
     )
@@ -167,10 +167,10 @@ async def test_forced_event_constraint(world_with_entities, mock_adapter):
     proposal = await mock_adapter.generate_narrative(context)
 
     assert proposal is not None
-    assert "CLIMAX" in proposal.narrative_text or "critico" in proposal.narrative_text.lower()
+    assert "CLIMAX" in proposal.narrative_text or "critical" in proposal.narrative_text.lower()
 
 
-# -- MockAdapter: stats y error mode --
+# -- MockAdapter: stats and error mode --
 
 @pytest.mark.asyncio
 async def test_stats_tracking(world_with_entities, mock_adapter):
@@ -193,11 +193,11 @@ async def test_error_mode(world_with_entities):
     assert len(proposal.narrative_text) < 50
 
 
-# -- Integracion: MockAdapter + StateMachine --
+# -- Integration: MockAdapter + StateMachine --
 
 @pytest.mark.asyncio
 async def test_full_engine_flow_with_mock(world_with_entities, mock_adapter):
-    """Flujo completo: mock genera -> engine procesa -> estado coherente."""
+    """Full flow: mock generates -> engine processes -> coherent state."""
     engine = StateMachine(world=world_with_entities)
     context = _make_context(world_with_entities)
 
@@ -246,138 +246,138 @@ async def test_full_engine_flow_with_mock(world_with_entities, mock_adapter):
 
 @pytest.mark.asyncio
 async def test_entity_creation_in_advance(world_with_entities):
-    """Verifica que entity_creations se aplican correctamente al avanzar la historia."""
+    """Verifies that entity_creations are applied correctly when advancing the story."""
     engine = StateMachine(world=world_with_entities)
 
     from cne_core.models.commit import NarrativeChoice
     result0 = engine.start(
-        initial_narrative="La historia comienza en el reino. " * 5,
-        initial_choices=[NarrativeChoice(text="Explorar"), NarrativeChoice(text="Esperar")],
-        initial_summary="Inicio de la historia.",
-        causal_reason="Evento inicial del mundo.",
+        initial_narrative="The story begins in the kingdom. " * 5,
+        initial_choices=[NarrativeChoice(text="Explore"), NarrativeChoice(text="Wait")],
+        initial_summary="Beginning of the story.",
+        causal_reason="Initial world event.",
     )
 
     initial_entity_count = len(engine._entities)
 
-    # Avanzar con entity_creations (un nuevo personaje + un artifact)
+    # Advance with entity_creations (a new character + an artifact)
     creations = [
         EntityCreation(
-            entity_name="Zara la Errante",
+            entity_name="Zara the Wanderer",
             entity_type="character",
             attributes={"health": 100, "loyalty": 50},
         ),
         EntityCreation(
-            entity_name="Llave del Santuario",
+            entity_name="Sanctuary Key",
             entity_type="artifact",
-            attributes={"possessed_by": None, "location": "altar", "usable": True, "effect": "Abre el santuario"},
+            attributes={"possessed_by": None, "location": "altar", "usable": True, "effect": "Opens the sanctuary"},
         ),
     ]
 
     result1 = engine.advance_story(
-        choice_text="Explorar",
-        narrative_text="Mientras explora, Lyra encuentra a una extranjera y una llave misteriosa. " * 3,
-        summary="Lyra encuentra a Zara y una llave misteriosa.",
-        choices=[NarrativeChoice(text="Hablar con Zara"), NarrativeChoice(text="Tomar la llave")],
+        choice_text="Explore",
+        narrative_text="While exploring, Lyra finds a stranger and a mysterious key. " * 3,
+        summary="Lyra finds Zara and a mysterious key.",
+        choices=[NarrativeChoice(text="Talk to Zara"), NarrativeChoice(text="Take the key")],
         entity_creations=creations,
         dramatic_delta=DramaticDelta(mystery=10, connection=5),
-        causal_reason="La exploracion revela nuevos elementos.",
+        causal_reason="The exploration reveals new elements.",
     )
 
-    # Debe haber 2 entidades mas
+    # There should be 2 more entities
     assert len(engine._entities) == initial_entity_count + 2
 
-    # Verificar que las entidades existen con los atributos correctos
+    # Verify that the entities exist with the correct attributes
     zara = None
     llave = None
     for eid, entity in engine._entities.items():
-        if entity.name == "Zara la Errante":
+        if entity.name == "Zara the Wanderer":
             zara = entity
-        elif entity.name == "Llave del Santuario":
+        elif entity.name == "Sanctuary Key":
             llave = entity
 
-    assert zara is not None, "Zara no fue creada"
+    assert zara is not None, "Zara was not created"
     assert zara.entity_type == EntityType.CHARACTER
     assert zara.attributes["health"] == 100
     assert zara.attributes["created_at_depth"] == 1
 
-    assert llave is not None, "Llave no fue creada"
+    assert llave is not None, "Key was not created"
     assert llave.entity_type == EntityType.ARTIFACT
     assert llave.attributes["possessed_by"] is None
     assert llave.attributes["usable"] is True
 
-    # El evento debe registrar las entity_creations
+    # The event must record the entity_creations
     assert len(result1.event.entity_creations) == 2
 
-    # El snapshot del commit debe incluir las nuevas entidades
+    # The commit snapshot must include the new entities
     assert zara.id in result1.commit.entity_states
     assert llave.id in result1.commit.entity_states
 
 
 @pytest.mark.asyncio
 async def test_entity_creation_not_in_previous_commit(world_with_entities):
-    """go_to_commit a un commit anterior NO debe incluir entidades creadas despues."""
+    """go_to_commit to a previous commit must NOT include entities created afterwards."""
     engine = StateMachine(world=world_with_entities)
 
     from cne_core.models.commit import NarrativeChoice
     result0 = engine.start(
-        initial_narrative="La historia comienza en el reino. " * 5,
-        initial_choices=[NarrativeChoice(text="Explorar"), NarrativeChoice(text="Esperar")],
-        initial_summary="Inicio.",
-        causal_reason="Evento inicial.",
+        initial_narrative="The story begins in the kingdom. " * 5,
+        initial_choices=[NarrativeChoice(text="Explore"), NarrativeChoice(text="Wait")],
+        initial_summary="Beginning.",
+        causal_reason="Initial event.",
     )
     commit0_id = result0.commit.id
     initial_entity_count = len(engine._entities)
 
-    # Avanzar con una entity_creation
+    # Advance with an entity_creation
     result1 = engine.advance_story(
-        choice_text="Explorar",
-        narrative_text="Un nuevo personaje aparece en la historia de forma inesperada. " * 3,
-        summary="Aparece un extranjero.",
-        choices=[NarrativeChoice(text="Saludar"), NarrativeChoice(text="Huir")],
+        choice_text="Explore",
+        narrative_text="A new character appears in the story unexpectedly. " * 3,
+        summary="A stranger appears.",
+        choices=[NarrativeChoice(text="Greet"), NarrativeChoice(text="Flee")],
         entity_creations=[
-            EntityCreation(entity_name="Extranjero", entity_type="character", attributes={"health": 80}),
+            EntityCreation(entity_name="Stranger", entity_type="character", attributes={"health": 80}),
         ],
-        causal_reason="Un extranjero llega al reino.",
+        causal_reason="A stranger arrives at the kingdom.",
     )
 
     assert len(engine._entities) == initial_entity_count + 1
 
-    # go_to_commit al commit 0 debe restaurar sin el extranjero
+    # go_to_commit to commit 0 must restore without the stranger
     engine.go_to_commit(commit0_id)
     assert len(engine._entities) == initial_entity_count
 
 
 def test_response_schema_entity_creations():
-    """Verifica que NarrativeResponse parsea entity_creations y retorna 5-tuple."""
+    """Verifies that NarrativeResponse parses entity_creations and returns 5-tuple."""
     from cne_core.ai.response_schema import NarrativeResponse
 
     data = {
-        "narrative": "Un evento narrativo inmersivo donde aparece un objeto magico que cambia todo. " * 3,
-        "summary": "Un objeto magico aparece.",
-        "choices": ["Tomar el objeto", "Ignorar el objeto"],
+        "narrative": "An immersive narrative event where a magical object appears that changes everything. " * 3,
+        "summary": "A magical object appears.",
+        "choices": ["Take the object", "Ignore the object"],
         "entity_creations": [
-            {"entity_name": "Espada Flamigera", "entity_type": "artifact",
-             "attributes": {"possessed_by": None, "location": "cueva", "usable": True, "effect": "Quema enemigos"}},
+            {"entity_name": "Flaming Sword", "entity_type": "artifact",
+             "attributes": {"possessed_by": None, "location": "cave", "usable": True, "effect": "Burns enemies"}},
         ],
         "dramatic_deltas": {"tension": 5, "hope": 0, "chaos": 0, "rhythm": 0,
                             "saturation": 0, "connection": 0, "mystery": 10},
-        "causal_reason": "El personaje descubre un arma antigua en la cueva.",
+        "causal_reason": "The character discovers an ancient weapon in the cave.",
     }
 
     response = NarrativeResponse(**data)
     assert len(response.entity_creations) == 1
-    assert response.entity_creations[0].entity_name == "Espada Flamigera"
+    assert response.entity_creations[0].entity_name == "Flaming Sword"
     assert response.entity_creations[0].entity_type == "artifact"
 
     entity_deltas, entity_creations, world_deltas, dramatic_delta, choices = response.to_core_models()
     assert len(entity_creations) == 1
-    assert entity_creations[0].entity_name == "Espada Flamigera"
-    assert entity_creations[0].attributes["effect"] == "Quema enemigos"
+    assert entity_creations[0].entity_name == "Flaming Sword"
+    assert entity_creations[0].attributes["effect"] == "Burns enemies"
 
 
 @pytest.mark.asyncio
 async def test_entity_states_in_context(world_with_entities):
-    """Verifica que entity_states se pasa correctamente al contexto."""
+    """Verifies that entity_states are passed correctly to the context."""
     entity_states = {
         "id-1": {"name": "Lyra", "type": "character",
                  "attributes": {"health": 75, "influence": 80}, "alive": True},

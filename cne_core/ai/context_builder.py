@@ -1,21 +1,23 @@
 """
-cne_core/ai/context_builder.py - Construccion del prompt para la IA
+cne_core/ai/context_builder.py - AI Prompt Context Builder
 
-El ContextBuilder toma el estado actual de la historia y lo convierte
-en un prompt optimizado para que la IA genere la siguiente parte.
+Constructs optimized prompts for the AI to generate the next narrative segment.
 
-Componentes del prompt:
-1. Semilla del mundo (WorldDefinition)
-2. Estado dramatico actual (DramaticVector)
-3. Tronco activo (ultimos N commits con detalle, anteriores comprimidos)
-4. Constraint forzado (si hay umbral cruzado)
-5. Instrucciones del formato JSON esperado
+Prompt Structure:
+1. World seed (WorldDefinition)
+2. Current entity states (characters, factions, artifacts)
+3. Global world variables
+4. Current dramatic state (7 meters)
+5. Active history trunk (comprising recent detailed chapters and compressed older chapters)
+6. Player choice (if applicable)
+7. Forced constraint (if any threshold is crossed)
+8. Output JSON structure instructions and language guidelines
 
-Optimizacion de tokens:
-- Los commits recientes (ultimos 6) se incluyen completos
-- Los commits antiguos se comprimen a 1 linea cada uno
-- La semilla del mundo se incluye siempre (es el contrato narrativo)
-- Total target: ~2000 tokens de contexto
+Token optimization:
+- Recent commits (last 6) are included with full detail.
+- Older commits are compressed into a single line each.
+- The world seed is always included to maintain the narrative contract.
+- Target context: ~2000 tokens.
 """
 
 from typing import Optional
@@ -26,10 +28,10 @@ from cne_core.engine.dramatic_engine import ForcedEventConstraint
 
 class ContextBuilder:
     """
-    Construye el contexto (prompt) para enviar a la IA.
+    Builds the context (prompt) to send to the AI.
 
-    El prompt contiene toda la informacion necesaria para que la IA
-    genere la siguiente parte de la historia de forma coherente.
+    Contains all necessary information to ensure narrative coherence,
+    causal logic, and dramatic tension.
     """
 
     def __init__(
@@ -39,8 +41,8 @@ class ContextBuilder:
     ):
         """
         Args:
-            max_recent_commits: Cuantos commits recientes incluir completos.
-            max_compressed_commits: Cuantos commits antiguos incluir comprimidos.
+            max_recent_commits: Number of recent commits to include with full details.
+            max_compressed_commits: Number of older commits to include as compressed single lines.
         """
         self.max_recent_commits = max_recent_commits
         self.max_compressed_commits = max_compressed_commits
@@ -56,57 +58,57 @@ class ContextBuilder:
         current_world_vars: Optional[dict] = None,
     ) -> str:
         """
-        Construye el contexto completo para la IA.
+        Builds the entire prompt context for the AI.
 
         Args:
-            world: La semilla del mundo.
-            commit_chain: Cadena de commits desde el inicio hasta ahora.
-            dramatic_state: Estado actual del vector dramatico.
-            forced_constraint: Si hay un evento forzado por umbrales.
-            player_choice: La decision que acaba de tomar el jugador.
-            current_entity_states: Estado actual de las entidades (post-deltas).
-            current_world_vars: Variables globales actuales del mundo.
+            world: The world seed.
+            commit_chain: Chain of commits from the beginning of the story.
+            dramatic_state: Current dramatic vector meters.
+            forced_constraint: Forced event constraints from crossed thresholds.
+            player_choice: The choice made by the player.
+            current_entity_states: Current attributes of world entities.
+            current_world_vars: Global variables of the world state.
 
         Returns:
-            str: El contexto completo listo para enviar a la IA.
+            str: Complete system prompt context.
         """
         sections = []
 
-        # 1. Semilla del mundo (siempre presente)
+        # 1. World seed (always present)
         sections.append(self._build_world_section(world))
 
-        # 2. Estado actual de entidades (si hay, post-deltas)
+        # 2. Current entity states
         if current_entity_states:
             sections.append(self._build_entity_states_section(current_entity_states))
 
-        # 3. Variables globales del mundo (si hay)
+        # 3. Global world variables
         if current_world_vars:
             sections.append(self._build_world_vars_section(current_world_vars))
 
-        # 4. Estado dramatico actual
+        # 4. Current dramatic state
         sections.append(self._build_dramatic_section(dramatic_state))
 
-        # 5. Tronco activo (historia hasta ahora)
+        # 5. History trunk (story so far)
         sections.append(self._build_trunk_section(commit_chain))
 
-        # 6. Decision del jugador (si hay)
+        # 6. Player choice
         if player_choice:
             sections.append(self._build_choice_section(player_choice))
 
-        # 7. Constraint forzado (si hay)
+        # 7. Forced constraint
         if forced_constraint:
             sections.append(self._build_constraint_section(forced_constraint))
 
-        # 8. Instrucciones finales
-        sections.append(self._build_instructions_section())
+        # 8. Generation instructions & JSON schema
+        sections.append(self._build_instructions_section(world))
 
         return "\n\n".join(sections)
 
     def _build_world_section(self, world: WorldDefinition) -> str:
-        """Seccion con la semilla del mundo."""
+        """Section with the immutable world seed."""
         lines = [
             "=" * 60,
-            "SEMILLA DEL MUNDO",
+            "WORLD SEED",
             "=" * 60,
             "",
             world.to_context_string(),
@@ -114,7 +116,7 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_entity_states_section(self, entity_states: dict) -> str:
-        """Seccion con el estado actual de las entidades (post-deltas)."""
+        """Section with the current attributes of all entities."""
         characters = []
         artifacts = []
         others = []
@@ -130,24 +132,24 @@ class ContextBuilder:
 
         lines = [
             "=" * 60,
-            "ESTADO ACTUAL DE ENTIDADES",
+            "CURRENT ENTITY STATES",
             "=" * 60,
         ]
 
         if characters or others:
             lines.append("")
-            lines.append("[PERSONAJES Y FACCIONES]")
+            lines.append("[CHARACTERS & FACTIONS]")
             for eid, state in characters + others:
                 lines.extend(self._format_entity_line(eid, state))
 
         if artifacts:
             lines.append("")
-            lines.append("[ITEMS Y ARTEFACTOS]")
+            lines.append("[ITEMS & ARTIFACTS]")
             for eid, state in artifacts:
                 attrs = state.get("attributes", {})
                 possessed_by = attrs.get("possessed_by")
-                location = attrs.get("location", "desconocido")
-                possession_str = f" | Poseido por: {possessed_by}" if possessed_by else f" | Disponible en: {location}"
+                location = attrs.get("location", "unknown")
+                possession_str = f" | Possessed by: {possessed_by}" if possessed_by else f" | Available at: {location}"
                 lines.extend(self._format_entity_line(eid, state, extra=possession_str))
 
         return "\n".join(lines)
@@ -158,7 +160,7 @@ class ContextBuilder:
         alive = state.get("alive", True)
         attrs = state.get("attributes", {})
         display_attrs = {k: v for k, v in attrs.items() if k not in ("created_at_depth",)}
-        status = "" if alive else " [MUERTO/DESTRUIDO]"
+        status = "" if alive else " [DEAD/DESTROYED]"
         attrs_str = ", ".join(f"{k}={v}" for k, v in display_attrs.items())
         return [
             f"  {name} ({etype}){status}: {attrs_str}{extra}",
@@ -166,10 +168,10 @@ class ContextBuilder:
         ]
 
     def _build_world_vars_section(self, world_vars: dict) -> str:
-        """Seccion con las variables globales del mundo."""
+        """Section with global world variables."""
         lines = [
             "=" * 60,
-            "VARIABLES GLOBALES DEL MUNDO",
+            "GLOBAL WORLD VARIABLES",
             "=" * 60,
             "",
         ]
@@ -180,18 +182,16 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_dramatic_section(self, dramatic_state: dict[str, int]) -> str:
-        """Seccion con el estado dramatico actual."""
+        """Section with the current dramatic meters."""
         lines = [
             "=" * 60,
-            "ESTADO DRAMATICO ACTUAL",
+            "CURRENT DRAMATIC STATE",
             "=" * 60,
             "",
         ]
 
-        # Mostrar cada medidor con indicador visual
         def get_indicator(value: int, meter_name: str) -> str:
-            """Retorna un indicador visual del nivel."""
-            # Para tension, hope: alto es critico
+            """Returns a visual severity indicator for the meter value."""
             if meter_name in ["tension", "chaos", "saturation"]:
                 if value > 80:
                     return "[!!!]"
@@ -215,12 +215,12 @@ class ContextBuilder:
 
         meters = [
             ("Tension", "tension"),
-            ("Esperanza", "hope"),
-            ("Caos", "chaos"),
-            ("Ritmo", "rhythm"),
-            ("Saturacion", "saturation"),
-            ("Conexion", "connection"),
-            ("Misterio", "mystery"),
+            ("Hope", "hope"),
+            ("Chaos", "chaos"),
+            ("Rhythm", "rhythm"),
+            ("Saturation", "saturation"),
+            ("Connection", "connection"),
+            ("Mystery", "mystery"),
         ]
 
         for label, key in meters:
@@ -228,14 +228,14 @@ class ContextBuilder:
             indicator = get_indicator(value, key)
             lines.append(f"  {label:12} {value:3}/100  {indicator}")
 
-        # Advertencias
+        # Dramatic threshold warnings
         warnings = []
         if dramatic_state.get("tension", 0) > 85:
-            warnings.append("  ! Tension CRITICA: considera forzar un climax")
+            warnings.append("  ! CRITICAL Tension: consider forcing a Climax")
         if dramatic_state.get("hope", 0) < 10:
-            warnings.append("  ! Esperanza MINIMA: considera un evento tragico")
+            warnings.append("  ! MINIMUM Hope: consider forcing a Tragedy")
         if dramatic_state.get("saturation", 0) > 90:
-            warnings.append("  ! Saturacion MAXIMA: necesitas un giro argumental")
+            warnings.append("  ! MAXIMUM Saturation: a Plot Twist is required")
 
         if warnings:
             lines.append("")
@@ -244,33 +244,31 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _build_trunk_section(self, commit_chain: list[NarrativeCommit]) -> str:
-        """Seccion con el tronco activo (historia hasta ahora)."""
+        """Section with the history trunk."""
         lines = [
             "=" * 60,
-            "HISTORIA HASTA AHORA",
+            "STORY SO FAR",
             "=" * 60,
             "",
         ]
 
         if not commit_chain:
-            lines.append("(No hay historia previa - este es el inicio)")
+            lines.append("(No previous history - this is the beginning of the story)")
             return "\n".join(lines)
 
-        # Dividir en commits antiguos (comprimidos) y recientes (completos)
         total = len(commit_chain)
         split_point = max(0, total - self.max_recent_commits)
 
-        # Commits antiguos comprimidos
+        # Older compressed commits
         if split_point > 0:
-            lines.append("[CAPITULOS ANTERIORES - COMPRIMIDOS]")
-            # Tomar solo los ultimos max_compressed_commits de los antiguos
+            lines.append("[OLDER CHAPTERS - COMPRESSED]")
             start_idx = max(0, split_point - self.max_compressed_commits)
             for commit in commit_chain[start_idx:split_point]:
                 lines.append(self._compress_commit(commit))
             lines.append("")
 
-        # Commits recientes con detalle
-        lines.append("[CAPITULOS RECIENTES - DETALLADOS]")
+        # Recent detailed commits
+        lines.append("[RECENT CHAPTERS - DETAILED]")
         for commit in commit_chain[split_point:]:
             lines.append(self._format_commit_detailed(commit))
             lines.append("")
@@ -278,7 +276,7 @@ class ContextBuilder:
         return "\n".join(lines)
 
     def _compress_commit(self, commit: NarrativeCommit) -> str:
-        """Comprime un commit a 1 linea."""
+        """Compresses a commit to a single line."""
         choice_prefix = ""
         if commit.choice_text:
             choice_prefix = f'[{commit.choice_text[:30]}...] '
@@ -292,182 +290,168 @@ class ContextBuilder:
         )
 
     def _format_commit_detailed(self, commit: NarrativeCommit) -> str:
-        """Formatea un commit con todos los detalles."""
-        lines = [f"--- CAPITULO {commit.depth} ---"]
+        """Formats a commit with full narrative details."""
+        lines = [f"--- CHAPTER {commit.depth} ---"]
 
         if commit.choice_text:
-            lines.append(f"Decision tomada: \"{commit.choice_text}\"")
+            lines.append(f"Choice taken: \"{commit.choice_text}\"")
 
-        lines.append(f"Resumen: {commit.summary}")
+        lines.append(f"Summary: {commit.summary}")
 
-        # Mostrar narrative_text si esta disponible
         if commit.narrative_text and len(commit.narrative_text) > 20:
-            # Truncar si es muy largo
             text = commit.narrative_text
             if len(text) > 300:
                 text = text[:297] + "..."
-            lines.append(f"Narrativa: {text}")
+            lines.append(f"Narrative: {text}")
 
-        # Estado dramatico del commit
         t = commit.dramatic_snapshot.get("tension", 0)
         h = commit.dramatic_snapshot.get("hope", 0)
         m = commit.dramatic_snapshot.get("mystery", 0)
-        lines.append(f"Estado: Tension={t}, Esperanza={h}, Misterio={m}")
+        lines.append(f"State: Tension={t}, Hope={h}, Mystery={m}")
 
         return "\n".join(lines)
 
     def _build_choice_section(self, player_choice: str) -> str:
-        """Seccion con la decision del jugador."""
+        """Section with the player's taken choice."""
         lines = [
             "=" * 60,
-            "DECISION DEL JUGADOR",
+            "PLAYER CHOICE",
             "=" * 60,
             "",
-            f'El jugador ha elegido: "{player_choice}"',
+            f'The player selected: "{player_choice}"',
             "",
-            "Tu tarea: Genera la narrativa que resulta de esta decision.",
+            "Your task: Write the narrative resulting from this decision.",
         ]
         return "\n".join(lines)
 
     def _build_constraint_section(self, constraint: ForcedEventConstraint) -> str:
-        """Seccion con el constraint forzado."""
+        """Section with the forced dramatic constraint."""
         lines = [
             "=" * 60,
-            "!!! CONSTRAINT DRAMATICO OBLIGATORIO !!!",
+            "!!! MANDATORY DRAMATIC CONSTRAINT !!!",
             "=" * 60,
             "",
-            f"Tipo de evento requerido: {constraint.event_type.value}",
-            f"Disparado por: {constraint.trigger_meter} = {constraint.trigger_value}",
+            f"Event type required: {constraint.event_type.value}",
+            f"Triggered by: {constraint.trigger_meter} = {constraint.trigger_value}",
             "",
-            "DESCRIPCION:",
+            "DESCRIPTION:",
             constraint.description,
             "",
-            "IMPORTANTE: La narrativa DEBE reflejar este evento.",
-            "No puede ignorarse ni posponerse. Debe ocurrir AHORA.",
+            "IMPORTANT: The generated narrative MUST reflect this constraint.",
+            "It cannot be postponed or bypassed. It must happen NOW.",
         ]
         return "\n".join(lines)
 
-    def _build_instructions_section(self) -> str:
-        """Instrucciones finales para la IA."""
-        return """
+    def _build_instructions_section(self, world: WorldDefinition) -> str:
+        """Final generation instructions for the AI, injecting output language."""
+        return f"""
 ==============================================================
-INSTRUCCIONES PARA LA GENERACION
+GENERATION INSTRUCTIONS
 ==============================================================
 
-Debes generar la siguiente parte de la historia en formato JSON.
+You must generate the next part of the story in the requested JSON format.
 
-FORMATO REQUERIDO:
-{
-  "narrative": "Texto inmersivo de 150-250 palabras describiendo lo que sucede",
-  "summary": "Resumen causal de 1 oracion para el tronco",
-  "choices": ["opcion 1", "opcion 2", "opcion 3"],
+CRITICAL INSTRUCTION ON LANGUAGE:
+- You MUST write the narrative values ("narrative", "summary", and the choices array text) in "{world.output_language}" language.
+- All JSON schema keys, entity types, tones, and status identifiers MUST remain in English as defined below.
+
+REQUIRED SCHEMA FORMAT:
+{{
+  "narrative": "Immersive narrative text of 150-250 words describing what happens, written in {world.output_language}",
+  "summary": "1-sentence causal summary for the history trunk, written in {world.output_language}",
+  "choices": ["choice 1 in {world.output_language}", "choice 2 in {world.output_language}", "choice 3 in {world.output_language}"],
   "choice_dramatic_preview": [
-    {"choice": "opcion 1", "tension_delta": 15, "hope_delta": -5, "tone": "confrontacional"},
-    {"choice": "opcion 2", "tension_delta": 5, "hope_delta": 10, "tone": "diplomatico"},
-    {"choice": "opcion 3", "tension_delta": -5, "hope_delta": 0, "tone": "evasivo"}
+    {{"choice": "choice 1", "tension_delta": 15, "hope_delta": -5, "tone": "confrontational"}},
+    {{"choice": "choice 2", "tension_delta": 5, "hope_delta": 10, "tone": "diplomatic"}},
+    {{"choice": "choice 3", "tension_delta": -5, "hope_delta": 0, "tone": "evasive"}}
   ],
   "entity_deltas": [
-    {"entity_id": "uuid", "entity_name": "Nombre", "attribute": "atributo", "old_value": X, "new_value": Y}
+    {{"entity_id": "uuid", "entity_name": "Name", "attribute": "attribute", "old_value": X, "new_value": Y}}
   ],
   "entity_creations": [
-    {"entity_name": "Nombre", "entity_type": "character|faction|artifact|location", "attributes": {"key": "value"}}
+    {{"entity_name": "Name", "entity_type": "character|faction|artifact|location", "attributes": {{"key": "value"}}}}
   ],
   "world_deltas": [
-    {"variable": "nombre_variable", "old_value": X, "new_value": Y}
+    {{"variable": "variable_name", "old_value": X, "new_value": Y}}
   ],
-  "dramatic_deltas": {
+  "dramatic_deltas": {{
     "tension": 0, "hope": 0, "chaos": 0, "rhythm": 0,
     "saturation": 0, "connection": 0, "mystery": 0
-  },
-  "causal_reason": "Por que este evento ocurre dado el contexto",
+  }},
+  "causal_reason": "Why this event occurs given the context",
   "forced_event_type": null,
   "is_ending": false
-}
+}}
 
-REGLAS IMPORTANTES:
-1. La narrativa debe ser inmersiva y estar en presente
-2. Respeta la semilla del mundo y sus restricciones
-3. Manten coherencia con la historia previa
-4. Los deltas dramaticos deben reflejar el impacto emocional real del evento
-5. Las opciones deben ser significativamente diferentes entre si
-6. Si hay un constraint forzado, DEBES cumplirlo
-7. is_ending solo debe ser true si esta es una conclusion natural de la historia
+IMPORTANT RULES:
+1. The narrative must be immersive, active, and written in the present tense.
+2. Respect the world seed and its constraints.
+3. Maintain consistency with the previous story.
+4. Dramatic deltas must reflect the real emotional impact of the event.
+5. Choices must be significantly different from one another.
+6. If there is a forced constraint, you MUST satisfy it.
+7. is_ending should only be true if this is a natural conclusion of the story.
 
-CREACION DE ENTIDADES (entity_creations):
-- Puedes introducir nuevos personajes, facciones o lugares cuando la narrativa lo requiera
-- Usa entity_creations para registrarlos formalmente en el mundo
-- entity_type debe ser: "character", "faction", "artifact" o "location"
+ENTITY CREATION (entity_creations):
+- Introduce new characters, factions, artifacts, or locations when the narrative requires it.
+- Use entity_creations to formally register them in the world state.
+- entity_type must be: "character", "faction", "artifact", or "location".
 
-ITEMS Y ARTEFACTOS:
-- Cuando aparezca un objeto significativo (llave, libro, arma, pocion, reliquia, mapa, etc.),
-  crealo como entidad tipo "artifact" en entity_creations
-- Atributos requeridos para artifacts:
-  - "possessed_by": null si esta disponible en el entorno, o nombre del personaje que lo tiene
-  - "location": donde se encuentra el item
-  - "usable": true/false si se puede usar en este momento
-  - "effect": descripcion breve de su efecto o significado
-- Cuando un personaje TOMA un item, genera un entity_delta cambiando
-  "possessed_by": null -> "possessed_by": "nombre del personaje"
-- Si hay items disponibles en la escena (possessed_by=null), genera al menos una opcion
-  que involucre interactuar con ellos (ej: "Tomar la llave oxidada", "Leer el grimorio")
+ITEMS AND ARTEFACTS:
+- When a significant object appears (key, book, weapon, potion, relic, map, etc.), create it as an "artifact" entity in entity_creations.
+- Required attributes for artifacts:
+  - "possessed_by": null if available in the environment, or the name of the character holding it.
+  - "location": where the item is currently situated.
+  - "usable": true/false if it can be used right now.
+  - "effect": a brief description of its effect or meaning.
+- When a character PICKS UP an item, generate an entity_delta changing "possessed_by": null -> "possessed_by": "character's name".
+- If items are available in the scene (possessed_by=null), generate at least one choice involving interaction with them (e.g., "Pick up the rusty key", "Read the grimoire").
 
-Genera SOLO el JSON. No incluyas explicaciones adicionales.
+Generate ONLY the JSON response. Do not include any preambles, explanations, or markdown fences except the raw JSON.
 """
 
     def estimate_token_count(self, context: str) -> int:
         """
-        Estimacion aproximada del conteo de tokens.
+        Rough estimate of token count based on string length.
 
-        Usa la heuristica: 1 token ~= 4 caracteres en promedio.
+        Uses the heuristic: 1 token ~= 4 characters on average.
 
         Args:
-            context: El contexto construido.
+            context: The constructed context.
 
         Returns:
-            int: Estimacion de tokens.
+            int: Estimated token count.
         """
         return len(context) // 4
 
     def build_system_prompt(self) -> str:
         """
-        Construye el system prompt que define el rol de la IA.
+        Builds the system prompt that defines the AI's role.
 
-        Este prompt se envia una sola vez al inicio de la conversacion
-        y define las reglas generales.
+        This prompt is sent once at the beginning of the conversation
+        and defines the core operational mandates.
 
         Returns:
-            str: El system prompt.
+            str: The system prompt.
         """
-        return """Eres un narrador maestro especializado en narrativa interactiva.
+        return """You are a master storyteller specialized in interactive narrative.
 
-Tu rol es generar historias coherentes, inmersivas y dramaticamente impactantes
-para el Causal Narrative Engine (CNE). Debes:
+Your role is to generate coherent, immersive, and dramatically impactful stories for the Causal Narrative Engine (CNE). You must:
 
-1. COHERENCIA CAUSAL: Cada evento debe tener causas claras en eventos previos.
-   No introduzcas elementos sin preparacion narrativa.
+1. CAUSAL COHERENCE: Every event must have clear causes in previous events. Do not introduce elements without proper narrative preparation.
 
-2. IMPACTO DRAMATICO: Ajusta los medidores dramaticos (tension, esperanza, etc.)
-   de forma que reflejen el verdadero impacto emocional de cada evento.
+2. DRAMATIC IMPACT: Adjust the dramatic meters (tension, hope, etc.) so that they reflect the true emotional impact of each event.
 
-3. RESPETO A LA SEMILLA: La WorldDefinition es un contrato inquebrantable.
-   Respeta las reglas, restricciones y tono definidos.
+3. RESPECT FOR THE SEED: The WorldDefinition is an unbreakable contract. Respect the defined rules, constraints, and tone.
 
-4. OPCIONES SIGNIFICATIVAS: Las decisiones del jugador deben tener consecuencias
-   reales. No ofrezcas opciones que sean "la misma decision con palabras diferentes".
+4. SIGNIFICANT CHOICES: The player's decisions must have real consequences. Do not offer choices that are "the same decision with different words."
 
-5. EVENTOS FORZADOS: Cuando el sistema te indique un constraint dramatico
-   (ej: CLIMAX, TRAGEDY), DEBES cumplirlo. Estos eventos son consecuencias
-   formales del estado del sistema, no son arbitrarios.
+5. FORCED EVENTS: When the system indicates a dramatic constraint (e.g., CLIMAX, TRAGEDY), you MUST comply. These events are formal consequences of the system state, not arbitrary interruptions.
 
-6. FORMATO ESTRICTO: Siempre retorna JSON valido con el schema especificado.
-   Nunca incluyas texto adicional fuera del JSON.
+6. STRICT FORMATTING: Always return valid JSON matching the specified schema. Never include any additional text outside of the JSON.
 
-7. LARGO APROPIADO: La narrativa debe ser de 150-250 palabras. Ni telegrafic
-   ni excesivamente verboso.
+7. APPROPRIATE LENGTH: The narrative must be between 150-250 words. Neither telegraphic nor excessively verbose.
 
-8. ENTIDADES DINAMICAS: Puedes introducir nuevos personajes, facciones, lugares
-   y objetos significativos (llaves, armas, libros, reliquias) usando entity_creations.
-   Los objetos importantes deben crearse como tipo "artifact" con atributos de posesion.
-   Cuando haya items disponibles en la escena, ofrece opciones para interactuar con ellos.
+8. DYNAMIC ENTITIES: Introduce new characters, factions, locations, and significant objects (keys, weapons, books, relics) using entity_creations. Significant objects must be created as "artifact" type with possession attributes. When items are available in the scene, offer choices to interact with them.
 
-Genera historias que sean memorables, coherentes y respeten la agencia del jugador."""
+Generate stories that are memorable, coherent, and respect the player's agency."""

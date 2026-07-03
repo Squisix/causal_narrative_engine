@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-scripts/setup_env.py - Helper para configurar .env
+scripts/setup_env.py - Helper for configuring .env
 
-Ejecutar:
+Run:
     python scripts/setup_env.py
 """
 
@@ -11,59 +11,59 @@ from pathlib import Path
 
 
 def main():
-    """Configura .env interactivamente."""
+    """Configure .env interactively."""
     root = Path(__file__).parent.parent
     env_file = root / ".env"
     env_example = root / ".env.example"
 
     print("=" * 60)
-    print("  Setup de configuración - Causal Narrative Engine")
+    print("  Configuration Setup - Causal Narrative Engine")
     print("=" * 60)
     print()
 
-    # Verificar si .env ya existe
+    # Check if .env already exists
     if env_file.exists():
-        print(f"⚠️  El archivo .env ya existe en: {env_file}")
-        respuesta = input("¿Sobrescribir? (s/N): ").strip().lower()
-        if respuesta != "s":
-            print("Cancelado.")
+        print(f"WARNING: The .env file already exists at: {env_file}")
+        response = input("Overwrite? (y/N): ").strip().lower()
+        if response != "y":
+            print("Cancelled.")
             return
 
-    # Verificar que .env.example exista
+    # Check that .env.example exists
     if not env_example.exists():
-        print(f"❌ Error: No se encuentra {env_example}")
-        print("Asegúrate de estar en la raíz del proyecto.")
+        print(f"ERROR: Cannot find {env_example}")
+        print("Make sure you are in the project root.")
         return
 
     print()
-    print("Configuración de Anthropic API (Claude)")
+    print("Anthropic API Configuration (Claude)")
     print("-" * 60)
     print()
-    print("Para obtener tu API key:")
-    print("  1. Ve a: https://console.anthropic.com/settings/keys")
-    print("  2. Crea una nueva key")
-    print("  3. Cópiala (solo se muestra una vez)")
+    print("To obtain your API key:")
+    print("  1. Go to: https://console.anthropic.com/settings/keys")
+    print("  2. Create a new key")
+    print("  3. Copy it (it is only shown once)")
     print()
 
-    # Solicitar API key
-    api_key = input("Ingresa tu API key (o Enter para dejar vacío): ").strip()
+    # Request API key
+    api_key = input("Enter your API key (or press Enter to leave empty): ").strip()
 
     if not api_key:
         print()
-        print("⚠️  No ingresaste API key.")
-        print("El archivo .env se creará con valores de ejemplo.")
-        print("Deberás editarlo manualmente después.")
+        print("WARNING: No API key entered.")
+        print("The .env file will be created with example values.")
+        print("You will need to edit it manually afterwards.")
         print()
 
-    # Solicitar modelo (opcional)
+    # Request model (optional)
     print()
-    print("Modelos disponibles:")
-    print("  1. claude-3-5-sonnet-20241022  (recomendado: balance calidad/precio)")
-    print("  2. claude-opus-4               (máxima calidad, más caro)")
-    print("  3. claude-haiku-3              (rápido y económico)")
+    print("Available models:")
+    print("  1. claude-3-5-sonnet-20241022  (recommended: quality/price balance)")
+    print("  2. claude-opus-4               (highest quality, more expensive)")
+    print("  3. claude-haiku-3              (fast and economical)")
     print()
 
-    modelo_opcion = input("Selecciona modelo (1-3, o Enter para usar el recomendado): ").strip()
+    modelo_opcion = input("Select model (1-3, or Enter to use the recommended one): ").strip()
 
     modelos = {
         "1": "claude-3-5-sonnet-20241022",
@@ -72,14 +72,14 @@ def main():
     }
     modelo = modelos.get(modelo_opcion, "claude-3-5-sonnet-20241022")
 
-    # Crear .env
+    # Create .env
     with open(env_example, "r", encoding="utf-8") as f:
         contenido = f.read()
 
-    # Reemplazar valores
+    # Replace values
     if api_key:
         contenido = contenido.replace(
-            "ANTHROPIC_API_KEY=sk-ant-api03-tu-api-key-aquí",
+            "ANTHROPIC_API_KEY=sk-ant-api03-your-api-key-here",
             f"ANTHROPIC_API_KEY={api_key}"
         )
 
@@ -88,33 +88,33 @@ def main():
         f"ANTHROPIC_MODEL={modelo}"
     )
 
-    # Escribir .env
+    # Write .env
     with open(env_file, "w", encoding="utf-8") as f:
         f.write(contenido)
 
     print()
     print("=" * 60)
-    print("✅ Archivo .env creado exitosamente")
+    print("SUCCESS: .env file created successfully")
     print("=" * 60)
     print()
-    print(f"📁 Ubicación: {env_file}")
+    print(f"Location: {env_file}")
     print()
 
     if api_key:
-        print("✅ API key configurada")
-        print(f"✅ Modelo: {modelo}")
+        print("API key configured")
+        print(f"Model: {modelo}")
         print()
-        print("Ahora puedes ejecutar:")
+        print("You can now run:")
         print("  pytest -m anthropic_api -v")
     else:
-        print("⚠️  API key NO configurada")
+        print("WARNING: API key NOT configured")
         print()
-        print("Para agregar tu API key manualmente:")
-        print(f"  1. Edita: {env_file}")
-        print("  2. Reemplaza 'tu-api-key-aquí' con tu key real")
+        print("To add your API key manually:")
+        print(f"  1. Edit: {env_file}")
+        print("  2. Replace 'your-api-key-here' with your real key")
         print()
 
-    print("Para tests sin API (gratis):")
+    print("For tests without API (free):")
     print("  pytest tests/test_fase1.py tests/test_mock_adapter.py -v")
     print()
 

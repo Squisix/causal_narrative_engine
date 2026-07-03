@@ -1,7 +1,7 @@
 """
-cli/play.py - CLI interactivo para jugar historias con el CNE
+cli/play.py - Interactive CLI for playing stories with the CNE
 
-Ejecutar:
+Run:
     python cli/play.py
     python cli/play.py --api http://localhost:8000 --adapter ollama
 """
@@ -11,7 +11,7 @@ import sys
 
 import httpx
 
-# -- Colores ANSI --------------------------------
+# -- ANSI Colors --------------------------------
 
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -37,12 +37,12 @@ METER_COLORS = {
 
 METER_LABELS = {
     "tension": "Tension   ",
-    "hope": "Esperanza ",
-    "chaos": "Caos      ",
-    "rhythm": "Ritmo     ",
-    "saturation": "Saturacion",
-    "connection": "Conexion  ",
-    "mystery": "Misterio  ",
+    "hope": "Hope      ",
+    "chaos": "Chaos     ",
+    "rhythm": "Rhythm    ",
+    "saturation": "Saturation",
+    "connection": "Connection",
+    "mystery": "Mystery   ",
 }
 
 
@@ -60,7 +60,7 @@ def print_meters(dramatic_state):
     if not dramatic_state:
         return
     print(f"\n{DIM}{'-' * 50}{RESET}")
-    print(f"{BOLD}  Estado Dramatico{RESET}\n")
+    print(f"{BOLD}  Dramatic State{RESET}\n")
     meters = ["tension", "hope", "chaos", "rhythm", "saturation", "connection", "mystery"]
     for m in meters:
         val = dramatic_state.get(m, 0)
@@ -76,7 +76,7 @@ def print_narrative(commit):
     depth = commit.get("depth", 0)
     forced = commit.get("forced_event_type")
 
-    print(f"\n{BOLD}{YELLOW}  -- Capitulo {depth} --{RESET}", end="")
+    print(f"\n{BOLD}{YELLOW}  -- Chapter {depth} --{RESET}", end="")
     if forced:
         print(f"  {BOLD}{RED}[{forced}]{RESET}", end="")
     print("\n")
@@ -91,11 +91,11 @@ def print_narrative(commit):
 
     causal = commit.get("causal_reason")
     if causal:
-        print(f"\n  {CYAN}Causa:{RESET} {DIM}{causal}{RESET}")
+        print(f"\n  {CYAN}Cause:{RESET} {DIM}{causal}{RESET}")
 
 
 def print_choices(choices):
-    print(f"\n{BOLD}  Elige tu camino:{RESET}\n")
+    print(f"\n{BOLD}  Choose your path:{RESET}\n")
     for i, choice in enumerate(choices, 1):
         text = choice.get("text", "")
         print(f"  {BOLD}{YELLOW}[{i}]{RESET} {text}")
@@ -113,26 +113,26 @@ def print_choices(choices):
 
 
 def create_world(client, api_url):
-    print(f"{BOLD}Crear un nuevo mundo{RESET}\n")
+    print(f"{BOLD}Create a new world{RESET}\n")
 
-    name = input(f"  Nombre del mundo [{CYAN}Las Tierras Rotas{RESET}]: ").strip()
+    name = input(f"  World name [{CYAN}The Broken Lands{RESET}]: ").strip()
     if not name:
-        name = "Las Tierras Rotas"
+        name = "The Broken Lands"
 
-    context = input(f"  Contexto [{CYAN}Un mundo postapocaliptico donde la magia resurge{RESET}]: ").strip()
+    context = input(f"  Context [{CYAN}A post-apocalyptic world where magic resurges{RESET}]: ").strip()
     if not context:
-        context = "Un mundo postapocaliptico donde la magia resurge entre las ruinas."
+        context = "A post-apocalyptic world where magic resurges among the ruins of a lost civilization."
 
-    protagonist = input(f"  Protagonista [{CYAN}Kael, un recolector con poderes magicos{RESET}]: ").strip()
+    protagonist = input(f"  Protagonist [{CYAN}Kael, a scavenger with magical powers{RESET}]: ").strip()
     if not protagonist:
-        protagonist = "Kael, un recolector que descubre poderes magicos"
+        protagonist = "Kael, a scavenger who discovers latent magical powers"
 
-    era = input(f"  Epoca [{CYAN}Post-colapso{RESET}]: ").strip()
+    era = input(f"  Era [{CYAN}Post-collapse{RESET}]: ").strip()
     if not era:
-        era = "Post-colapso, 300 anos despues"
+        era = "Post-collapse, 300 years later"
 
-    print(f"\n  Tonos: {DIM}epic, dark, mysterious, adventurous, philosophical, black_humor{RESET}")
-    tone = input(f"  Tono [{CYAN}mysterious{RESET}]: ").strip()
+    print(f"\n  Tones: {DIM}epic, dark, mysterious, adventurous, philosophical, black_humor{RESET}")
+    tone = input(f"  Tone [{CYAN}mysterious{RESET}]: ").strip()
     if not tone:
         tone = "mysterious"
 
@@ -144,16 +144,16 @@ def create_world(client, api_url):
         "tone": tone,
     }
 
-    print(f"\n{DIM}Creando mundo...{RESET}")
+    print(f"\n{DIM}Creating world...{RESET}")
     resp = client.post(f"{api_url}/worlds", json=world_data)
     resp.raise_for_status()
     world = resp.json()
-    print(f"{GREEN}Mundo creado: {world['world_id'][:8]}...{RESET}")
+    print(f"{GREEN}World created: {world['world_id'][:8]}...{RESET}")
     return world["world_id"]
 
 
 def start_narrative(client, api_url, world_id, adapter_type):
-    print(f"\n{DIM}Generando inicio de la historia...{RESET}")
+    print(f"\n{DIM}Generating story beginning...{RESET}")
     resp = client.post(
         f"{api_url}/worlds/{world_id}/start",
         json={"adapter_type": adapter_type},
@@ -163,7 +163,7 @@ def start_narrative(client, api_url, world_id, adapter_type):
 
 
 def advance_narrative(client, api_url, commit_id, choice_text, adapter_type):
-    print(f"\n{DIM}Generando siguiente capitulo...{RESET}")
+    print(f"\n{DIM}Generating next chapter...{RESET}")
     resp = client.post(
         f"{api_url}/commits/{commit_id}/advance",
         json={"choice": choice_text, "adapter_type": adapter_type},
@@ -187,43 +187,43 @@ def game_loop(client, api_url, adapter_type):
 
         if commit.get("is_ending"):
             print(f"\n{BOLD}{YELLOW}{'=' * 50}{RESET}")
-            print(f"{BOLD}{YELLOW}  FIN DE LA HISTORIA{RESET}")
+            print(f"{BOLD}{YELLOW}  END OF STORY{RESET}")
             print(f"{BOLD}{YELLOW}{'=' * 50}{RESET}\n")
             break
 
         choices = commit.get("choices", [])
         if not choices:
-            print(f"\n{RED}No hay opciones disponibles. Fin.{RESET}")
+            print(f"\n{RED}No options available. The end.{RESET}")
             break
 
         print_choices(choices)
 
         while True:
             try:
-                raw = input(f"  {BOLD}Tu eleccion (1-{len(choices)}){RESET} [q=salir]: ").strip()
+                raw = input(f"  {BOLD}Your choice (1-{len(choices)}){RESET} [q=quit]: ").strip()
                 if raw.lower() == "q":
-                    print(f"\n{DIM}Hasta la proxima.{RESET}\n")
+                    print(f"\n{DIM}Until next time.{RESET}\n")
                     return
                 choice_idx = int(raw) - 1
                 if 0 <= choice_idx < len(choices):
                     break
-                print(f"  {RED}Elige un numero entre 1 y {len(choices)}{RESET}")
+                print(f"  {RED}Choose a number between 1 and {len(choices)}{RESET}")
             except ValueError:
-                print(f"  {RED}Ingresa un numero valido{RESET}")
+                print(f"  {RED}Enter a valid number{RESET}")
 
         chosen = choices[choice_idx]["text"]
-        print(f"\n  {DIM}Elegiste: {chosen}{RESET}")
+        print(f"\n  {DIM}You chose: {chosen}{RESET}")
 
         commit = advance_narrative(client, api_url, commit["commit_id"], chosen, adapter_type)
 
-    input(f"\n{DIM}Presiona Enter para salir...{RESET}")
+    input(f"\n{DIM}Press Enter to exit...{RESET}")
 
 
 def main():
     parser = argparse.ArgumentParser(description="CNE Interactive Story Player")
-    parser.add_argument("--api", default="http://localhost:8000", help="URL base de la API")
+    parser.add_argument("--api", default="http://localhost:8000", help="Base URL of the API")
     parser.add_argument("--adapter", default="ollama", choices=["mock", "ollama", "anthropic"],
-                        help="Tipo de AI adapter (default: ollama)")
+                        help="AI adapter type (default: ollama)")
     args = parser.parse_args()
 
     print_header()
@@ -234,10 +234,10 @@ def main():
         try:
             health = client.get(f"{args.api}/health")
             health.raise_for_status()
-            print(f"  {GREEN}Servidor conectado{RESET}\n")
+            print(f"  {GREEN}Server connected{RESET}\n")
         except Exception:
-            print(f"  {RED}No se pudo conectar al servidor en {args.api}{RESET}")
-            print(f"  {DIM}Asegurate de que el servidor esta corriendo:{RESET}")
+            print(f"  {RED}Could not connect to the server at {args.api}{RESET}")
+            print(f"  {DIM}Make sure the server is running:{RESET}")
             print(f"  {DIM}  uvicorn api.main:app --reload{RESET}\n")
             sys.exit(1)
 

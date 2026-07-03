@@ -1,16 +1,16 @@
 """
-engine/state_machine.py — El orquestador del motor (Fase 1: en memoria)
+engine/state_machine.py — The engine orchestrator (Phase 1: in-memory)
 
-Este es el NarrativeRunner mínimo: recibe una decisión del jugador,
-valida que sea coherente, actualiza el estado del mundo, y retorna
-el nuevo estado listo para presentar al jugador.
+This is the minimal NarrativeRunner: it receives a player decision,
+validates that it is coherent, updates the world state, and returns
+the new state ready to present to the player.
 
-En Fase 1: todo ocurre en memoria (listas y dicts Python).
-En Fase 2: se reemplazará por llamadas a los repositorios de PostgreSQL.
-En Fase 3: se añade la llamada a la IA real.
+In Phase 1: everything happens in memory (Python lists and dicts).
+In Phase 2: replaced by calls to PostgreSQL repositories.
+In Phase 3: the real AI call is added.
 
-La interface pública (advance_story) NO cambia entre fases.
-Eso es el poder del Repository pattern.
+The public interface (advance_story) does NOT change between phases.
+That is the power of the Repository pattern.
 """
 
 from dataclasses import dataclass, field
@@ -26,13 +26,13 @@ from cne_core.engine.causal_validator import CausalValidator, CausalCycleError
 from cne_core.engine.dramatic_engine import DramaticEngine, ForcedEventConstraint
 
 
-# ── Resultado de una transición ────────────────────────────────────────────────
+# ── Result of a transition ────────────────────────────────────────────────────
 
 @dataclass
 class StoryAdvanceResult:
     """
-    Lo que retorna el motor después de procesar una decisión.
-    Es lo que el cliente (API, Flutter, prototipo HTML) recibe.
+    What the engine returns after processing a decision.
+    This is what the client (API, Flutter, HTML prototype) receives.
     """
     commit:            NarrativeCommit
     narrative_text:    str
@@ -44,21 +44,21 @@ class StoryAdvanceResult:
     causal_edges:      list[CausalEdge] = field(default_factory=list)
 
     def display(self) -> str:
-        """Representación para terminal (útil durante desarrollo)."""
+        """Representation for terminal (useful during development)."""
         lines = [
             f"\n{'=' * 60}",
-            f"[CAPITULO {self.commit.depth}]",
+            f"[CHAPTER {self.commit.depth}]",
             f"{'-' * 60}",
             self.narrative_text,
             f"\n{'-' * 60}",
-            f"[DRAMA] Estado dramatico: {self._drama_str()}",
+            f"[DRAMA] Dramatic state: {self._drama_str()}",
         ]
 
         if self.forced_event:
-            lines.append(f"[!] Evento forzado: {self.forced_event.event_type.value}")
+            lines.append(f"[!] Forced event: {self.forced_event.event_type.value}")
 
         if not self.is_ending:
-            lines.append(f"\n[OPCIONES]:")
+            lines.append(f"\n[OPTIONS]:")
             for i, choice in enumerate(self.available_choices, 1):
                 preview = choice.get_preview_str()
                 preview_str = f"  [{preview}]" if preview else ""
@@ -80,75 +80,75 @@ class StoryAdvanceResult:
 
 class StateMachine:
     """
-    El motor narrativo en su forma más básica (Fase 1).
+    The narrative engine in its most basic form (Phase 1).
 
-    Gestiona:
-    - El estado actual del mundo (en memoria)
-    - El grafo causal de eventos
-    - El vector dramático
-    - El árbol de commits (la historia versionada)
+    Manages:
+    - The current world state (in memory)
+    - The causal event graph
+    - The dramatic vector
+    - The commit tree (the versioned story)
 
-    Todo en memoria: al crear una nueva instancia, la historia empieza
-    de cero. En Fase 2, el estado se persiste en PostgreSQL.
+    Everything in memory: creating a new instance starts the story
+    from scratch. In Phase 2, state is persisted in PostgreSQL.
     """
 
     def __init__(self, world: WorldDefinition):
         self.world = world
 
-        # Estado del mundo en memoria
+        # World state in memory
         self._entities: dict[str, Entity] = {
             e.id: e for e in world.initial_entities
         }
         self._world_variables: dict[str, Any] = {}
 
-        # Grafo causal
+        # Causal graph
         self._causal_validator = CausalValidator()
 
-        # Sistema dramático inicializado con la config de la semilla
+        # Dramatic system initialized with the seed config
         self._dramatic_engine = DramaticEngine(world.dramatic_config)
 
-        # Árbol de commits (la historia versionada)
+        # Commit tree (the versioned story)
         self._commits: dict[str, NarrativeCommit] = {}
         self._current_commit_id: str | None = None
         self._events: dict[str, NarrativeEvent] = {}
 
-        # Ramas activas
+        # Active branches
         self._branches: dict[str, Branch] = {}
 
-        # Profundidad actual
+        # Current depth
         self._current_depth: int = 0
 
-    # ── API pública ────────────────────────────────────────────────────────────
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def start(
         self,
         initial_narrative: str,
         initial_choices: list[NarrativeChoice],
-        initial_summary: str = "La historia comienza.",
+        initial_summary: str = "The story begins.",
         initial_dramatic_delta: DramaticDelta | None = None,
         causal_reason: str | None = None,
     ) -> StoryAdvanceResult:
         """
-        Inicializa la historia con el primer capítulo.
+        Initializes the story with the first chapter.
 
-        En Fase 3, esto lo generará la IA. En Fase 1, se pasa
-        manualmente para probar el motor.
+        In Phase 3, this will be generated by the AI. In Phase 1, it is passed
+        manually to test the engine.
 
         Args:
-            initial_narrative: El texto del primer capítulo.
-            initial_choices:   Las opciones iniciales.
-            initial_summary:   Resumen para el tronco activo.
-            initial_dramatic_delta: Cambios iniciales al vector.
+            initial_narrative: The text of the first chapter.
+            initial_choices:   The initial options.
+            initial_summary:   Summary for the active trunk.
+            initial_dramatic_delta: Initial changes to the vector.
 
         Returns:
-            StoryAdvanceResult con el estado inicial.
+            StoryAdvanceResult with the initial state.
         """
-        # Crear evento inicial
+        # Create initial event
         if initial_dramatic_delta:
             self._dramatic_engine.apply_delta(initial_dramatic_delta)
 
         event = NarrativeEvent(
-            commit_id      = "pending",   # se actualiza abajo
+            commit_id      = "pending",   # updated below
             event_type     = EventType.DECISION,
             narrative_text = initial_narrative,
             summary        = initial_summary,
@@ -159,7 +159,7 @@ class StateMachine:
         self._causal_validator.add_event(event.id)
         event.topo_order = self._causal_validator.get_topo_order(event.id)
 
-        # Crear commit inicial
+        # Create initial commit
         commit = NarrativeCommit(
             world_id       = self.world.id,
             event_id       = event.id,
@@ -198,62 +198,62 @@ class StateMachine:
         causal_reason:    str | None = None,
     ) -> StoryAdvanceResult:
         """
-        Procesa una decisión del jugador y avanza la historia.
+        Processes a player decision and advances the story.
 
-        En Fase 1: recibe la narrativa ya generada (manual o mock).
-        En Fase 3: llamará a la IA para generar narrativa, luego
-                   aplica validación y persistencia.
+        In Phase 1: receives the already generated narrative (manual or mock).
+        In Phase 3: will call the AI to generate narrative, then
+                   applies validation and persistence.
 
         Args:
-            choice_text:    La opción que eligió el jugador.
-            narrative_text: El texto narrativo para este momento.
-            summary:        Resumen de 1 oración para el tronco.
-            choices:        Las próximas opciones disponibles.
-            entity_deltas:  Cambios en entidades causados por este evento.
-            world_deltas:   Cambios en variables globales.
-            dramatic_delta: Cambios en el vector dramático.
-            is_ending:      ¿Es el final de la historia?
+            choice_text:    The option the player chose.
+            narrative_text: The narrative text for this moment.
+            summary:        1-sentence summary for the trunk.
+            choices:        The next available options.
+            entity_deltas:  Entity changes caused by this event.
+            world_deltas:   Changes to global variables.
+            dramatic_delta: Changes to the dramatic vector.
+            is_ending:      Is this the end of the story?
 
         Returns:
-            StoryAdvanceResult con el nuevo estado.
+            StoryAdvanceResult with the new state.
 
         Raises:
-            RuntimeError: Si la historia no ha sido iniciada.
-            ValueError:   Si la historia ya llegó a su límite de profundidad.
+            RuntimeError: If the story has not been started.
+            ValueError:   If the story has already reached its depth limit.
         """
         if self._current_commit_id is None:
-            raise RuntimeError("Llama a start() antes de advance_story()")
+            raise RuntimeError("Call start() before advance_story()")
 
-        # Verificar límite de profundidad
+        # Check depth limit
         if self.world.max_depth > 0 and self._current_depth >= self.world.max_depth:
             raise ValueError(
-                f"La historia alcanzó su profundidad máxima ({self.world.max_depth}). "
-                f"Usa is_ending=True en el último advance_story()."
+                f"Story reached maximum depth ({self.world.max_depth}). "
+                f"Use is_ending=True in the last advance_story()."
             )
 
         self._current_depth += 1
         current_commit = self._commits[self._current_commit_id]
 
-        # 1. Crear nuevas entidades (antes de deltas, para que deltas puedan referenciarlas)
+        # 1. Create new entities (before deltas, so deltas can reference them)
         entity_creations = entity_creations or []
         self._apply_entity_creations(entity_creations, self._current_depth)
 
-        # 2. Aplicar deltas de entidades
+        # 2. Apply entity deltas
         entity_deltas = entity_deltas or []
         self._apply_entity_deltas(entity_deltas)
 
-        # 3. Aplicar deltas de variables globales
+        # 3. Apply global variable deltas
         world_deltas = world_deltas or []
         self._apply_world_deltas(world_deltas)
 
-        # 4. Actualizar el vector dramático
+        # 4. Update the dramatic vector
         dramatic_delta = dramatic_delta or DramaticDelta()
         self._dramatic_engine.apply_delta(dramatic_delta)
 
-        # 5. Evaluar si hay umbrales cruzados → evento forzado
+        # 5. Evaluate if thresholds are crossed -> forced event
         forced_constraint = self._dramatic_engine.evaluate_thresholds()
 
-        # 6. Crear el evento narrativo
+        # 6. Create the narrative event
         event = NarrativeEvent(
             commit_id              = "pending",
             event_type             = EventType.FORCED if forced_constraint else EventType.DECISION,
@@ -272,7 +272,7 @@ class StateMachine:
             depth                  = self._current_depth,
         )
 
-        # 8. Registrar en el grafo causal y validar
+        # 8. Register in the causal graph and validate
         self._causal_validator.add_event(event.id)
         causal_edge = CausalEdge(
             cause_event_id=current_commit.event_id,
@@ -288,7 +288,7 @@ class StateMachine:
 
         event.topo_order = self._causal_validator.get_topo_order(event.id)
 
-        # 9. Crear el nuevo commit
+        # 9. Create the new commit
         new_commit = NarrativeCommit(
             world_id         = self.world.id,
             event_id         = event.id,
@@ -306,7 +306,7 @@ class StateMachine:
 
         event.commit_id = new_commit.id
 
-        # 10. Registrar commit y actualizar punteros
+        # 10. Register commit and update pointers
         current_commit.add_child(new_commit.id)
         self._events[event.id]       = event
         self._commits[new_commit.id] = new_commit
@@ -325,24 +325,24 @@ class StateMachine:
 
     def go_to_commit(self, commit_id: str) -> StoryAdvanceResult:
         """
-        Regresa a un commit anterior (navegación de ramas).
+        Returns to a previous commit (branch navigation).
 
-        Restaura el estado completo del mundo en ese punto,
-        incluyendo el vector dramático.
+        Restores the complete world state at that point,
+        including the dramatic vector.
         """
         if commit_id not in self._commits:
-            raise ValueError(f"Commit {commit_id[:8]}... no existe")
+            raise ValueError(f"Commit {commit_id[:8]}... does not exist")
 
         commit = self._commits[commit_id]
 
-        # Restaurar vector dramático
+        # Restore dramatic vector
         self._dramatic_engine.vector.from_dict(commit.dramatic_snapshot)
 
-        # Restaurar variables globales
+        # Restore global variables
         self._world_variables = commit.world_state_snapshot.copy()
 
-        # Restaurar entidades (simplificado para Fase 1)
-        # En Fase 2 esto usará el StateRebuilder con deltas reales
+        # Restore entities (simplified for Phase 1)
+        # In Phase 2 this will use the StateRebuilder with real deltas
         self._restore_entity_states(commit.entity_states)
 
         self._current_commit_id = commit_id
@@ -351,21 +351,21 @@ class StateMachine:
         return StoryAdvanceResult(
             commit            = commit,
             narrative_text    = commit.narrative_text,
-            available_choices = [],   # Se regenerarán en Fase 3
+            available_choices = [],   # Will be regenerated in Phase 3
             dramatic_state    = commit.dramatic_snapshot.copy(),
         )
 
-    # ── Reconstrucción desde BD ──────────────────────────────────────────────
+    # ── Reconstruction from DB ──────────────────────────────────────────────
 
     def rebuild_from_commits(self, commits: list[NarrativeCommit]) -> None:
         """
-        Reconstruye el estado del engine desde una lista de commits (cargados de BD).
+        Rebuilds the engine state from a list of commits (loaded from DB).
 
-        Registra cada commit en el árbol, reconstruye el grafo causal,
-        y restaura el estado del mundo desde el último commit.
+        Registers each commit in the tree, reconstructs the causal graph,
+        and restores the world state from the latest commit.
 
         Args:
-            commits: Lista de NarrativeCommit en orden cronológico (más antiguo primero).
+            commits: List of NarrativeCommit in chronological order (oldest first).
         """
         if not commits:
             return
@@ -414,15 +414,15 @@ class StateMachine:
 
     def get_trunk_summary(self, max_recent: int = 6) -> str:
         """
-        Construye el 'tronco activo' para enviar a la IA.
+        Builds the 'active trunk' to send to the AI.
 
-        Los commits recientes se muestran con detalle.
-        Los anteriores se comprimen a 1 línea cada uno.
+        Recent commits are shown in detail.
+        Earlier ones are compressed to 1 line each.
         """
         if not self._current_commit_id:
             return ""
 
-        # Recopilar la cadena de commits hasta el actual
+        # Collect the chain of commits up to the current one
         chain: list[NarrativeCommit] = []
         cid = self._current_commit_id
         while cid:
@@ -432,37 +432,37 @@ class StateMachine:
             chain.append(commit)
             cid = commit.parent_id
 
-        chain.reverse()   # Orden cronológico
+        chain.reverse()   # Chronological order
 
         lines = []
         recent_start = max(0, len(chain) - max_recent)
 
-        # Commits viejos comprimidos
+        # Compressed old commits
         if recent_start > 0:
-            lines.append("[HISTORIA ANTERIOR COMPRIMIDA]")
+            lines.append("[COMPRESSED EARLIER HISTORY]")
             for commit in chain[:recent_start]:
                 if commit.summary:
                     lines.append(commit.to_trunk_entry())
 
-        # Commits recientes con detalle
-        lines.append("\n[CAPÍTULOS RECIENTES]")
+        # Recent commits with detail
+        lines.append("\n[RECENT CHAPTERS]")
         for commit in chain[recent_start:]:
             lines.append(commit.to_trunk_entry())
 
         return "\n".join(lines)
 
     def get_causal_stats(self) -> dict:
-        """Estadísticas del grafo causal (para el paper)."""
+        """Causal graph statistics (for the paper)."""
         return self._causal_validator.get_stats()
 
     def get_dramatic_arc_analysis(self) -> dict:
-        """Análisis del arco dramático (para el paper)."""
+        """Dramatic arc analysis (for the paper)."""
         return self._dramatic_engine.get_arc_analysis()
 
-    # ── Helpers privados ───────────────────────────────────────────────────────
+    # ── Private helpers ───────────────────────────────────────────────────────
 
     def _apply_entity_creations(self, creations: list[EntityCreation], depth: int) -> None:
-        """Crea nuevas entidades y las registra en el estado del mundo."""
+        """Creates new entities and registers them in the world state."""
         for creation in creations:
             entity_type_map = {
                 "character": EntityType.CHARACTER,
@@ -493,7 +493,7 @@ class StateMachine:
             self._world_variables[delta.variable] = delta.new_value
 
     def _get_entity_states(self) -> dict[str, Any]:
-        """Snapshot del estado actual de todas las entidades."""
+        """Snapshot of the current state of all entities."""
         return {
             eid: {
                 "name":       e.name,
@@ -506,7 +506,7 @@ class StateMachine:
         }
 
     def _restore_entity_states(self, states: dict[str, Any]) -> None:
-        """Restaura el estado de entidades desde un snapshot (reconstruccion completa)."""
+        """Restores entity state from a snapshot (full reconstruction)."""
         self._entities.clear()
         for eid, state in states.items():
             entity_type_map = {

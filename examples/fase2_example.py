@@ -1,18 +1,18 @@
 """
-examples/fase2_example.py — Ejemplo completo de Fase 2
+examples/fase2_example.py — Complete Phase 2 Example
 
-Demuestra:
-- Crear un WorldDefinition
-- Guardarlo en PostgreSQL
-- Crear commits narrativos
-- Validar grafo causal
-- Navegar el trunk
+Demonstrates:
+- Creating a WorldDefinition
+- Saving it to PostgreSQL
+- Creating narrative commits
+- Validating the causal graph
+- Navigating the trunk
 
-Requisitos:
-- PostgreSQL corriendo: `docker-compose up -d`
-- Migraciones aplicadas: `alembic upgrade head`
+Requirements:
+- PostgreSQL running: `docker-compose up -d`
+- Migrations applied: `alembic upgrade head`
 
-Ejecutar:
+Run:
     python examples/fase2_example.py
 """
 
@@ -32,22 +32,22 @@ from persistence.repositories.postgresql_repository import PostgreSQLRepository
 
 async def main():
     print("=" * 70)
-    print("CNE — Ejemplo de Fase 2: Persistencia con PostgreSQL")
+    print("CNE — Phase 2 Example: PostgreSQL Persistence")
     print("=" * 70)
 
-    # ── 1. Configurar DB ───────────────────────────────────────────────────────
-    print("\n[1/7] Configurando base de datos...")
+    # -- 1. Configure DB -------------------------------------------------------
+    print("\n[1/7] Configuring database...")
     db_config = DatabaseConfig(
         "postgresql+asyncpg://cne_user@localhost:5433/cne_db",
-        echo=False  # echo=True para ver las queries SQL
+        echo=False  # echo=True to see SQL queries
     )
     repo = PostgreSQLRepository(db_config)
-    print("[OK] Conectado a PostgreSQL")
+    print("[OK] Connected to PostgreSQL")
 
-    # ── 2. Crear WorldDefinition ──────────────────────────────────────────────
-    print("\n[2/7] Creando mundo narrativo...")
+    # -- 2. Create WorldDefinition ---------------------------------------------
+    print("\n[2/7] Creating narrative world...")
 
-    # Entidades iniciales
+    # Initial entities
     hero = Entity(
         name="Lyra",
         entity_type=EntityType.CHARACTER,
@@ -56,7 +56,7 @@ async def main():
             "courage": 85,
             "wisdom": 70,
             "alive": True,
-            "role": "Guardiana del Reino"
+            "role": "Guardian of the Kingdom"
         }
     )
 
@@ -68,41 +68,41 @@ async def main():
             "influence": 80,
             "corruption": 90,
             "alive": True,
-            "role": "Señor Oscuro"
+            "role": "Dark Lord"
         }
     )
 
     artifact = Entity(
-        name="El Cristal de la Verdad",
+        name="The Crystal of Truth",
         entity_type=EntityType.ARTIFACT,
         attributes={
             "power_level": 100,
             "corrupted": False,
-            "location": "Templo Antiguo"
+            "location": "Ancient Temple"
         }
     )
 
     # WorldDefinition
     world = WorldDefinition(
-        name="El Reino de las Sombras",
+        name="The Kingdom of Shadows",
         context=(
-            "Un reino medieval donde la magia oscura amenaza con destruir todo. "
-            "El Cristal de la Verdad es la única esperanza, pero está custodiado "
-            "por fuerzas antiguas que no distinguen entre el bien y el mal."
+            "A medieval kingdom where dark magic threatens to destroy everything. "
+            "The Crystal of Truth is the only hope, but it is guarded "
+            "by ancient forces that cannot distinguish between good and evil."
         ),
         protagonist=(
-            "Lyra, una guardiana del reino que fue traicionada por aquellos "
-            "a quienes juró proteger. Ahora debe decidir si salvar el reino "
-            "o dejarlo caer en la oscuridad."
+            "Lyra, a guardian of the kingdom who was betrayed by those "
+            "she swore to protect. Now she must decide whether to save the kingdom "
+            "or let it fall into darkness."
         ),
-        era="Medieval fantástico, año 843 de la Era de los Reyes",
+        era="Medieval fantasy, year 843 of the Age of Kings",
         tone=NarrativeTone.DARK,
-        antagonist="Malachar el Corrupto, un antiguo héroe caído",
-        rules="La magia oscura tiene un precio: cada hechizo corrompe el alma del usuario.",
+        antagonist="Malachar the Corrupt, a former fallen hero",
+        rules="Dark magic has a price: each spell corrupts the user's soul.",
         constraints=[
-            "No hay resurrecciones — la muerte es permanente",
-            "La magia tiene consecuencias irreversibles",
-            "Las decisiones pasadas condicionan las opciones futuras",
+            "No resurrections — death is permanent",
+            "Magic has irreversible consequences",
+            "Past decisions condition future options",
         ],
         initial_entities=[hero, villain, artifact],
         dramatic_config={
@@ -118,36 +118,36 @@ async def main():
     )
 
     await repo.save_world(world)
-    print(f"[OK] Mundo guardado: '{world.name}' (ID: {world.id[:8]}...)")
-    print(f"   Entidades iniciales: {len(world.initial_entities)}")
-    print(f"   Tono: {world.tone.value}")
+    print(f"[OK] World saved: '{world.name}' (ID: {world.id[:8]}...)")
+    print(f"   Initial entities: {len(world.initial_entities)}")
+    print(f"   Tone: {world.tone.value}")
 
-    # ── 3. Crear rama principal ───────────────────────────────────────────────
-    print("\n[3/7] Creando rama narrativa...")
+    # -- 3. Create main branch -------------------------------------------------
+    print("\n[3/7] Creating narrative branch...")
 
     branch = Branch(
         world_id=world.id,
-        origin_commit_id="root",  # Se actualizará cuando creemos el commit raíz
-        name="Camino del Héroe",
-        description="Lyra acepta su destino y enfrenta a Malachar",
+        origin_commit_id="root",  # Will be updated when we create the root commit
+        name="Hero's Path",
+        description="Lyra accepts her destiny and faces Malachar",
     )
     await repo.save_branch(branch)
-    print(f"[OK] Rama creada: '{branch.name}' (ID: {branch.id[:8]}...)")
+    print(f"[OK] Branch created: '{branch.name}' (ID: {branch.id[:8]}...)")
 
-    # ── 4. Crear commits narrativos ───────────────────────────────────────────
-    print("\n[4/7] Construyendo historia...")
+    # -- 4. Create narrative commits -------------------------------------------
+    print("\n[4/7] Building story...")
 
-    # Commit 0: Inicio
+    # Commit 0: Beginning
     event0 = NarrativeEvent(
         commit_id="pending",
         event_type=EventType.DECISION,
         narrative_text=(
-            "El reino está en peligro. Malachar ha despertado y amenaza con "
-            "sumir el mundo en la oscuridad eterna. Lyra, desterrada hace años "
-            "por una traición que nunca cometió, debe decidir si regresar para "
-            "salvar a quienes la abandonaron."
+            "The kingdom is in danger. Malachar has awakened and threatens to "
+            "plunge the world into eternal darkness. Lyra, exiled years ago "
+            "for a betrayal she never committed, must decide whether to return to "
+            "save those who abandoned her."
         ),
-        summary="Lyra debe decidir si regresar al reino.",
+        summary="Lyra must decide whether to return to the kingdom.",
         depth=0,
         dramatic_delta=DramaticDelta(tension=5, mystery=10, connection=-5),
     )
@@ -166,9 +166,9 @@ async def main():
     await repo.save_commit(commit0)
     await repo.save_event(event0)
     await repo.save_dramatic_state(commit0.id, world.dramatic_config)
-    print(f"   [Capítulo 0] {commit0.summary}")
+    print(f"   [Chapter 0] {commit0.summary}")
 
-    # Commit 1: Lyra decide regresar
+    # Commit 1: Lyra decides to return
     dramatic_state_1 = {
         "tension": 50,
         "hope": 45,
@@ -183,13 +183,13 @@ async def main():
         commit_id="pending",
         event_type=EventType.DECISION,
         narrative_text=(
-            "Lyra cabalga hacia la capital. A medida que se acerca, los recuerdos "
-            "de la traición vuelven a ella. Pero el deber es más fuerte que el rencor. "
-            "Al llegar al palacio, descubre que el rey ha sido asesinado y Malachar "
-            "ya controla gran parte del reino."
+            "Lyra rides toward the capital. As she approaches, memories "
+            "of the betrayal come flooding back. But duty is stronger than resentment. "
+            "Upon arriving at the palace, she discovers that the king has been murdered and Malachar "
+            "already controls most of the kingdom."
         ),
-        summary="Lyra regresa y descubre que el rey ha muerto.",
-        triggered_by_decision="Regresar al reino",
+        summary="Lyra returns and discovers that the king is dead.",
+        triggered_by_decision="Return to the kingdom",
         caused_by=[event0.id],
         depth=1,
         dramatic_delta=DramaticDelta(tension=5, hope=-5, mystery=10),
@@ -200,7 +200,7 @@ async def main():
         event_id=event1.id,
         depth=1,
         parent_id=commit0.id,
-        choice_text="Regresar al reino",
+        choice_text="Return to the kingdom",
         narrative_text=event1.narrative_text,
         summary=event1.summary,
         branch_id=branch.id,
@@ -212,15 +212,15 @@ async def main():
     await repo.save_event(event1)
     await repo.save_dramatic_state(commit1.id, dramatic_state_1)
 
-    # Crear arista causal
+    # Create causal edge
     edge_0_1 = CausalEdge(
         cause_event_id=event0.id,
         effect_event_id=event1.id,
     )
     await repo.save_causal_edge(edge_0_1)
-    print(f"   [Capítulo 1] {commit1.summary}")
+    print(f"   [Chapter 1] {commit1.summary}")
 
-    # Commit 2: Lyra encuentra al Cristal
+    # Commit 2: Lyra finds the Crystal
     dramatic_state_2 = {
         "tension": 60,
         "hope": 55,
@@ -231,26 +231,26 @@ async def main():
         "mystery": 65,
     }
 
-    # Delta: Lyra obtiene el Cristal
+    # Delta: Lyra obtains the Crystal
     delta_crystal = EntityDelta(
         entity_id=artifact.id,
         entity_name=artifact.name,
         attribute="location",
-        old_value="Templo Antiguo",
-        new_value="En posesión de Lyra",
+        old_value="Ancient Temple",
+        new_value="In Lyra's possession",
     )
 
     event2 = NarrativeEvent(
         commit_id="pending",
         event_type=EventType.DECISION,
         narrative_text=(
-            "Tras semanas de búsqueda, Lyra encuentra el Templo Antiguo. "
-            "El Cristal de la Verdad brilla con una luz propia, pero al tocarlo, "
-            "siente una presencia oscura. El Cristal le muestra visiones del pasado: "
-            "la traición que la desterró fue orquestada por Malachar desde las sombras."
+            "After weeks of searching, Lyra finds the Ancient Temple. "
+            "The Crystal of Truth glows with its own light, but upon touching it, "
+            "she senses a dark presence. The Crystal shows her visions of the past: "
+            "the betrayal that exiled her was orchestrated by Malachar from the shadows."
         ),
-        summary="Lyra obtiene el Cristal y descubre la verdad.",
-        triggered_by_decision="Buscar el Cristal de la Verdad",
+        summary="Lyra obtains the Crystal and discovers the truth.",
+        triggered_by_decision="Search for the Crystal of Truth",
         caused_by=[event1.id],
         entity_deltas=[delta_crystal],
         depth=2,
@@ -262,7 +262,7 @@ async def main():
         event_id=event2.id,
         depth=2,
         parent_id=commit1.id,
-        choice_text="Buscar el Cristal de la Verdad",
+        choice_text="Search for the Crystal of Truth",
         narrative_text=event2.narrative_text,
         summary=event2.summary,
         branch_id=branch.id,
@@ -279,57 +279,57 @@ async def main():
         effect_event_id=event2.id,
     )
     await repo.save_causal_edge(edge_1_2)
-    print(f"   [Capítulo 2] {commit2.summary}")
+    print(f"   [Chapter 2] {commit2.summary}")
 
-    print(f"\n[OK] Historia creada: {commit2.depth + 1} capítulos")
+    print(f"\n[OK] Story created: {commit2.depth + 1} chapters")
 
-    # ── 5. Recuperar trunk ─────────────────────────────────────────────────────
-    print("\n[5/7] Recuperando historia completa...")
+    # -- 5. Retrieve trunk -----------------------------------------------------
+    print("\n[5/7] Retrieving complete story...")
 
     trunk = await repo.get_trunk(commit2.id, max_depth=100)
-    print(f"[OK] Trunk recuperado: {len(trunk)} commits")
+    print(f"[OK] Trunk retrieved: {len(trunk)} commits")
     for i, commit in enumerate(trunk):
         print(f"   [{i}] {commit.summary}")
 
-    # ── 6. Validar grafo causal ────────────────────────────────────────────────
-    print("\n[6/7] Validando grafo causal...")
+    # -- 6. Validate causal graph ----------------------------------------------
+    print("\n[6/7] Validating causal graph...")
 
-    # Verificar que existe el camino event0 -> event1 -> event2
+    # Verify that path event0 -> event1 -> event2 exists
     path_exists = await repo.check_causal_path_exists(event0.id, event2.id)
-    print(f"[OK] Camino causal event0 -> event2: {'Existe' if path_exists else 'No existe'}")
+    print(f"[OK] Causal path event0 -> event2: {'Exists' if path_exists else 'Does not exist'}")
 
-    # Intentar crear ciclo (debe fallar)
+    # Attempt to create cycle (should fail)
     try:
         edge_2_0 = CausalEdge(
             cause_event_id=event2.id,
             effect_event_id=event0.id,
         )
         await repo.save_causal_edge(edge_2_0)
-        print("[ERROR] Se permitio crear un ciclo")
+        print("[ERROR] A cycle was allowed to be created")
     except ValueError as e:
-        print(f"[OK] Ciclo detectado correctamente: {str(e)[:60]}...")
+        print(f"[OK] Cycle detected correctly: {str(e)[:60]}...")
 
-    # ── 7. Estado dramático ────────────────────────────────────────────────────
-    print("\n[7/7] Análisis dramático...")
+    # -- 7. Dramatic state -----------------------------------------------------
+    print("\n[7/7] Dramatic analysis...")
 
     for i, commit in enumerate(trunk):
         state = await repo.get_dramatic_state(commit.id)
         if state:
-            print(f"   [Cap.{i}] T={state['tension']:>2} H={state['hope']:>2} M={state['mystery']:>2}")
+            print(f"   [Ch.{i}] T={state['tension']:>2} H={state['hope']:>2} M={state['mystery']:>2}")
 
-    # ── Resumen ────────────────────────────────────────────────────────────────
+    # -- Summary ---------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("RESUMEN DE FASE 2")
+    print("PHASE 2 SUMMARY")
     print("=" * 70)
-    print(f"[OK] Mundo persistido: {world.name}")
-    print(f"[OK] Commits guardados: {len(trunk)}")
-    print(f"[OK] Grafo causal validado (sin ciclos)")
-    print(f"[OK] Vector dramático rastreado")
-    print(f"[OK] Deltas de entidades registrados")
-    print("\nPróximos pasos:")
-    print("  • Fase 3: Conectar IA (Anthropic/Claude)")
-    print("  • Fase 4: API REST con FastAPI")
-    print("  • Fase 5: Release público + docs")
+    print(f"[OK] World persisted: {world.name}")
+    print(f"[OK] Commits saved: {len(trunk)}")
+    print(f"[OK] Causal graph validated (no cycles)")
+    print(f"[OK] Dramatic vector tracked")
+    print(f"[OK] Entity deltas recorded")
+    print("\nNext steps:")
+    print("  - Phase 3: Connect AI (Anthropic/Claude)")
+    print("  - Phase 4: REST API with FastAPI")
+    print("  - Phase 5: Public release + docs")
     print("=" * 70)
 
     # Cleanup

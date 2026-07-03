@@ -1,9 +1,9 @@
 """
-persistence/cache.py — Cache layer con Redis (opcional)
+persistence/cache.py — Cache layer with Redis (optional)
 
-Provee RedisCache y NullCache con la misma interfaz.
-Si REDIS_URL no esta configurado, se usa NullCache (no-op).
-Si Redis se cae, las operaciones fallan silenciosamente.
+Provides RedisCache and NullCache with the same interface.
+If REDIS_URL is not configured, NullCache (no-op) is used.
+If Redis goes down, operations fail silently.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _serialize(obj: Any) -> str:
-    """Serializa dataclasses, datetimes, y enums a JSON string."""
+    """Serializes dataclasses, datetimes, and enums to a JSON string."""
 
     def _default(o: Any) -> Any:
         if isinstance(o, datetime):
@@ -64,7 +64,7 @@ def _restore_datetime(d: dict) -> dict:
 
 
 def _deserialize_commits(data: str) -> list[NarrativeCommit]:
-    """Deserializa una lista de NarrativeCommit desde JSON."""
+    """Deserializes a list of NarrativeCommit from JSON."""
     items = json.loads(data)
     commits = []
     for d in items:
@@ -74,13 +74,13 @@ def _deserialize_commits(data: str) -> list[NarrativeCommit]:
 
 
 def _deserialize_choices(data: str) -> list[NarrativeChoice]:
-    """Deserializa una lista de NarrativeChoice desde JSON."""
+    """Deserializes a list of NarrativeChoice from JSON."""
     items = json.loads(data)
     return [NarrativeChoice(**d) for d in items]
 
 
 def _deserialize_world(data: str) -> WorldDefinition:
-    """Deserializa un WorldDefinition desde JSON."""
+    """Deserializes a WorldDefinition from JSON."""
     d = json.loads(data)
     d = _restore_datetime(d)
 
@@ -102,7 +102,7 @@ def _deserialize_world(data: str) -> WorldDefinition:
 
 
 class CacheBackend(ABC):
-    """Interfaz abstracta para cache. RedisCache y NullCache la implementan."""
+    """Abstract interface for cache. RedisCache and NullCache implement it."""
 
     @abstractmethod
     async def get(self, key: str) -> str | None:
@@ -243,9 +243,9 @@ class NullCache(CacheBackend):
 
 async def create_cache(redis_url: str | None = None) -> CacheBackend:
     """
-    Crea el cache backend apropiado.
+    Creates the appropriate cache backend.
 
-    Si redis_url es None o la conexion falla, retorna NullCache.
+    If redis_url is None or the connection fails, returns NullCache.
     """
     if not redis_url:
         logger.info("No REDIS_URL configured — using NullCache (no caching)")

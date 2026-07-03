@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cne-core"
-version = "0.3.0"  # Fase 3
-description = "Causal Narrative Engine — Motor narrativo independiente basado en causalidad formal"
+version = "0.3.0"  # Phase 3
+description = "Causal Narrative Engine — Independent narrative engine based on formal causality"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -31,29 +31,29 @@ classifiers = [
     "Topic :: Games/Entertainment",
 ]
 
-# ── Dependencias por fase ──────────────────────────────────────────────────────
+# ── Dependencies by phase ─────────────────────────────────────────────────────
 
 dependencies = [
-    # Core (sin dependencias externas en Fase 1)
+    # Core (no external dependencies in Phase 1)
 ]
 
 [project.optional-dependencies]
-# Fase 2: Persistencia
+# Phase 2: Persistence
 persistence = [
     "sqlalchemy[asyncio]>=2.0.0",
     "alembic>=1.13.0",
-    "asyncpg>=0.29.0",        # Driver async para PostgreSQL
-    "psycopg2-binary>=2.9.0",  # Driver sync (para Alembic)
+    "asyncpg>=0.29.0",        # Async driver for PostgreSQL
+    "psycopg2-binary>=2.9.0",  # Sync driver (for Alembic)
 ]
 
-# Fase 3: IA
+# Phase 3: AI
 ai = [
     "anthropic>=0.30.0",
     "pydantic>=2.0.0",
-    "openai>=1.0.0",  # Opcional
+    "openai>=1.0.0",  # Optional
 ]
 
-# Fase 4: API
+# Phase 4: API
 api = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
@@ -65,7 +65,7 @@ cache = [
     "redis[hiredis]>=5.0.0",
 ]
 
-# Desarrollo
+# Development
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -75,7 +75,7 @@ dev = [
     "mypy>=1.8.0",
 ]
 
-# Todas las dependencias (para desarrollo completo)
+# All dependencies (for full development)
 all = [
     "cne-core[persistence,ai,api,cache,dev]"
 ]
@@ -86,7 +86,7 @@ Documentation = "https://github.com/Squisix/causal_narrative_engine/blob/main/do
 Repository = "https://github.com/Squisix/causal_narrative_engine"
 Issues = "https://github.com/Squisix/causal_narrative_engine/issues"
 
-# ── Configuración de herramientas ──────────────────────────────────────────────
+# ── Tool configuration ────────────────────────────────────────────────────────
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -112,11 +112,11 @@ addopts = [
     "--cov-report=html",
 ]
 markers = [
-    "fase1: Tests de Fase 1 (Core Engine en memoria)",
-    "fase2: Tests de Fase 2 (Persistencia con PostgreSQL)",
-    "fase3: Tests de Fase 3 (AI Adapter)",
-    "integration: Tests de integración (requieren servicios externos)",
-    "anthropic_api: Tests que requieren API key de Anthropic (consumen tokens)",
+    "fase1: Phase 1 tests (Core Engine in memory)",
+    "fase2: Phase 2 tests (Persistence with PostgreSQL)",
+    "fase3: Phase 3 tests (AI Adapter)",
+    "integration: Integration tests (require external services)",
+    "anthropic_api: Tests that require Anthropic API key (consume tokens)",
 ]
 
 [tool.black]
@@ -145,7 +145,7 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long (manejado por black)
+    "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
     "C901",  # function is too complex
 ]
@@ -154,5 +154,5 @@ ignore = [
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Habilitar gradualmente
+disallow_untyped_defs = false  # Enable gradually
 ignore_missing_imports = true

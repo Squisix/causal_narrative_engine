@@ -1,14 +1,14 @@
 """
-interfaces/repository.py — Contrato de persistencia
+interfaces/repository.py — Persistence contract
 
-Define qué operaciones debe soportar cualquier sistema de persistencia
-que se conecte al CNE. El Core Engine solo conoce esta interfaz, no
-las implementaciones concretas.
+Defines what operations any persistence system connected to the CNE
+must support. The Core Engine only knows this interface, not
+the concrete implementations.
 
-Implementaciones incluidas en el repo:
-- InMemoryRepository (Fase 1 ✅, tests sin dependencias)
-- PostgreSQLRepository (Fase 2, producción)
-- SQLiteRepository (Fase 2, desarrollo local)
+Implementations included in the repo:
+- InMemoryRepository (Phase 1, tests without dependencies)
+- PostgreSQLRepository (Phase 2, production)
+- SQLiteRepository (Phase 2, local development)
 """
 
 from abc import ABC, abstractmethod
@@ -21,37 +21,37 @@ from cne_core.models.commit import NarrativeCommit, NarrativeChoice, Branch
 
 class NarrativeRepository(ABC):
     """
-    Interfaz abstracta para persistencia del motor narrativo.
+    Abstract interface for narrative engine persistence.
 
-    Todas las operaciones son async porque las implementaciones
-    reales (PostgreSQL, SQLite) lo requieren. La implementación
-    InMemory también es async por compatibilidad de interfaz.
+    All operations are async because real implementations
+    (PostgreSQL, SQLite) require it. The InMemory implementation
+    is also async for interface compatibility.
 
-    Principio: el Core Engine no debe conocer detalles de persistencia.
-    Solo llama a estos métodos. La implementación puede usar PostgreSQL,
-    MongoDB, archivos JSON, o cualquier otra cosa.
+    Principle: the Core Engine must not know persistence details.
+    It only calls these methods. The implementation can use PostgreSQL,
+    MongoDB, JSON files, or anything else.
     """
 
     # ── WorldDefinition ────────────────────────────────────────────────────────
 
     @abstractmethod
     async def save_world(self, world: WorldDefinition) -> None:
-        """Persiste una WorldDefinition (la semilla)."""
+        """Persists a WorldDefinition (the seed)."""
         pass
 
     @abstractmethod
     async def get_world(self, world_id: str) -> WorldDefinition | None:
-        """Recupera una WorldDefinition por ID."""
+        """Retrieves a WorldDefinition by ID."""
         pass
 
     @abstractmethod
     async def list_worlds(self, limit: int = 50) -> list[WorldDefinition]:
-        """Lista mundos creados (para selección en UI)."""
+        """Lists created worlds (for UI selection)."""
         pass
 
     @abstractmethod
     async def delete_world(self, world_id: str) -> bool:
-        """Elimina un mundo y todos sus datos asociados (cascade). Retorna True si existía."""
+        """Deletes a world and all its associated data (cascade). Returns True if it existed."""
         pass
 
     # ── NarrativeCommit ────────────────────────────────────────────────────────
@@ -59,16 +59,16 @@ class NarrativeRepository(ABC):
     @abstractmethod
     async def save_commit(self, commit: NarrativeCommit) -> None:
         """
-        Persiste un commit narrativo.
+        Persists a narrative commit.
 
-        Debe ser una transacción atómica: si falla, no se persiste nada.
-        En PostgreSQL esto se maneja con BEGIN/COMMIT.
+        Must be an atomic transaction: if it fails, nothing is persisted.
+        In PostgreSQL this is handled with BEGIN/COMMIT.
         """
         pass
 
     @abstractmethod
     async def get_commit(self, commit_id: str) -> NarrativeCommit | None:
-        """Recupera un commit por ID."""
+        """Retrieves a commit by ID."""
         pass
 
     @abstractmethod
@@ -78,31 +78,31 @@ class NarrativeRepository(ABC):
         max_depth: int = 100
     ) -> list[NarrativeCommit]:
         """
-        Recupera la cadena de commits desde commit_id hacia atrás.
+        Retrieves the chain of commits from commit_id backwards.
 
-        Retorna en orden cronológico (del más antiguo al más reciente).
-        Si max_depth > 0, limita cuántos commits recuperar.
+        Returns in chronological order (from oldest to most recent).
+        If max_depth > 0, limits how many commits to retrieve.
 
         Args:
-            commit_id: El commit desde donde empezar.
-            max_depth: Máximo número de commits a retornar.
+            commit_id: The commit to start from.
+            max_depth: Maximum number of commits to return.
 
         Returns:
-            Lista de commits en orden cronológico.
+            List of commits in chronological order.
         """
         pass
 
     @abstractmethod
     async def list_commits(self, world_id: str) -> list[NarrativeCommit]:
-        """Lista todos los commits de un mundo, ordenados por depth ascendente."""
+        """Lists all commits for a world, ordered by depth ascending."""
         pass
 
     @abstractmethod
     async def get_children_commits(self, commit_id: str) -> list[NarrativeCommit]:
         """
-        Retorna los commits hijos de un commit dado.
+        Returns the child commits of a given commit.
 
-        Útil para navegar ramas alternativas.
+        Useful for navigating alternative branches.
         """
         pass
 
@@ -110,41 +110,41 @@ class NarrativeRepository(ABC):
 
     @abstractmethod
     async def save_event(self, event: NarrativeEvent) -> None:
-        """Persiste un evento narrativo."""
+        """Persists a narrative event."""
         pass
 
     @abstractmethod
     async def get_event(self, event_id: str) -> NarrativeEvent | None:
-        """Recupera un evento por ID."""
+        """Retrieves an event by ID."""
         pass
 
     @abstractmethod
     async def get_events_for_commit(self, commit_id: str) -> list[NarrativeEvent]:
-        """Retorna todos los eventos asociados a un commit."""
+        """Returns all events associated with a commit."""
         pass
 
     @abstractmethod
     async def get_latest_commit_id(self, world_id: str) -> str | None:
-        """Retorna el ID del commit más reciente de un mundo, o None si no hay."""
+        """Returns the ID of the most recent commit for a world, or None if there are none."""
         pass
 
     # ── Choices ────────────────────────────────────────────────────────────────
 
     @abstractmethod
     async def save_choices(self, commit_id: str, choices: list[NarrativeChoice]) -> None:
-        """Persiste las opciones disponibles para un commit."""
+        """Persists the available choices for a commit."""
         pass
 
     @abstractmethod
     async def get_choices(self, commit_id: str) -> list[NarrativeChoice]:
-        """Recupera las opciones disponibles para un commit."""
+        """Retrieves the available choices for a commit."""
         pass
 
     # ── Causal Graph ───────────────────────────────────────────────────────────
 
     @abstractmethod
     async def save_causal_edge(self, edge: CausalEdge) -> None:
-        """Persiste una arista del grafo causal."""
+        """Persists an edge of the causal graph."""
         pass
 
     @abstractmethod
@@ -154,23 +154,23 @@ class NarrativeRepository(ABC):
         to_event_id: str
     ) -> bool:
         """
-        Verifica si existe un camino causal de from_event_id a to_event_id.
+        Checks if a causal path exists from from_event_id to to_event_id.
 
-        Implementación típica: CTE recursiva en SQL.
+        Typical implementation: recursive CTE in SQL.
 
-        Esto es lo que previene ciclos en el DAG:
-        Antes de insertar A→B, verificamos que NO exista B→...→A.
+        This is what prevents cycles in the DAG:
+        Before inserting A->B, we verify that B->...->A does NOT exist.
         """
         pass
 
     @abstractmethod
     async def get_causal_parents(self, event_id: str) -> list[str]:
-        """Retorna los IDs de los eventos que causaron este evento."""
+        """Returns the IDs of events that caused this event."""
         pass
 
     @abstractmethod
     async def get_causal_children(self, event_id: str) -> list[str]:
-        """Retorna los IDs de los eventos causados por este evento."""
+        """Returns the IDs of events caused by this event."""
         pass
 
     # ── Dramatic State ─────────────────────────────────────────────────────────
@@ -184,24 +184,24 @@ class NarrativeRepository(ABC):
         trigger_meter: str | None = None
     ) -> None:
         """
-        Persiste el estado del vector dramático en un commit.
+        Persists the dramatic vector state at a commit.
 
         Args:
-            commit_id: A qué commit corresponde este estado.
-            vector: Los 7 medidores (tension, hope, chaos, etc.).
-            forced_event: Tipo de evento forzado si hubo uno.
-            trigger_meter: Qué medidor disparó el evento forzado.
+            commit_id: Which commit this state corresponds to.
+            vector: The 7 meters (tension, hope, chaos, etc.).
+            forced_event: Type of forced event if there was one.
+            trigger_meter: Which meter triggered the forced event.
         """
         pass
 
     @abstractmethod
     async def get_dramatic_state(self, commit_id: str) -> dict[str, int] | None:
-        """Recupera el vector dramático de un commit."""
+        """Retrieves the dramatic vector for a commit."""
         pass
 
     @abstractmethod
     async def get_forced_event_type(self, commit_id: str) -> str | None:
-        """Recupera el tipo de evento forzado para un commit (si existe)."""
+        """Retrieves the forced event type for a commit (if it exists)."""
         pass
 
     @abstractmethod
@@ -213,16 +213,16 @@ class NarrativeRepository(ABC):
         reason: str | None = None
     ) -> None:
         """
-        Persiste un cambio individual en un medidor dramático.
+        Persists an individual change in a dramatic meter.
 
-        Esto se usa para el paper: permite analizar qué eventos
-        afectan más cada medidor.
+        This is used for the paper: it allows analyzing which events
+        affect each meter the most.
 
         Args:
-            event_id: Evento que causó el cambio.
-            meter: Nombre del medidor ("tension", "hope", etc.).
-            delta: Cambio en el valor (+15, -8, etc.).
-            reason: Explicación opcional del cambio.
+            event_id: Event that caused the change.
+            meter: Name of the meter ("tension", "hope", etc.).
+            delta: Change in value (+15, -8, etc.).
+            reason: Optional explanation of the change.
         """
         pass
 
@@ -231,11 +231,11 @@ class NarrativeRepository(ABC):
     @abstractmethod
     async def save_entity(self, entity: Entity, world_id: str) -> None:
         """
-        Persiste una nueva entidad creada durante la historia.
+        Persists a new entity created during the story.
 
         Args:
-            entity: La entidad a persistir.
-            world_id: El mundo al que pertenece.
+            entity: The entity to persist.
+            world_id: The world it belongs to.
         """
         pass
 
@@ -248,13 +248,13 @@ class NarrativeRepository(ABC):
         at_commit: str
     ) -> dict[str, Any] | None:
         """
-        Recupera el estado de una entidad en un commit dado.
+        Retrieves the state of an entity at a given commit.
 
-        En Fase 2, esto usará el StateRebuilder:
-        1. Encuentra el snapshot más cercano anterior a at_commit
-        2. Aplica todos los deltas desde ahí hasta at_commit
+        In Phase 2, this will use the StateRebuilder:
+        1. Finds the nearest snapshot before at_commit
+        2. Applies all deltas from there to at_commit
 
-        En Fase 1, se usa directamente el snapshot del commit.
+        In Phase 1, the commit snapshot is used directly.
         """
         pass
 
@@ -265,10 +265,10 @@ class NarrativeRepository(ABC):
         entity_states: dict[str, Any]
     ) -> None:
         """
-        Guarda un snapshot completo del estado de todas las entidades.
+        Saves a complete snapshot of all entity states.
 
-        Se hace periódicamente (ej: cada 10 commits) para optimizar
-        la reconstrucción de estado.
+        Done periodically (e.g., every 10 commits) to optimize
+        state reconstruction.
         """
         pass
 
@@ -276,39 +276,39 @@ class NarrativeRepository(ABC):
 
     @abstractmethod
     async def save_branch(self, branch: Branch) -> None:
-        """Persiste metadata de una rama."""
+        """Persists branch metadata."""
         pass
 
     @abstractmethod
     async def get_branch(self, branch_id: str) -> Branch | None:
-        """Recupera metadata de una rama."""
+        """Retrieves branch metadata."""
         pass
 
     @abstractmethod
     async def list_branches(self, world_id: str) -> list[Branch]:
-        """Lista todas las ramas de un mundo."""
+        """Lists all branches for a world."""
         pass
 
     # ── Stats ─────────────────────────────────────────────────────────────────
 
     @abstractmethod
     async def count_commits(self, world_id: str) -> int:
-        """Cuenta el total de commits para un mundo."""
+        """Counts the total commits for a world."""
         pass
 
     @abstractmethod
     async def count_all_commits(self) -> int:
-        """Cuenta el total de commits en todos los mundos."""
+        """Counts the total commits across all worlds."""
         pass
 
     @abstractmethod
     async def count_worlds(self) -> int:
-        """Cuenta el total de mundos."""
+        """Counts the total number of worlds."""
         pass
 
     @abstractmethod
     async def count_events(self) -> int:
-        """Cuenta el total de eventos."""
+        """Counts the total number of events."""
         pass
 
     # ── State Snapshots ────────────────────────────────────────────────────────
@@ -319,11 +319,11 @@ class NarrativeRepository(ABC):
         commit_id: str
     ) -> tuple[str, dict[str, Any]] | None:
         """
-        Encuentra el snapshot más cercano anterior a commit_id.
+        Finds the nearest snapshot before commit_id.
 
-        Retorna: (snapshot_commit_id, entity_states)
+        Returns: (snapshot_commit_id, entity_states)
 
-        Usado por StateRebuilder para reconstruir estado eficientemente.
+        Used by StateRebuilder to efficiently reconstruct state.
         """
         pass
 
@@ -334,10 +334,10 @@ class NarrativeRepository(ABC):
         to_commit_id: str
     ) -> list[tuple[str, Any]]:
         """
-        Recupera todos los deltas aplicados entre dos commits.
+        Retrieves all deltas applied between two commits.
 
-        Retorna lista de (event_id, deltas) en orden topológico.
+        Returns list of (event_id, deltas) in topological order.
 
-        Usado por StateRebuilder.
+        Used by StateRebuilder.
         """
         pass

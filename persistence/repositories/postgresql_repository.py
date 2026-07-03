@@ -1,11 +1,11 @@
 """
 persistence/repositories/postgresql_repository.py
 
-Implementación concreta de NarrativeRepository para PostgreSQL.
+Concrete implementation of NarrativeRepository for PostgreSQL.
 
-Convierte entre:
-- Dataclasses del core (WorldDefinition, NarrativeEvent, etc.)
-- ORM models de SQLAlchemy (WorldORM, EventORM, etc.)
+Converts between:
+- Core dataclasses (WorldDefinition, NarrativeEvent, etc.)
+- SQLAlchemy ORM models (WorldORM, EventORM, etc.)
 """
 
 from sqlalchemy import select, and_, func
@@ -33,22 +33,22 @@ from persistence.queries.causal_queries import CausalGraphQueries
 
 class PostgreSQLRepository(NarrativeRepository):
     """
-    Implementación PostgreSQL de NarrativeRepository.
+    PostgreSQL implementation of NarrativeRepository.
 
-    Usa SQLAlchemy 2.0 async para todas las operaciones.
+    Uses SQLAlchemy 2.0 async for all operations.
     """
 
     def __init__(self, session: AsyncSession):
         """
         Args:
-            session: Sesión de SQLAlchemy async (inyectada por FastAPI).
+            session: SQLAlchemy async session (injected by FastAPI).
         """
         self.session = session
 
     # ── WorldDefinition ────────────────────────────────────────────────────────
 
     async def save_world(self, world: WorldDefinition) -> None:
-        # Convertir WorldDefinition a WorldORM
+        # Convert WorldDefinition to WorldORM
         world_orm = WorldORM(
             id=world.id,
             name=world.name,
@@ -61,10 +61,11 @@ class PostgreSQLRepository(NarrativeRepository):
             constraints=world.constraints,
             dramatic_config=world.dramatic_config,
             max_depth=world.max_depth,
+            output_language=world.output_language,
             created_at=world.created_at,
         )
 
-        # Convertir entidades iniciales
+        # Convert initial entities
         for entity in world.initial_entities:
             entity_orm = EntityORM(
                 id=entity.id,
@@ -78,9 +79,9 @@ class PostgreSQLRepository(NarrativeRepository):
             self.session.add(entity_orm)
 
         self.session.add(world_orm)
-        # Flush para asegurar que los datos se escriban antes de retornar
+        # Flush to ensure data is written before returning
         await self.session.flush()
-        # El commit se hace automáticamente en get_session() al finalizar
+        # Commit is handled automatically by get_session() on completion
 
     async def get_world(self, world_id: str) -> WorldDefinition | None:
         result = await self.session.execute(
@@ -93,7 +94,7 @@ class PostgreSQLRepository(NarrativeRepository):
         if world_orm is None:
             return None
 
-        # Convertir ORM → Dataclass
+        # Convert ORM → Dataclass
         return self._world_orm_to_dataclass(world_orm)
 
     async def delete_world(self, world_id: str) -> bool:
@@ -138,7 +139,7 @@ class PostgreSQLRepository(NarrativeRepository):
         )
 
         self.session.add(commit_orm)
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     async def get_commit(self, commit_id: str) -> NarrativeCommit | None:
         result = await self.session.execute(
@@ -163,8 +164,8 @@ class PostgreSQLRepository(NarrativeRepository):
         max_depth: int = 100
     ) -> list[NarrativeCommit]:
         """
-        Recupera la cadena de commits desde commit_id hacia atrás.
-        Retorna en orden cronológico (del más antiguo al más reciente).
+        Retrieves the chain of commits from commit_id backwards.
+        Returns in chronological order (oldest to most recent).
         """
         commits = []
         current_id = commit_id
@@ -189,7 +190,7 @@ class PostgreSQLRepository(NarrativeRepository):
             current_id = commit_orm.parent_id
             depth += 1
 
-        # Revertir para tener orden cronológico
+        # Reverse for chronological order
         commits.reverse()
         return commits
 
@@ -278,11 +279,11 @@ class PostgreSQLRepository(NarrativeRepository):
             created_at=event.created_at,
         )
 
-        # Agregar event_orm PRIMERO para que los deltas puedan referenciar
+        # Add event_orm FIRST so that deltas can reference it
         self.session.add(event_orm)
         await self.session.flush()  # Force immediate INSERT of event
 
-        # Guardar entity deltas
+        # Save entity deltas
         for delta in event.entity_deltas:
             delta_orm = EntityDeltaORM(
                 event_id=event.id,
@@ -294,7 +295,7 @@ class PostgreSQLRepository(NarrativeRepository):
             )
             self.session.add(delta_orm)
 
-        # Guardar world deltas
+        # Save world deltas
         for delta in event.world_deltas:
             delta_orm = WorldVariableDeltaORM(
                 event_id=event.id,
@@ -304,7 +305,7 @@ class PostgreSQLRepository(NarrativeRepository):
             )
             self.session.add(delta_orm)
 
-        # Guardar entity creations
+        # Save entity creations
         for creation in event.entity_creations:
             creation_orm = EntityCreationORM(
                 event_id=event.id,
@@ -315,7 +316,7 @@ class PostgreSQLRepository(NarrativeRepository):
             )
             self.session.add(creation_orm)
 
-        # Guardar dramatic deltas
+        # Save dramatic deltas
         if not event.dramatic_delta.is_empty():
             for meter, value in event.dramatic_delta.to_dict().items():
                 if value != 0:
@@ -326,7 +327,7 @@ class PostgreSQLRepository(NarrativeRepository):
                     )
                     self.session.add(delta_orm)
 
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     async def get_event(self, event_id: str) -> NarrativeEvent | None:
         result = await self.session.execute(
@@ -362,20 +363,20 @@ class PostgreSQLRepository(NarrativeRepository):
     # ── Causal Graph ───────────────────────────────────────────────────────────
 
     async def save_causal_edge(self, edge: CausalEdge) -> None:
-        # PRIMERO: verificar que no exista ciclo
+        # FIRST: verify that no cycle would be created
         path_exists = await CausalGraphQueries.check_causal_path_exists(
             self.session,
-            edge.effect_event_id,  # Desde el efecto
-            edge.cause_event_id    # Hacia la causa
+            edge.effect_event_id,  # From the effect
+            edge.cause_event_id    # Towards the cause
         )
 
         if path_exists:
             raise ValueError(
-                f"No se puede crear la arista {edge.cause_event_id[:8]}... -> "
-                f"{edge.effect_event_id[:8]}... porque crearia un ciclo."
+                f"Cannot create edge {edge.cause_event_id[:8]}... -> "
+                f"{edge.effect_event_id[:8]}... because it would create a cycle."
             )
 
-        # OK, no hay ciclo. Guardar la arista.
+        # OK, no cycle. Save the edge.
         edge_orm = CausalEdgeORM(
             id=edge.id,
             cause_event_id=edge.cause_event_id,
@@ -385,7 +386,7 @@ class PostgreSQLRepository(NarrativeRepository):
         )
 
         self.session.add(edge_orm)
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     async def check_causal_path_exists(
         self,
@@ -436,7 +437,7 @@ class PostgreSQLRepository(NarrativeRepository):
         )
 
         self.session.add(dramatic_state)
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     async def get_dramatic_state(self, commit_id: str) -> dict[str, int] | None:
         result = await self.session.execute(
@@ -471,7 +472,7 @@ class PostgreSQLRepository(NarrativeRepository):
             reason=reason,
         )
         self.session.add(delta_orm)
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     # ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -522,8 +523,8 @@ class PostgreSQLRepository(NarrativeRepository):
         at_commit: str
     ) -> dict[str, Any] | None:
         """
-        Por ahora usa el snapshot del commit.
-        En una versión completa de Fase 2, usaría StateRebuilder.
+        For now uses the commit snapshot.
+        In a full Phase 2 version, this would use StateRebuilder.
         """
         commit = await self.get_commit(at_commit)
         if commit is None:
@@ -537,8 +538,8 @@ class PostgreSQLRepository(NarrativeRepository):
         entity_states: dict[str, Any]
     ) -> None:
         """
-        Los snapshots ya se guardan en commit.entity_states_snapshot.
-        Este método es para implementaciones futuras con tablas separadas.
+        Snapshots are already saved in commit.entity_states_snapshot.
+        This method is for future implementations with separate tables.
         """
         pass
 
@@ -555,7 +556,7 @@ class PostgreSQLRepository(NarrativeRepository):
             created_at=branch.created_at,
         )
         self.session.add(branch_orm)
-        # Commit manejado por get_session() context manager
+        # Commit handled by get_session() context manager
 
     async def get_branch(self, branch_id: str) -> Branch | None:
         result = await self.session.execute(
@@ -604,8 +605,8 @@ class PostgreSQLRepository(NarrativeRepository):
         commit_id: str
     ) -> tuple[str, dict[str, Any]] | None:
         """
-        Por ahora retorna el snapshot del commit mismo.
-        En una implementación completa, buscaría snapshots periódicos.
+        For now returns the snapshot of the commit itself.
+        In a full implementation, this would search for periodic snapshots.
         """
         commit = await self.get_commit(commit_id)
         if commit is None:
@@ -619,16 +620,16 @@ class PostgreSQLRepository(NarrativeRepository):
         to_commit_id: str
     ) -> list[tuple[str, Any]]:
         """
-        Retorna todos los deltas aplicados entre dos commits.
-        Implementación completa requiere recorrer el trunk y acumular deltas.
+        Returns all deltas applied between two commits.
+        Full implementation requires traversing the trunk and accumulating deltas.
         """
-        # Placeholder: retornar lista vacía por ahora
+        # Placeholder: return empty list for now
         return []
 
-    # ── Helpers de conversión ──────────────────────────────────────────────────
+    # ── Conversion helpers ────────────────────────────────────────────────────
 
     def _world_orm_to_dataclass(self, world_orm: WorldORM) -> WorldDefinition:
-        """Convierte WorldORM → WorldDefinition."""
+        """Converts WorldORM → WorldDefinition."""
         entities = [
             Entity(
                 id=e.id,
@@ -654,11 +655,12 @@ class PostgreSQLRepository(NarrativeRepository):
             initial_entities=entities,
             dramatic_config=world_orm.dramatic_config,
             max_depth=world_orm.max_depth,
+            output_language=world_orm.output_language,
             created_at=world_orm.created_at,
         )
 
     def _commit_orm_to_dataclass(self, commit_orm: CommitORM) -> NarrativeCommit:
-        """Convierte CommitORM → NarrativeCommit."""
+        """Converts CommitORM → NarrativeCommit."""
         dramatic_snapshot = {}
         if commit_orm.dramatic_state:
             dramatic_snapshot = commit_orm.dramatic_state.to_dict()
@@ -685,11 +687,11 @@ class PostgreSQLRepository(NarrativeRepository):
         session: AsyncSession,
         event_orm: EventORM
     ) -> NarrativeEvent:
-        """Convierte EventORM → NarrativeEvent."""
-        # Obtener IDs de causas
+        """Converts EventORM → NarrativeEvent."""
+        # Get cause IDs
         caused_by = [edge.cause_event_id for edge in event_orm.causal_parents]
 
-        # Convertir deltas
+        # Convert deltas
         entity_deltas = [
             EntityDelta(
                 entity_id=d.entity_id,
@@ -710,9 +712,9 @@ class PostgreSQLRepository(NarrativeRepository):
             for d in event_orm.world_deltas
         ]
 
-        # Reconstruir DramaticDelta desde dramatic_deltas
+        # Reconstruct DramaticDelta from dramatic_deltas
         dramatic_delta = DramaticDelta()
-        # (Por simplicidad, no lo reconstruimos aquí — se puede mejorar)
+        # (For simplicity, we don't reconstruct it here — can be improved)
 
         return NarrativeEvent(
             id=event_orm.id,

@@ -1,17 +1,17 @@
 """
-adapters/ollama_adapter.py - Implementacion con Ollama (LLMs locales)
+adapters/ollama_adapter.py - Implementation with Ollama (local LLMs)
 
-Usa Ollama para generar narrativa con modelos locales gratuitos.
+Uses Ollama to generate narrative with free local models.
 
-Requiere:
-- Instalar Ollama: https://ollama.com
-- Descargar un modelo: ollama pull gemma3:4b
+Requirements:
+- Install Ollama: https://ollama.com
+- Download a model: ollama pull gemma3:4b
 
-Modelos recomendados (ligeros):
-- gemma3:4b (~3GB RAM, buen balance calidad/velocidad)
-- qwen3:4b (~3GB RAM, muy bueno siguiendo instrucciones)
-- llama3.2:3b (~2GB RAM, intermedio)
-- mistral:7b (~4GB RAM, requiere GPU o mucha RAM)
+Recommended models (lightweight):
+- gemma3:4b (~3GB RAM, good quality/speed balance)
+- qwen3:4b (~3GB RAM, very good at following instructions)
+- llama3.2:3b (~2GB RAM, intermediate)
+- mistral:7b (~4GB RAM, requires GPU or lots of RAM)
 """
 
 import json
@@ -28,10 +28,10 @@ from cne_core.ai.context_builder import ContextBuilder
 
 class OllamaAdapter(AIAdapter):
     """
-    AIAdapter que usa Ollama para generar narrativa con LLMs locales.
+    AIAdapter that uses Ollama to generate narrative with local LLMs.
 
-    Comunica con Ollama via su API HTTP (POST /api/chat).
-    No requiere SDKs adicionales — solo httpx.
+    Communicates with Ollama via its HTTP API (POST /api/chat).
+    Does not require additional SDKs -- only httpx.
     """
 
     def __init__(
@@ -69,14 +69,14 @@ class OllamaAdapter(AIAdapter):
                 if attempt < self.max_retries:
                     user_prompt = (
                         user_prompt
-                        + f"\n\nTu respuesta anterior fue invalida: {e}\n"
-                        + "Genera SOLO JSON valido con el schema especificado. "
-                        + "No incluyas texto fuera del JSON."
+                        + f"\n\nYour previous response was invalid: {e}\n"
+                        + "Generate ONLY valid JSON with the specified schema. "
+                        + "Do not include text outside the JSON."
                     )
                     continue
                 self.failed_calls += 1
                 raise AIGenerationError(
-                    f"Ollama retorno respuesta invalida despues de {self.max_retries} intentos: {e}"
+                    f"Ollama returned invalid response after {self.max_retries} attempts: {e}"
                 )
 
             except httpx.HTTPError as e:
@@ -85,14 +85,14 @@ class OllamaAdapter(AIAdapter):
                     await asyncio.sleep(wait_time)
                     continue
                 self.failed_calls += 1
-                raise AIGenerationError(f"Error conectando con Ollama: {e}")
+                raise AIGenerationError(f"Error connecting to Ollama: {e}")
 
             except Exception as e:
                 self.failed_calls += 1
-                raise AIGenerationError(f"Error inesperado: {e}")
+                raise AIGenerationError(f"Unexpected error: {e}")
 
         self.failed_calls += 1
-        raise AIGenerationError("Error inesperado en generate_narrative")
+        raise AIGenerationError("Unexpected error in generate_narrative")
 
     async def validate_response(self, raw_response: str) -> NarrativeProposal:
         response = self._parse_response(raw_response)
@@ -155,8 +155,8 @@ class OllamaAdapter(AIAdapter):
         return NarrativeResponse(**data)
 
     def _normalize_response(self, data: dict) -> dict:
-        """Normaliza respuestas de modelos pequenos que no siguen el schema exacto."""
-        # choices: si el modelo retorno dicts en vez de strings, extraer el texto
+        """Normalizes responses from small models that don't follow the exact schema."""
+        # choices: if the model returned dicts instead of strings, extract the text
         if "choices" in data and data["choices"]:
             normalized_choices = []
             normalized_previews = []
@@ -177,15 +177,15 @@ class OllamaAdapter(AIAdapter):
             if normalized_previews and not data.get("choice_dramatic_preview"):
                 data["choice_dramatic_preview"] = normalized_previews
 
-        # summary: truncar si es muy largo
+        # summary: truncate if too long
         if "summary" in data and isinstance(data["summary"], str) and len(data["summary"]) > 200:
             data["summary"] = data["summary"][:197] + "..."
 
-        # narrative: aceptar "narrative_text" como alias
+        # narrative: accept "narrative_text" as alias
         if "narrative" not in data and "narrative_text" in data:
             data["narrative"] = data.pop("narrative_text")
 
-        # choice_dramatic_preview: limpiar entradas invalidas
+        # choice_dramatic_preview: clean invalid entries
         if "choice_dramatic_preview" in data:
             valid_previews = []
             for p in data["choice_dramatic_preview"]:
@@ -193,7 +193,7 @@ class OllamaAdapter(AIAdapter):
                     valid_previews.append(p)
             data["choice_dramatic_preview"] = valid_previews
 
-        # entity_deltas: debe ser lista de dicts con campos correctos
+        # entity_deltas: must be a list of dicts with correct fields
         if "entity_deltas" in data:
             if not isinstance(data["entity_deltas"], list):
                 data["entity_deltas"] = []
@@ -210,7 +210,7 @@ class OllamaAdapter(AIAdapter):
                     normalized_ed.append(ed)
                 data["entity_deltas"] = normalized_ed
 
-        # world_deltas: debe ser lista de dicts con campos correctos
+        # world_deltas: must be a list of dicts with correct fields
         if "world_deltas" in data:
             if not isinstance(data["world_deltas"], list):
                 data["world_deltas"] = []
@@ -225,7 +225,7 @@ class OllamaAdapter(AIAdapter):
                     normalized_wd.append(wd)
                 data["world_deltas"] = normalized_wd
 
-        # entity_creations: debe ser lista de dicts con campos correctos
+        # entity_creations: must be a list of dicts with correct fields
         if "entity_creations" in data:
             if not isinstance(data["entity_creations"], list):
                 data["entity_creations"] = []
@@ -240,16 +240,16 @@ class OllamaAdapter(AIAdapter):
                     normalized_ec.append(ec)
                 data["entity_creations"] = normalized_ec
 
-        # dramatic_deltas: asegurar que existe con defaults
+        # dramatic_deltas: ensure it exists with defaults
         if "dramatic_deltas" not in data:
             data["dramatic_deltas"] = {
                 "tension": 0, "hope": 0, "chaos": 0, "rhythm": 0,
                 "saturation": 0, "connection": 0, "mystery": 0,
             }
 
-        # causal_reason: default si no existe o es muy corto
+        # causal_reason: default if missing or too short
         if not data.get("causal_reason") or len(str(data["causal_reason"])) < 10:
-            data["causal_reason"] = "Evento generado por la narrativa del mundo."
+            data["causal_reason"] = "Event generated by the world's narrative."
 
         # is_ending: default false
         if "is_ending" not in data:

@@ -1,10 +1,10 @@
 """
-tests/test_api.py - Tests de la API REST
+tests/test_api.py - REST API Tests
 
-Usa httpx.AsyncClient para probar los endpoints con async correcto.
-Requiere PostgreSQL corriendo (docker-compose up -d).
+Uses httpx.AsyncClient to test endpoints with correct async.
+Requires PostgreSQL running (docker-compose up -d).
 
-Ejecutar:
+Run:
     pytest tests/test_api.py -v
 """
 
@@ -23,16 +23,16 @@ async def client():
 
 
 async def _create_world(client, **overrides):
-    """Helper: crea un mundo y retorna (world_id, response_data)."""
+    """Helper: creates a world and returns (world_id, response_data)."""
     data = {
         "name": "Test World",
-        "context": "Un reino medieval para testing",
-        "protagonist": "El heroe",
+        "context": "A medieval kingdom for testing",
+        "protagonist": "The hero",
         "era": "Medieval",
         "tone": "dark",
-        "antagonist": "Villano",
-        "rules": "Reglas basicas",
-        "constraints": ["No magia"],
+        "antagonist": "Villain",
+        "rules": "Basic rules",
+        "constraints": ["No magic"],
         "max_depth": 20,
     }
     data.update(overrides)
@@ -43,7 +43,7 @@ async def _create_world(client, **overrides):
 
 
 async def _start_narrative(client, world_id, adapter_type="mock"):
-    """Helper: inicia narrativa y retorna response."""
+    """Helper: starts narrative and returns response."""
     r = await client.post(
         f"/worlds/{world_id}/start",
         json={"adapter_type": adapter_type, "adapter_config": {"deterministic": True, "seed": 42}},
@@ -53,7 +53,7 @@ async def _start_narrative(client, world_id, adapter_type="mock"):
 
 
 async def _cleanup_world(client, world_id):
-    """Helper: elimina un mundo."""
+    """Helper: deletes a world."""
     await client.delete(f"/worlds/{world_id}")
 
 
@@ -84,7 +84,7 @@ async def test_create_world(client):
     world_id, data = await _create_world(client, name="API Test World")
     assert world_id is not None
     assert data["name"] == "API Test World"
-    assert data["tone"] == "oscuro"
+    assert data["tone"] == "dark"
     assert data["total_commits"] == 0
     await _cleanup_world(client, world_id)
 
@@ -93,13 +93,13 @@ async def test_create_world(client):
 async def test_create_world_with_entities(client):
     world_id, data = await _create_world(
         client,
-        name="World con entidades",
+        name="World with entities",
         initial_entities=[
             {"name": "Kael", "entity_type": "character", "attributes": {"health": 100}},
             {"name": "Fortaleza", "entity_type": "location", "attributes": {"danger": 50}},
         ],
     )
-    assert data["name"] == "World con entidades"
+    assert data["name"] == "World with entities"
     r = await client.get(f"/worlds/{world_id}")
     assert r.status_code == 200
     await _cleanup_world(client, world_id)
@@ -173,7 +173,7 @@ async def test_advance_with_custom_choice(client):
 
     r = await client.post(
         f"/commits/{commit_id}/advance",
-        json={"choice": "Hago algo totalmente inesperado", "custom": True, "adapter_type": "mock"},
+        json={"choice": "I do something totally unexpected", "custom": True, "adapter_type": "mock"},
     )
     assert r.status_code == 201
     data = r.json()

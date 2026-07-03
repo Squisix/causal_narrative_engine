@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +9,15 @@
 <body>
     <header>
         <h1>Causal Narrative Engine</h1>
-        <span class="version">v0.3.0</span>
+        <div class="header-right">
+            <div class="lang-toggle">
+                <select id="lang-select" onchange="switchLanguage(this.value)">
+                    <option value="en">EN</option>
+                    <option value="es">ES</option>
+                </select>
+            </div>
+            <span class="version">v0.3.0</span>
+        </div>
     </header>
 
     <!-- ── Setup Screen ────────────────────── -->
@@ -17,68 +25,80 @@
         <div class="setup-layout">
             <!-- Left: Create New World -->
             <div class="setup-panel">
-                <h2>Crear Mundo Nuevo</h2>
-                <p class="subtitle">Define la semilla de tu historia.</p>
+                <h2 data-i18n="setup.createWorld">Create New World</h2>
+                <p class="subtitle" data-i18n="setup.subtitle">Define the seed of your story.</p>
 
                 <form id="setup-form">
                     <div class="form-group">
-                        <label for="world-name">Nombre del Mundo</label>
-                        <input type="text" id="world-name" value="Las Tierras Rotas" required minlength="3">
+                        <label for="world-name" data-i18n="setup.worldName">World Name</label>
+                        <input type="text" id="world-name" data-i18n-value="defaults.worldName" value="The Broken Lands" required minlength="3">
                     </div>
 
                     <div class="form-group">
-                        <label for="world-context">Contexto del Universo</label>
-                        <textarea id="world-context" rows="3" required minlength="10">Un mundo postapocaliptico donde la magia resurge entre las ruinas de una civilizacion perdida.</textarea>
+                        <label for="world-context" data-i18n="setup.worldContext">Universe Context</label>
+                        <textarea id="world-context" rows="3" required minlength="10" data-i18n-value="defaults.worldContext">A post-apocalyptic world where magic resurges among the ruins of a lost civilization.</textarea>
                     </div>
 
                     <div class="form-group">
-                        <label for="world-protagonist">Protagonista</label>
-                        <input type="text" id="world-protagonist" value="Kael, un recolector que descubre poderes magicos" required>
+                        <label for="world-protagonist" data-i18n="setup.protagonist">Protagonist</label>
+                        <input type="text" id="world-protagonist" data-i18n-value="defaults.protagonist" value="Kael, a scavenger who discovers magical powers" required>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="world-era">Epoca</label>
-                            <input type="text" id="world-era" value="Post-colapso, 300 anos despues" required>
+                            <label for="world-era" data-i18n="setup.era">Era</label>
+                            <input type="text" id="world-era" data-i18n-value="defaults.era" value="Post-collapse, 300 years later" required>
                         </div>
                         <div class="form-group">
-                            <label for="world-tone">Tono</label>
+                            <label for="world-tone" data-i18n="setup.tone">Tone</label>
                             <select id="world-tone">
-                                <option value="mysterious" selected>Misterioso</option>
-                                <option value="dark">Oscuro</option>
-                                <option value="epic">Epico</option>
-                                <option value="adventurous">Aventurero</option>
-                                <option value="philosophical">Filosofico</option>
-                                <option value="black_humor">Humor Negro</option>
+                                <option value="mysterious" selected data-i18n="setup.tones.mysterious">Mysterious</option>
+                                <option value="dark" data-i18n="setup.tones.dark">Dark</option>
+                                <option value="epic" data-i18n="setup.tones.epic">Epic</option>
+                                <option value="adventurous" data-i18n="setup.tones.adventurous">Adventurous</option>
+                                <option value="philosophical" data-i18n="setup.tones.philosophical">Philosophical</option>
+                                <option value="black_humor" data-i18n="setup.tones.blackHumor">Black Humor</option>
                             </select>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label>Entidades iniciales <span class="optional">(opcional)</span></label>
+                        <label><span data-i18n="setup.entities">Initial entities</span> <span class="optional" data-i18n="setup.optional">(optional)</span></label>
                         <div id="entities-list"></div>
-                        <button type="button" class="btn btn-small" onclick="addEntityField()">+ Agregar personaje</button>
+                        <button type="button" class="btn btn-small" onclick="addEntityField()" data-i18n="setup.addCharacter">+ Add character</button>
                     </div>
 
                     <div class="form-group">
-                        <label for="adapter-type">Motor de IA</label>
+                        <label for="adapter-type" data-i18n="setup.aiEngine">AI Engine</label>
                         <select id="adapter-type">
-                            <option value="ollama">Ollama (local, gratis)</option>
-                            <option value="mock">Mock (sin IA, para testing)</option>
-                            <option value="anthropic">Anthropic Claude (requiere API key)</option>
+                            <option value="ollama" data-i18n="setup.adapters.ollama">Ollama (local, free)</option>
+                            <option value="mock" data-i18n="setup.adapters.mock">Mock (no AI, for testing)</option>
+                            <option value="anthropic" data-i18n="setup.adapters.anthropic">Anthropic Claude (requires API key)</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">Crear Mundo e Iniciar Historia</button>
+                    <div class="form-group">
+                        <label for="world-language" data-i18n="setup.outputLanguage">Output Language</label>
+                        <select id="world-language">
+                            <option value="es" selected data-i18n="setup.languages.es">Spanish</option>
+                            <option value="en" data-i18n="setup.languages.en">English</option>
+                            <option value="fr" data-i18n="setup.languages.fr">French</option>
+                            <option value="de" data-i18n="setup.languages.de">German</option>
+                            <option value="it" data-i18n="setup.languages.it">Italian</option>
+                            <option value="pt" data-i18n="setup.languages.pt">Portuguese</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" data-i18n="setup.createAndStart">Create World and Start Story</button>
                 </form>
             </div>
 
             <!-- Right: Continue Story -->
             <div class="setup-panel" id="existing-worlds-panel">
-                <h2>Continuar Historia</h2>
-                <p class="subtitle">Selecciona un mundo existente.</p>
+                <h2 data-i18n="setup.continueStory">Continue Story</h2>
+                <p class="subtitle" data-i18n="setup.selectExistingWorld">Select an existing world.</p>
                 <div id="worlds-list">
-                    <p class="no-worlds">Cargando mundos...</p>
+                    <p class="no-worlds" data-i18n="setup.loadingWorlds">Loading worlds...</p>
                 </div>
             </div>
         </div>
@@ -89,10 +109,10 @@
         <div class="chapters-container">
             <div class="chapters-header">
                 <div>
-                    <h2 id="chapters-title">Capitulos</h2>
-                    <p class="subtitle" id="chapters-subtitle">Selecciona un capitulo para continuar.</p>
+                    <h2 id="chapters-title" data-i18n="chapters.title">Chapters</h2>
+                    <p class="subtitle" id="chapters-subtitle" data-i18n="chapters.subtitle">Select a chapter to continue.</p>
                 </div>
-                <button class="btn btn-secondary" onclick="backToSetup()">Volver</button>
+                <button class="btn btn-secondary" onclick="backToSetup()" data-i18n="chapters.back">Back</button>
             </div>
             <div id="chapters-list"></div>
         </div>
@@ -102,22 +122,22 @@
     <div id="game-screen" class="screen">
         <div class="main-panel">
             <div class="game-toolbar">
-                <button id="btn-back" class="btn-back" onclick="goBack()" style="display:none">Regresar</button>
+                <button id="btn-back" class="btn-back" onclick="goBack()" style="display:none" data-i18n="game.back">Go Back</button>
                 <span id="chapter-indicator"></span>
             </div>
             <div id="loading" class="loading">
                 <div class="spinner"></div>
-                <p class="loading-text">Generando...</p>
+                <p class="loading-text" data-i18n="game.generating">Generating...</p>
             </div>
             <div id="main-content"></div>
         </div>
 
         <div class="side-panel">
-            <h3>Estado Dramatico</h3>
+            <h3 data-i18n="game.dramaticState">Dramatic State</h3>
             <div id="meters"></div>
 
             <div class="world-info">
-                <h3>Mundo</h3>
+                <h3 data-i18n="game.world">World</h3>
                 <div id="world-details"></div>
             </div>
         </div>

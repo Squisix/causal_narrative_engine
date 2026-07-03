@@ -1,9 +1,9 @@
 """
 api/main.py - FastAPI application
 
-Aplicación principal de la API REST.
+Main REST API application.
 
-Ejecutar:
+Run:
     uvicorn api.main:app --reload
 """
 
@@ -25,7 +25,7 @@ from persistence.cache import create_cache
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Maneja startup y shutdown de la aplicación.
+    Handles application startup and shutdown.
     """
     # Startup
     settings = get_settings()
@@ -48,24 +48,24 @@ app = FastAPI(
     description="""
 # Causal Narrative Engine - REST API
 
-Motor narrativo basado en causalidad formal para generar historias ramificadas con IA.
+Narrative engine based on formal causality for generating branching stories with AI.
 
-## Características
+## Features
 
-- **Worlds**: Define universos narrativos (semillas)
-- **Narrative Flow**: Genera narrativa con IA y avanza la historia
-- **Dramatic System**: Vector de 7 dimensiones (tensión, esperanza, caos, etc.)
-- **Branching**: Versionado Git-like de decisiones
-- **AI Adapters**: MockAdapter (gratis) y Claude (Anthropic)
+- **Worlds**: Define narrative universes (seeds)
+- **Narrative Flow**: Generate narrative with AI and advance the story
+- **Dramatic System**: 7-dimension vector (tension, hope, chaos, etc.)
+- **Branching**: Git-like versioning of decisions
+- **AI Adapters**: MockAdapter (free) and Claude (Anthropic)
 
-## Flujo típico
+## Typical flow
 
-1. `POST /worlds` - Crear mundo
-2. `POST /worlds/{id}/start` - Iniciar narrativa
-3. `POST /commits/{id}/advance` - Tomar decisión
-4. Repetir paso 3...
+1. `POST /worlds` - Create world
+2. `POST /worlds/{id}/start` - Start narrative
+3. `POST /commits/{id}/advance` - Make a decision
+4. Repeat step 3...
 
-## Docs interactivos
+## Interactive docs
 
 - Swagger UI: `/docs`
 - ReDoc: `/redoc`
@@ -120,7 +120,7 @@ if os.path.isdir(WEB_DIR):
     app.mount("/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
 
-# ── Main (para ejecución directa) ───────────────────────────────────────────────
+# ── Main (for direct execution) ───────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn

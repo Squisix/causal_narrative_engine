@@ -1,7 +1,7 @@
 """
-api/config.py - Configuración de la API
+api/config.py - API Configuration
 
-Lee configuración desde variables de entorno.
+Reads configuration from environment variables.
 """
 
 import os
@@ -11,9 +11,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """
-    Configuración de la API.
+    API Configuration.
 
-    Se carga automáticamente desde .env si existe.
+    Automatically loaded from .env if it exists.
     """
     # API
     app_name: str = "Causal Narrative Engine API"
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     port: int = 8000
 
     # CORS
-    cors_origins: list[str] = ["*"]  # En producción, especificar dominios exactos
+    cors_origins: list[str] = ["*"]  # In production, specify exact domains
 
     # Database (Fase 2 - PostgreSQL)
     database_url: str = "postgresql+asyncpg://cne_user:cne_password@localhost:5432/cne_db"
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_temperature: float = 0.7
 
-    # Default adapter ("mock", "anthropic", o "ollama")
+    # Default adapter ("mock", "anthropic", or "ollama")
     default_ai_adapter: str = "mock"
 
     # Redis (cache)
@@ -63,8 +63,8 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """
-    Retorna la configuración global.
+    Returns the global configuration.
 
-    Usa @lru_cache para crear una sola instancia (singleton pattern).
+    Uses @lru_cache to create a single instance (singleton pattern).
     """
     return Settings()

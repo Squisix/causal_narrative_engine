@@ -1,7 +1,7 @@
 """
 api/routers/worlds.py - World management endpoints
 
-Endpoints para crear y gestionar mundos (semillas).
+Endpoints to create and manage worlds (seeds).
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -23,7 +23,7 @@ router = APIRouter(
 async def list_worlds(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
-    """Lista todos los mundos creados."""
+    """Lists all created worlds."""
     try:
         worlds = await service.repo.list_worlds()
         results = []
@@ -40,6 +40,7 @@ async def list_worlds(
                 rules=world.rules,
                 constraints=world.constraints,
                 max_depth=world.max_depth,
+                output_language=world.output_language,
                 created_at=world.created_at,
                 total_commits=stats["total_commits"],
                 active_branches=stats["active_branches"],
@@ -55,33 +56,21 @@ async def create_world(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Crea un nuevo mundo (semilla) para iniciar historias.
+    Creates a new world (seed) to start stories.
 
-    El mundo define las reglas, tono, protagonista, y configuración dramática inicial.
+    The world defines the rules, tone, protagonist, and initial dramatic vector settings.
     """
     try:
-        # Validar tone
-        # Mapeo de valores en inglés a los valores del enum (español)
-        tone_map = {
-            "epic": "épico",
-            "dark": "oscuro",
-            "mysterious": "misterioso",
-            "adventurous": "aventurero",
-            "philosophical": "filosófico",
-            "black_humor": "humor_negro",
-        }
-
-        tone_value = tone_map.get(request.tone.lower(), request.tone.lower())
-
+        # Validate tone directly from the English enum
         try:
-            tone_enum = NarrativeTone(tone_value)
+            tone_enum = NarrativeTone(request.tone.lower())
         except ValueError:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid tone: {request.tone}. Valid values: epic, dark, mysterious, adventurous, philosophical, black_humor"
             )
 
-        # Convertir entidades iniciales
+        # Convert initial entities
         entities = []
         for er in request.initial_entities:
             try:
@@ -94,15 +83,15 @@ async def create_world(
                 attributes=er.attributes,
             ))
 
-        # Crear WorldDefinition
+        # Create WorldDefinition
         world = WorldDefinition(
             name=request.name,
             context=request.context,
             protagonist=request.protagonist,
             era=request.era,
             tone=tone_enum,
-            antagonist=request.antagonist or "desconocido",
-            rules=request.rules or "El mundo sigue sus propias leyes",
+            antagonist=request.antagonist or "unknown",
+            rules=request.rules or "The world follows its own laws",
             constraints=request.constraints or [],
             initial_entities=entities,
             dramatic_config=request.dramatic_config or {
@@ -115,9 +104,10 @@ async def create_world(
                 "mystery": 50,
             },
             max_depth=request.max_depth,
+            output_language=request.output_language or "es",
         )
 
-        # Guardar en PostgreSQL
+        # Save in PostgreSQL
         await service.save_world(world)
 
         return WorldResponse(
@@ -131,11 +121,14 @@ async def create_world(
             rules=world.rules,
             constraints=world.constraints,
             max_depth=world.max_depth,
+            output_language=world.output_language,
             created_at=world.created_at,
             total_commits=0,
             active_branches=0,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -146,7 +139,7 @@ async def get_world(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Obtiene información de un mundo por su ID.
+    Retrieves world information by its ID.
     """
     try:
         print(f"[GET /worlds/{world_id}] Starting...")
@@ -159,7 +152,7 @@ async def get_world(
                 detail=f"World not found: {world_id}"
             )
 
-        # Stats desde PostgreSQL
+        # Stats from PostgreSQL
         stats = await service.get_world_stats(world_id)
         total_commits = stats["total_commits"]
         active_branches = stats["active_branches"]
@@ -175,6 +168,7 @@ async def get_world(
             rules=world.rules,
             constraints=world.constraints,
             max_depth=world.max_depth,
+            output_language=world.output_language,
             created_at=world.created_at,
             total_commits=total_commits,
             active_branches=active_branches,
@@ -182,7 +176,6 @@ async def get_world(
     except HTTPException:
         raise
     except Exception as e:
-        # Log the actual error
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error retrieving world: {str(e)}")
@@ -194,9 +187,9 @@ async def delete_world(
     service: NarrativeServiceV2 = Depends(get_narrative_service_v2)
 ):
     """
-    Elimina un mundo y todas sus historias asociadas.
+    Deletes a world and all its associated stories.
 
-    ⚠️ Esta operación es irreversible.
+    ⚠️ This operation is irreversible.
     """
     deleted = await service.delete_world(world_id)
 

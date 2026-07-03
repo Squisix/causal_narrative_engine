@@ -1,129 +1,130 @@
 # Causal Narrative Engine (CNE)
 
-**Motor narrativo independiente basado en causalidad formal para generar historias ramificadas con IA manteniendo coherencia verificable.**
+**A standalone narrative engine based on formal causality for generating branching stories with AI while maintaining verifiable coherence.**
 
 ---
 
-## ¿Qué es CNE?
+## What is CNE?
 
-Un framework reutilizable que cualquier proyecto puede integrar — un juego, una herramienta de escritura, una API, o un pipeline de generación de contenido.
+A reusable framework that any project can integrate -- a game, a writing tool, an API, or a content generation pipeline.
 
-**La coherencia es propiedad estructural del motor, NO del LLM.**
+**Coherence is a structural property of the engine, NOT of the LLM.**
 
 ```
 ┌──────────────────────────────────┐
-│  IA propone eventos              │
+│  AI proposes events              │
 │         ↓                        │
-│  Motor valida coherencia causal  │
+│  Engine validates causal         │
+│  coherence                       │
 │         ↓                        │
-│  Motor decide qué pasa           │
+│  Engine decides what happens     │
 └──────────────────────────────────┘
 ```
 
 ---
 
-## Estado actual
+## Current Status
 
-| Fase | Estado | Descripción |
-|------|--------|-------------|
-| **Fase 1** | ✅ **COMPLETADA** | Core Engine en memoria (sin dependencias) |
-| **Fase 2** | ✅ **COMPLETADA** | Persistencia con PostgreSQL + SQLAlchemy async |
-| **Fase 3** | ✅ **COMPLETADA** | AI Adapter (Anthropic + Ollama + Mock) |
-| **Fase 4** | ✅ **COMPLETADA** | FastAPI REST API |
-| **Fase 5** | 🔲 Pendiente | Release público en PyPI |
+| Phase | Status | Description |
+|-------|--------|-------------|
+| **Phase 1** | ✅ **COMPLETED** | In-memory Core Engine (no dependencies) |
+| **Phase 2** | ✅ **COMPLETED** | PostgreSQL persistence + async SQLAlchemy |
+| **Phase 3** | ✅ **COMPLETED** | AI Adapter (Anthropic + Ollama + Mock) |
+| **Phase 4** | ✅ **COMPLETED** | FastAPI REST API |
+| **Phase 5** | 🔲 Pending | Public release on PyPI |
 
 ---
 
-## Quickstart — Solo Core Engine (sin dependencias)
+## Quickstart -- Core Engine Only (no dependencies)
 
 ```bash
-# Instalar solo el core (cero dependencias externas)
+# Install only the core (zero external dependencies)
 pip install -e .
 
-# Verificar
+# Verify
 python -c "import cne_core; print(cne_core.__version__)"
 
-# Ejecutar tests del core
+# Run core tests
 python tests/test_fase1.py
 
-# Ejecutar ejemplo mínimo
+# Run minimal example
 python docs/examples/minimal_example.py
 ```
 
-## Quickstart — Con PostgreSQL + API REST
+## Quickstart -- With PostgreSQL + REST API
 
 ```bash
-# 1. Instalar todas las dependencias
+# 1. Install all dependencies
 pip install -e ".[all]"
 
-# 2. Levantar PostgreSQL
+# 2. Start PostgreSQL
 docker-compose up -d
 
-# 3. Crear tablas
+# 3. Create tables
 alembic upgrade head
 
-# 4. Ejecutar ejemplo
+# 4. Run example
 python examples/fase2_example.py
 
-# 5. Levantar API REST
+# 5. Start REST API
 uvicorn api.main:app --reload
 
-# 6. Ejecutar tests
+# 6. Run tests
 pytest tests/ -v
 ```
 
 ---
 
-## Conceptos Core
+## Core Concepts
 
-### 1. Modelo Formal
+### 1. Formal Model
 
 ```
 CNE = (W, E, S, D, T, C, Φ)
 ```
 
-- **W** = WorldDefinition (semilla inmutable)
-- **E** = Espacio de eventos narrativos
-- **S(t)** = Estado del mundo en tiempo t
-- **D(t)** = Vector Dramatico de 7 medidores
-- **T** = Funcion de transicion (IA propone -> motor valida)
-- **C** = Grafo causal (DAG sin ciclos)
-- **Φ** = Evaluador dramatico (umbrales -> eventos forzados)
+- **W** = WorldDefinition (immutable seed)
+- **E** = Narrative event space
+- **S(t)** = World state at time t
+- **D(t)** = Dramatic Vector with 7 meters
+- **T** = Transition function (AI proposes -> engine validates)
+- **C** = Causal graph (acyclic DAG)
+- **Φ** = Dramatic evaluator (thresholds -> forced events)
 
-**4 garantias:**
-- ✅ **Causalidad**: El grafo es siempre un DAG valido
-- ✅ **Determinismo**: El estado es reconstruible desde snapshots
-- ✅ **Versionado**: Tipo Git, puedes volver atras en decisiones
-- ✅ **Consistencia**: Entidades muertas no actuan, variables en rango
+**4 Guarantees:**
+- ✅ **Causality**: The graph is always a valid DAG
+- ✅ **Determinism**: State is reconstructible from snapshots
+- ✅ **Versioning**: Git-like, you can go back on decisions
+- ✅ **Consistency**: Dead entities do not act, variables stay in range
 
-### 2. Sistema Dramatico Multi-Medidor (SDMM)
+### 2. Dramatic Multi-Meter System (SDMM)
 
-7 medidores independientes en vez de un solo indicador:
+7 independent meters instead of a single indicator:
 
-| Medidor | Qué mide |
-|---------|----------|
-| `tension` | Nivel de conflicto activo |
-| `hope` | Percepcion de que las cosas pueden mejorar |
-| `chaos` | Entropia del mundo |
-| `rhythm` | Velocidad narrativa |
-| `saturation` | Agotamiento del arco actual |
-| `connection` | Vinculo emocional con personajes |
-| `mystery` | Preguntas sin resolver |
+| Meter | What it measures |
+|-------|------------------|
+| `tension` | Active conflict level |
+| `hope` | Perception that things can improve |
+| `chaos` | World entropy |
+| `rhythm` | Narrative pacing |
+| `saturation` | Current arc exhaustion |
+| `connection` | Emotional bond with characters |
+| `mystery` | Unresolved questions |
 
-**Umbrales -> Eventos Forzados:**
+**Thresholds -> Forced Events:**
 ```
-tension > 85        ->  CLIMAX forzado
-hope < 10           ->  TRAGEDIA forzada
-saturation > 95     ->  CIERRE DE ARCO forzado
-mystery + tension > 130  ->  REVELACION CLIMATICA
+tension > 85             ->  forced CLIMAX
+hope < 10                ->  forced TRAGEDY
+saturation > 95          ->  forced ARC CLOSURE
+mystery + tension > 130  ->  CLIMATIC REVELATION
 ```
 
-### 3. Arquitectura Independiente
+### 3. Standalone Architecture
 
 ```
 ┌────────────────────────────────┐
-│  Cualquier cliente externo     │
-│  (juego, web, CLI...)          │
+│  Any external client           │
+│  (game, web, CLI...)           │
 └───────────┬────────────────────┘
             │ import cne_core / HTTP
 ┌───────────▼────────────────────┐
@@ -149,17 +150,17 @@ mystery + tension > 130  ->  REVELACION CLIMATICA
 
 ---
 
-## Instalacion
+## Installation
 
-### Solo Core Engine (sin dependencias externas)
+### Core Engine Only (no external dependencies)
 
 ```bash
 pip install -e .
 ```
 
-**Solo Python 3.11+ stdlib** — tests sin PostgreSQL, sin API keys, sin Docker.
+**Python 3.11+ stdlib only** -- tests without PostgreSQL, API keys, or Docker.
 
-### Con PostgreSQL
+### With PostgreSQL
 
 ```bash
 pip install -e ".[persistence,dev]"
@@ -167,24 +168,24 @@ docker-compose up -d
 alembic upgrade head
 ```
 
-### Con IA local (Ollama — gratis, sin API key)
+### With Local AI (Ollama -- free, no API key)
 
 ```bash
 pip install -e ".[ai,persistence,dev]"
 
-# Instalar Ollama: https://ollama.com
-# Descargar modelo (3GB):
+# Install Ollama: https://ollama.com
+# Download model (3GB):
 ollama pull gemma3:4b
 ```
 
-### Con IA cloud (Anthropic)
+### With Cloud AI (Anthropic)
 
 ```bash
 pip install -e ".[ai,persistence,dev]"
 export ANTHROPIC_API_KEY="sk-..."
 ```
 
-### Todo junto
+### Everything Together
 
 ```bash
 pip install -e ".[all]"
@@ -192,15 +193,15 @@ pip install -e ".[all]"
 
 ---
 
-## Uso programatico
+## Programmatic Usage
 
-### Ejemplo basico (Core Engine en memoria)
+### Basic Example (In-Memory Core Engine)
 
 ```python
 from cne_core import WorldDefinition, Entity, EntityType, NarrativeTone
 from cne_core import StateMachine, NarrativeChoice, DramaticDelta
 
-# 1. Crear mundo
+# 1. Create world
 hero = Entity(
     name="Aldric",
     entity_type=EntityType.CHARACTER,
@@ -208,39 +209,39 @@ hero = Entity(
 )
 
 world = WorldDefinition(
-    name="El Reino de las Sombras",
-    context="Un reino medieval donde la magia oscura amenaza...",
-    protagonist="Aldric, un caballero desterrado",
-    era="Medieval fantastico",
+    name="The Shadow Realm",
+    context="A medieval kingdom where dark magic threatens...",
+    protagonist="Aldric, an exiled knight",
+    era="Medieval fantasy",
     tone=NarrativeTone.DARK,
     initial_entities=[hero]
 )
 
-# 2. Iniciar motor
+# 2. Start engine
 engine = StateMachine(world)
 
-# 3. Comenzar historia
+# 3. Begin story
 result = engine.start(
-    initial_narrative="El reino esta en peligro...",
+    initial_narrative="The kingdom is in danger...",
     initial_choices=[
-        NarrativeChoice(text="Ir al palacio"),
-        NarrativeChoice(text="Huir a las montanas"),
+        NarrativeChoice(text="Go to the palace"),
+        NarrativeChoice(text="Flee to the mountains"),
     ]
 )
 
-# 4. Avanzar historia
+# 4. Advance story
 result = engine.advance_story(
-    choice_text="Ir al palacio",
-    narrative_text="Aldric cabalga hacia la capital...",
-    summary="Aldric acepta la mision.",
-    choices=[NarrativeChoice(text="Entrar por la puerta principal")],
+    choice_text="Go to the palace",
+    narrative_text="Aldric rides toward the capital...",
+    summary="Aldric accepts the mission.",
+    choices=[NarrativeChoice(text="Enter through the main gate")],
     dramatic_delta=DramaticDelta(tension=10, hope=-5)
 )
 
 print(result.display())
 ```
 
-### Con PostgreSQL
+### With PostgreSQL
 
 ```python
 import asyncio
@@ -261,149 +262,149 @@ asyncio.run(main())
 
 ---
 
-## API REST
+## REST API
 
-Levantar el servidor:
+Start the server:
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-### Endpoints principales
+### Main Endpoints
 
-| Metodo | Endpoint | Descripcion |
+| Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/worlds` | Crear WorldDefinition |
-| `GET` | `/worlds/{world_id}` | Obtener mundo |
-| `POST` | `/worlds/{world_id}/start` | Iniciar historia |
-| `POST` | `/commits/{commit_id}/advance` | Tomar decision |
-| `GET` | `/commits/{commit_id}` | Estado de un commit |
-| `GET` | `/commits/{commit_id}/dramatic` | Vector dramatico |
-| `GET` | `/health` | Estado del servidor |
+| `POST` | `/worlds` | Create WorldDefinition |
+| `GET` | `/worlds/{world_id}` | Get world |
+| `POST` | `/worlds/{world_id}/start` | Start story |
+| `POST` | `/commits/{commit_id}/advance` | Make a decision |
+| `GET` | `/commits/{commit_id}` | Commit state |
+| `GET` | `/commits/{commit_id}/dramatic` | Dramatic vector |
+| `GET` | `/health` | Server status |
 
-Documentacion interactiva en `http://localhost:8000/docs` (Swagger UI).
+Interactive documentation at `http://localhost:8000/docs` (Swagger UI).
 
 ---
 
-## Integracion
+## Integration
 
-Para conectar tu propio sistema de persistencia o tu propio LLM al motor, consulta la **[Guia de Integracion](docs/integration_guide.md)**.
+To connect your own persistence system or your own LLM to the engine, see the **[Integration Guide](docs/integration_guide.md)**.
 
-Cubre:
-- Como implementar `NarrativeRepository` (tu base de datos)
-- Como implementar `AIAdapter` (tu LLM)
-- Uso directo del SDK Python
-- Uso via API REST
+It covers:
+- How to implement `NarrativeRepository` (your database)
+- How to implement `AIAdapter` (your LLM)
+- Direct usage of the Python SDK
+- Usage via REST API
 
 ---
 
 ## Tests
 
 ```bash
-# Core Engine en memoria (sin dependencias)
+# In-memory Core Engine (no dependencies)
 python tests/test_fase1.py
 
-# Adapters + integracion con engine (sin API key)
+# Adapters + engine integration (no API key)
 pytest tests/test_adapters.py -v
 
-# API REST (requiere Docker + PostgreSQL)
+# REST API (requires Docker + PostgreSQL)
 pytest tests/test_api.py -v
 
-# Persistencia (requiere Docker + PostgreSQL)
+# Persistence (requires Docker + PostgreSQL)
 pytest tests/test_persistence_integration.py -v
 
-# Todos los tests
+# All tests
 pytest tests/ -v
 ```
 
 ---
 
-## Estructura del proyecto
+## Project Structure
 
 ```
 cne_core/                          # Core Engine
 ├── models/                        # Dataclasses (WorldDefinition, NarrativeEvent, EntityCreation, etc.)
 ├── engine/                        # CausalValidator, DramaticEngine, StateMachine
-├── interfaces/                    # Contratos abstractos (NarrativeRepository, AIAdapter)
+├── interfaces/                    # Abstract contracts (NarrativeRepository, AIAdapter)
 └── ai/                            # ContextBuilder, ResponseValidator, ResponseSchema
 
-adapters/                          # Implementaciones de AIAdapter
-├── mock_adapter.py                # Mock para tests (determinista)
+adapters/                          # AIAdapter implementations
+├── mock_adapter.py                # Mock for tests (deterministic)
 ├── anthropic_adapter.py           # Anthropic Claude
-└── ollama_adapter.py              # Ollama (LLMs locales gratuitos)
+└── ollama_adapter.py              # Ollama (free local LLMs)
 
-persistence/                       # Persistencia PostgreSQL
-├── database.py                    # Config SQLAlchemy 2.0 async
+persistence/                       # PostgreSQL persistence
+├── database.py                    # SQLAlchemy 2.0 async config
 ├── models/                        # ORM models (WorldORM, EventORM, CommitORM, EntityCreationORM)
 ├── repositories/                  # PostgreSQLRepository
-└── queries/                       # CTEs recursivas (validacion causal en SQL)
+└── queries/                       # Recursive CTEs (causal validation in SQL)
 
 api/                               # FastAPI REST API
 ├── routers/                       # Endpoints (worlds, narrative, health)
 ├── services/                      # NarrativeServiceV2
 ├── models/                        # Request/Response schemas (Pydantic)
-└── dependencies.py                # Inyeccion de dependencias
+└── dependencies.py                # Dependency injection
 
-cli/                               # CLI interactivo
-migrations/                        # Alembic (4 migraciones)
+cli/                               # Interactive CLI
+migrations/                        # Alembic (4 migrations)
 tests/                             # Tests (test_fase1, test_adapters, test_api, test_persistence_integration)
-docs/                              # Documentacion
-web/                               # Interfaz web (en desarrollo)
+docs/                              # Documentation
+web/                               # Web interface (in development)
 ```
 
 ---
 
 ## Roadmap
 
-### ✅ Fase 1 — Core Engine
-- [x] Dataclasses del dominio
-- [x] CausalValidator (DAG sin ciclos)
+### ✅ Phase 1 -- Core Engine
+- [x] Domain dataclasses
+- [x] CausalValidator (acyclic DAG)
 - [x] DramaticEngine (SDMM)
-- [x] StateMachine (orquestador en memoria)
-- [x] Tests completos
+- [x] StateMachine (in-memory orchestrator)
+- [x] Complete tests
 
-### ✅ Fase 2 — Persistencia
-- [x] Interfaces abstractas (Repository pattern)
+### ✅ Phase 2 -- Persistence
+- [x] Abstract interfaces (Repository pattern)
 - [x] ORM models (SQLAlchemy 2.0 async)
 - [x] PostgreSQLRepository
-- [x] CTEs recursivas (validacion causal en SQL)
-- [x] Migraciones (Alembic)
+- [x] Recursive CTEs (causal validation in SQL)
+- [x] Migrations (Alembic)
 - [x] Docker Compose
 
-### ✅ Fase 3 — AI Adapter
+### ✅ Phase 3 -- AI Adapter
 - [x] AnthropicAdapter (Claude)
-- [x] OllamaAdapter (LLMs locales gratuitos)
-- [x] MockAIAdapter (tests sin API key)
-- [x] ContextBuilder (tronco activo)
-- [x] ResponseValidator (validar JSON)
+- [x] OllamaAdapter (free local LLMs)
+- [x] MockAIAdapter (tests without API key)
+- [x] ContextBuilder (active trunk)
+- [x] ResponseValidator (JSON validation)
 
-### ✅ Fase 4 — API REST
+### ✅ Phase 4 -- REST API
 - [x] FastAPI endpoints
-- [x] NarrativeServiceV2 con persistencia
-- [x] Choices persistidas en BD
-- [x] Engine reconstruction desde BD
-- [x] Entity creation dinamica (personajes, items, artefactos en runtime)
-- [x] Dockerfile + Docker Compose con Ollama
+- [x] NarrativeServiceV2 with persistence
+- [x] Choices persisted in DB
+- [x] Engine reconstruction from DB
+- [x] Dynamic entity creation (characters, items, artifacts at runtime)
+- [x] Dockerfile + Docker Compose with Ollama
 
-### 🔲 Fase 5 — Release
+### 🔲 Phase 5 -- Release
 - [ ] PyPI release (`pip install cne-core`)
-- [ ] Docker image publico
-- [ ] Documentacion completa
+- [ ] Public Docker image
+- [ ] Complete documentation
 
-### 🔲 Fase 6 — Paper Academico
-- [ ] Draft inicial
-- [ ] Experimentos y metricas formales
-- [ ] Submit a AIIDE / IEEE CoG
-
----
-
-## Licencia
-
-MIT — Ver [LICENSE](LICENSE) para detalles.
+### 🔲 Phase 6 -- Academic Paper
+- [ ] Initial draft
+- [ ] Experiments and formal metrics
+- [ ] Submit to AIIDE / IEEE CoG
 
 ---
 
-## Contacto
+## License
 
-- **Repositorio**: [github.com/Squisix/causal_narrative_engine](https://github.com/Squisix/causal_narrative_engine)
-- **Issues**: [Reportar un problema](https://github.com/Squisix/causal_narrative_engine/issues)
-- **Autor**: Marco Guerrero (mvsquisix@gmail.com)
+MIT -- See [LICENSE](LICENSE) for details.
+
+---
+
+## Contact
+
+- **Repository**: [github.com/Squisix/causal_narrative_engine](https://github.com/Squisix/causal_narrative_engine)
+- **Issues**: [Report a problem](https://github.com/Squisix/causal_narrative_engine/issues)
+- **Author**: Marco Guerrero (mvsquisix@gmail.com)

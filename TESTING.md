@@ -1,22 +1,22 @@
-# Guía de Testing - Causal Narrative Engine
+# Testing Guide - Causal Narrative Engine
 
-Este documento explica cómo ejecutar los diferentes tipos de tests y cuáles requieren API keys.
+This document explains how to run the different types of tests and which ones require API keys.
 
 ---
 
-## Resumen Rápido
+## Quick Summary
 
-| Test Suite | Requiere API Key | Requiere Docker | Comando |
+| Test Suite | Requires API Key | Requires Docker | Command |
 |------------|------------------|-----------------|---------|
 | **Core Engine** (test_fase1) | ❌ No | ❌ No | `pytest tests/test_fase1.py -v` |
 | **Adapters** (test_adapters) | ❌ No | ❌ No | `pytest tests/test_adapters.py -v` |
-| **API REST** (test_api) | ❌ No | ✅ Sí | `pytest tests/test_api.py -v` |
-| **Persistencia** (test_persistence) | ❌ No | ✅ Sí | `pytest tests/test_persistence_integration.py -v` |
-| **AnthropicAdapter** | ✅ Sí | ❌ No | `pytest tests/test_anthropic_adapter.py -v` |
+| **REST API** (test_api) | ❌ No | ✅ Yes | `pytest tests/test_api.py -v` |
+| **Persistence** (test_persistence) | ❌ No | ✅ Yes | `pytest tests/test_persistence_integration.py -v` |
+| **AnthropicAdapter** | ✅ Yes | ❌ No | `pytest tests/test_anthropic_adapter.py -v` |
 
 ---
 
-## Tests SIN API Key ni Docker (Gratis, Rápidos)
+## Tests WITHOUT API Key or Docker (Free, Fast)
 
 ### ✅ Core Engine (test_fase1.py)
 
@@ -24,11 +24,11 @@ Este documento explica cómo ejecutar los diferentes tipos de tests y cuáles re
 pytest tests/test_fase1.py -v
 ```
 
-**Qué testea:**
-- CausalValidator (detección de ciclos DAG)
-- DramaticEngine (umbrales, eventos forzados, SDMM)
-- StateMachine (commits, branches, versionado)
-- Propiedades P1-P4 (Causalidad, Determinismo, Versionado, Consistencia)
+**What it tests:**
+- CausalValidator (DAG cycle detection)
+- DramaticEngine (thresholds, forced events, SDMM)
+- StateMachine (commits, branches, versioning)
+- Properties P1-P4 (Causality, Determinism, Versioning, Consistency)
 
 ### ✅ Adapters (test_adapters.py)
 
@@ -36,66 +36,66 @@ pytest tests/test_fase1.py -v
 pytest tests/test_adapters.py -v
 ```
 
-**Qué testea:**
-- MockAdapter: generación determinista, decisiones del jugador, eventos forzados, estadísticas, modo error
-- Integración MockAdapter + StateMachine: flujo completo generate → process → state
-- Entity creation dinámica: crear personajes y artifacts en runtime
-- Entity creation + go_to_commit: entidades creadas después no aparecen al navegar atrás
-- ResponseSchema: parseo de entity_creations y 5-tuple de to_core_models()
+**What it tests:**
+- MockAdapter: deterministic generation, player decisions, forced events, statistics, error mode
+- MockAdapter + StateMachine integration: full generate -> process -> state flow
+- Dynamic entity creation: creating characters and artifacts at runtime
+- Entity creation + go_to_commit: entities created later do not appear when navigating back
+- ResponseSchema: parsing entity_creations and the 5-tuple from to_core_models()
 
 ---
 
-## Tests CON Docker (Requieren PostgreSQL)
+## Tests WITH Docker (Require PostgreSQL)
 
-Estos tests requieren PostgreSQL corriendo:
+These tests require PostgreSQL running:
 
 ```bash
 docker-compose up -d
 alembic upgrade head
 ```
 
-### ✅ API REST (test_api.py)
+### ✅ REST API (test_api.py)
 
 ```bash
 pytest tests/test_api.py -v
 ```
 
-**Qué testea:**
-- CRUD de mundos (crear, obtener, eliminar)
-- Flujo narrativo completo (start → advance → advance)
-- Navegación de commits (goto, list, existing_paths)
-- Estado dramático por commit
-- Causal reason en respuestas
-- Custom choices del jugador
+**What it tests:**
+- World CRUD (create, get, delete)
+- Full narrative flow (start -> advance -> advance)
+- Commit navigation (goto, list, existing_paths)
+- Dramatic state per commit
+- Causal reason in responses
+- Custom player choices
 
-### ✅ Persistencia (test_persistence_integration.py)
+### ✅ Persistence (test_persistence_integration.py)
 
 ```bash
 pytest tests/test_persistence_integration.py -v
 ```
 
-**Qué testea:**
-- PostgreSQLRepository: save/get de worlds, commits, events
-- Entity persistence y entity creation records
-- Dramatic state snapshots y deltas
+**What it tests:**
+- PostgreSQLRepository: save/get for worlds, commits, events
+- Entity persistence and entity creation records
+- Dramatic state snapshots and deltas
 
 ---
 
-## Tests CON API Key (Cuestan dinero)
+## Tests WITH API Key (Cost Money)
 
-### ⚠️ Configuración requerida
+### ⚠️ Required Configuration
 
-1. **Copia el archivo de ejemplo:**
+1. **Copy the example file:**
    ```bash
    cp .env.example .env
    ```
 
-2. **Edita `.env` y agrega tu API key:**
+2. **Edit `.env` and add your API key:**
    ```bash
-   ANTHROPIC_API_KEY=sk-ant-api03-tu-key-real-aquí
+   ANTHROPIC_API_KEY=sk-ant-api03-your-real-key-here
    ```
 
-3. **Obtén tu API key en:**
+3. **Get your API key at:**
    https://console.anthropic.com/settings/keys
 
 ### ✅ AnthropicAdapter (test_anthropic_adapter.py)
@@ -104,123 +104,123 @@ pytest tests/test_persistence_integration.py -v
 pytest tests/test_anthropic_adapter.py -v
 ```
 
-**Qué testea:**
-- Generación real con Claude
-- Respuesta a decisiones del jugador
-- Validación de respuestas de IA
-- Tracking de estadísticas (tokens, calls, etc.)
+**What it tests:**
+- Real generation with Claude
+- Response to player decisions
+- AI response validation
+- Statistics tracking (tokens, calls, etc.)
 
-**Costo estimado:** ~$0.01 USD por ejecución completa
+**Estimated cost:** ~$0.01 USD per full run
 
-Los tests con `@pytest.mark.anthropic_api` se **saltan automáticamente** si no tienes `ANTHROPIC_API_KEY` configurada.
+Tests marked with `@pytest.mark.anthropic_api` are **automatically skipped** if you don't have `ANTHROPIC_API_KEY` configured.
 
 ---
 
-## Tests con Ollama (Gratis, requiere Ollama instalado)
+## Tests with Ollama (Free, requires Ollama installed)
 
-OllamaAdapter se prueba manualmente ya que requiere un LLM local corriendo.
+OllamaAdapter is tested manually since it requires a local LLM running.
 
-### Requisitos
+### Requirements
 
 ```bash
-# 1. Instalar Ollama: https://ollama.com
-# 2. Descargar modelo
+# 1. Install Ollama: https://ollama.com
+# 2. Download model
 ollama pull gemma3:4b
 
-# 3. Verificar que Ollama esta corriendo
+# 3. Verify Ollama is running
 curl http://localhost:11434/api/tags
 ```
 
-### Test via API REST
+### Test via REST API
 
 ```bash
-# 1. Levantar servidor
+# 1. Start server
 uvicorn api.main:app --reload
 
-# 2. Crear mundo
+# 2. Create world
 curl -X POST http://localhost:8000/worlds \
   -H "Content-Type: application/json" \
   -d '{"name": "Test", "context": "Fantasy", "protagonist": "Hero", "era": "Medieval", "tone": "dark"}'
 
-# 3. Iniciar narrativa con Ollama
+# 3. Start narrative with Ollama
 curl -X POST http://localhost:8000/worlds/{world_id}/start \
   -H "Content-Type: application/json" \
   -d '{"adapter_type": "ollama"}'
 ```
 
-### Modelos recomendados
+### Recommended Models
 
-| Modelo | RAM | Notas |
-|--------|-----|-------|
-| `gemma3:4b` (default) | ~3GB | Buen balance calidad/velocidad |
-| `qwen3:4b` | ~3GB | Muy bueno siguiendo instrucciones JSON |
-| `llama3.2:3b` | ~2GB | Intermedio, mas ligero |
-| `mistral:7b` | ~4GB | Mejor calidad, requiere mas RAM |
+| Model | RAM | Notes |
+|-------|-----|-------|
+| `gemma3:4b` (default) | ~3GB | Good quality/speed balance |
+| `qwen3:4b` | ~3GB | Very good at following JSON instructions |
+| `llama3.2:3b` | ~2GB | Intermediate, lighter |
+| `mistral:7b` | ~4GB | Better quality, requires more RAM |
 
 ---
 
-## Estrategia Recomendada
+## Recommended Strategy
 
-### Durante desarrollo (día a día)
+### During development (day-to-day)
 
 ```bash
-# Rápido, gratis, sin Docker
+# Fast, free, no Docker
 pytest tests/test_fase1.py tests/test_adapters.py -v
 ```
 
-### Antes de hacer commit
+### Before committing
 
 ```bash
-# Todos los tests sin API + coverage
+# All tests without API + coverage
 pytest --cov=cne_core --cov=adapters -v
 ```
 
-### Antes de release
+### Before release
 
 ```bash
-# TODO incluyendo API real
+# Everything including real API
 pytest -v
 ```
 
-### En CI/CD (GitHub Actions, etc.)
+### In CI/CD (GitHub Actions, etc.)
 
 ```bash
-# Solo tests sin API (para evitar costos)
+# Only tests without API (to avoid costs)
 pytest -m "not anthropic_api" -v --cov=cne_core --cov=adapters
 ```
 
 ---
 
-## Estructura de Tests
+## Test Structure
 
 ```
 tests/
-├── conftest.py                    # Fixtures compartidos (PostgreSQL session, etc.)
-├── test_fase1.py                  # Core Engine en memoria (gratis, sin dependencias)
-├── test_adapters.py               # MockAdapter + integracion engine + entity creation
-├── test_api.py                    # API REST completa (requiere Docker)
-├── test_persistence_integration.py # PostgreSQL repository (requiere Docker)
-└── test_anthropic_adapter.py      # API real Anthropic (cuesta dinero, skip sin key)
+├── conftest.py                    # Shared fixtures (PostgreSQL session, etc.)
+├── test_fase1.py                  # In-memory Core Engine (free, no dependencies)
+├── test_adapters.py               # MockAdapter + engine integration + entity creation
+├── test_api.py                    # Full REST API (requires Docker)
+├── test_persistence_integration.py # PostgreSQL repository (requires Docker)
+└── test_anthropic_adapter.py      # Real Anthropic API (costs money, skipped without key)
 ```
 
 ---
 
-## Comandos útiles
+## Useful Commands
 
 ```bash
-# Un solo test
+# Single test
 pytest tests/test_adapters.py::test_basic_generation -v
 
-# Un solo archivo
+# Single file
 pytest tests/test_api.py -v
 
-# Con coverage
+# With coverage
 pytest --cov=cne_core --cov=adapters --cov-report=html -v
 
-# Excluir tests con API
+# Exclude API tests
 pytest -m "not anthropic_api" -v
 
-# Ejecutar en paralelo (requiere pytest-xdist)
+# Run in parallel (requires pytest-xdist)
 pip install pytest-xdist
 pytest -n auto -v
 ```
@@ -235,15 +235,15 @@ pytest -n auto -v
 pip install anthropic
 ```
 
-### ❌ "ANTHROPIC_API_KEY no esta configurada"
+### ❌ "ANTHROPIC_API_KEY is not configured"
 
-1. Verifica que `.env` existe
-2. Verifica que contiene `ANTHROPIC_API_KEY=sk-ant-...`
-3. Verifica que la key no es el ejemplo
+1. Verify that `.env` exists
+2. Verify that it contains `ANTHROPIC_API_KEY=sk-ant-...`
+3. Verify that the key is not the example value
 
-### ❌ Tests de API fallan con timeout
+### ❌ API tests fail with timeout
 
-Los tests de API usan MockAdapter por defecto. Si fallan con timeout, verifica que PostgreSQL está corriendo:
+API tests use MockAdapter by default. If they fail with timeout, verify that PostgreSQL is running:
 ```bash
 docker-compose up -d
 alembic upgrade head
@@ -259,17 +259,17 @@ pip install --upgrade pydantic
 
 ## FAQ
 
-**P: ¿Puedo desarrollar sin API key?**
-R: Sí. Usa MockAdapter para todo. Es determinista y gratis.
+**Q: Can I develop without an API key?**
+A: Yes. Use MockAdapter for everything. It is deterministic and free.
 
-**P: ¿Puedo probar con IA gratis?**
-R: Sí. Instala [Ollama](https://ollama.com), descarga `gemma3:4b`, y usa `adapter_type: "ollama"`.
+**Q: Can I test with AI for free?**
+A: Yes. Install [Ollama](https://ollama.com), download `gemma3:4b`, and use `adapter_type: "ollama"`.
 
-**P: ¿Los tests de Anthropic se ejecutan automáticamente?**
-R: No. Se skipean si no hay API key configurada.
+**Q: Do Anthropic tests run automatically?**
+A: No. They are skipped if no API key is configured.
 
-**P: ¿Qué modelo de Anthropic usa por defecto?**
-R: Configurable via `ANTHROPIC_MODEL` en `.env`.
+**Q: What Anthropic model does it use by default?**
+A: Configurable via `ANTHROPIC_MODEL` in `.env`.
 
-**P: ¿Puedo usar otro modelo de Ollama?**
-R: Sí. Edita `OLLAMA_MODEL` en `.env` o pasa `model=` al constructor.
+**Q: Can I use a different Ollama model?**
+A: Yes. Edit `OLLAMA_MODEL` in `.env` or pass `model=` to the constructor.
