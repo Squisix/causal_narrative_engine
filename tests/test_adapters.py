@@ -134,16 +134,14 @@ async def test_dramatic_deltas_in_range(world_with_entities, mock_adapter):
 
 
 @pytest.mark.asyncio
-async def test_choices_have_previews(world_with_entities, mock_adapter):
+async def test_choices_have_tones(world_with_entities, mock_adapter):
     context = _make_context(world_with_entities)
     proposal = await mock_adapter.generate_narrative(context)
 
     assert 2 <= len(proposal.choices) <= 5
     for choice in proposal.choices:
         assert len(choice.text) > 5
-        assert choice.dramatic_preview is not None
-        assert "tension" in choice.dramatic_preview
-        assert "hope" in choice.dramatic_preview
+        assert choice.tone_hint
 
 
 # -- MockAdapter: forced events --

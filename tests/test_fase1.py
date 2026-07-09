@@ -30,11 +30,10 @@ from cne_core.engine.state_machine import StateMachine
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def make_choice(text: str, t: int = 0, h: int = 0) -> NarrativeChoice:
-    """Create a NarrativeChoice with dramatic preview."""
+def make_choice(text: str) -> NarrativeChoice:
+    """Create a NarrativeChoice with tone hint."""
     return NarrativeChoice(
         text=text,
-        dramatic_preview={"tension": t, "hope": h},
         tone_hint="neutral",
     )
 
@@ -222,9 +221,9 @@ def test_full_story():
         ),
         initial_summary="King Aldric dies mysteriously. Lyra assumes the throne.",
         initial_choices=[
-            make_choice("Confront Malachar directly", t=+15, h=-5),
-            make_choice("Order a secret investigation",  t=+5,  h=+5),
-            make_choice("Accept Malachar's 'help'",    t=-5,  h=-10),
+            make_choice("Confront Malachar directly"),
+            make_choice("Order a secret investigation"),
+            make_choice("Accept Malachar's 'help'"),
         ],
         initial_dramatic_delta=DramaticDelta(tension=10, mystery=5, connection=5),
     )
@@ -243,9 +242,9 @@ def test_full_story():
         ),
         summary        = "Lyra orders a secret investigation to Sera.",
         choices=[
-            make_choice("Search the king's chambers", t=+8, h=0),
-            make_choice("Interrogate the servants",   t=+5, h=+5),
-            make_choice("Follow Malachar tonight",  t=+15, h=-5),
+            make_choice("Search the king's chambers"),
+            make_choice("Interrogate the servants"),
+            make_choice("Follow Malachar tonight"),
         ],
         world_deltas=[
             WorldVariableDelta("political_tension", 0, 10)
@@ -269,9 +268,9 @@ def test_full_story():
         ),
         summary        = "Lyra discovers Malachar's conspiracy: they plan to poison her.",
         choices=[
-            make_choice("Flee and seek allies immediately", t=+5,  h=+10),
-            make_choice("Confront Malachar now",          t=+25, h=-15),
-            make_choice("Document the conspiracy in secret",t=+5,  h=+5),
+            make_choice("Flee and seek allies immediately"),
+            make_choice("Confront Malachar now"),
+            make_choice("Document the conspiracy in secret"),
         ],
         # Malachar is now officially an active enemy
         entity_deltas=[
@@ -307,9 +306,9 @@ def test_full_story():
         ),
         summary        = "Lyra wins Duke Edric as an ally against Malachar.",
         choices=[
-            make_choice("Plan Malachar's arrest for tomorrow", t=+10, h=+10),
-            make_choice("Flee the castle with Edric",                   t=-5,  h=+15),
-            make_choice("Use the information as political leverage",      t=+5,  h=+5),
+            make_choice("Plan Malachar's arrest for tomorrow"),
+            make_choice("Flee the castle with Edric"),
+            make_choice("Use the information as political leverage"),
         ],
         dramatic_delta = DramaticDelta(tension=5, hope=15, connection=15, chaos=-5),
     )
@@ -334,9 +333,9 @@ def test_full_story():
         ),
         summary        = "Lyra finds evidence of poisoning in the king's chambers.",
         choices=[
-            make_choice("Keep the evidence and wait",    t=+5,  h=+5),
-            make_choice("Show the evidence to the council",   t=+15, h=-5),
-            make_choice("Send the evidence in secret",    t=+3,  h=+10),
+            make_choice("Keep the evidence and wait"),
+            make_choice("Show the evidence to the council"),
+            make_choice("Send the evidence in secret"),
         ],
         dramatic_delta = DramaticDelta(tension=12, mystery=-15, connection=5),
     )

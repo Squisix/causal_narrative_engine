@@ -58,14 +58,38 @@ class OllamaAdapter(AIAdapter):
 
         system_prompt = self.context_builder.build_system_prompt()
         user_prompt = self._build_prompt(context)
+        world_id = context.world_definition.id if hasattr(context.world_definition, "id") else "unknown"
 
         for attempt in range(1, self.max_retries + 1):
             try:
                 response_text = await self._call_ollama(system_prompt, user_prompt)
                 response = self._parse_response(response_text)
-                return self._convert_to_proposal(response)
+                proposal = self._convert_to_proposal(response)
+
+                # Log successful interaction
+                from adapters.logging_utils import log_ai_interaction
+                log_ai_interaction(
+                    world_id=world_id,
+                    adapter_name=f"ollama_{self.model}",
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    raw_response=response_text,
+                    success=True,
+                )
+                return proposal
 
             except (json.JSONDecodeError, ValueError) as e:
+                # Log failed attempt
+                from adapters.logging_utils import log_ai_interaction
+                log_ai_interaction(
+                    world_id=world_id,
+                    adapter_name=f"ollama_{self.model}",
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    raw_response=response_text if 'response_text' in locals() else None,
+                    success=False,
+                    error_msg=f"Attempt {attempt} failed: {e}",
+                )
                 if attempt < self.max_retries:
                     user_prompt = (
                         user_prompt
@@ -80,6 +104,17 @@ class OllamaAdapter(AIAdapter):
                 )
 
             except httpx.HTTPError as e:
+                # Log HTTP connection failure
+                from adapters.logging_utils import log_ai_interaction
+                log_ai_interaction(
+                    world_id=world_id,
+                    adapter_name=f"ollama_{self.model}",
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    raw_response=None,
+                    success=False,
+                    error_msg=f"HTTP Connection Error on attempt {attempt}: {e}",
+                )
                 if attempt < self.max_retries:
                     wait_time = 2 ** attempt
                     await asyncio.sleep(wait_time)
@@ -88,6 +123,17 @@ class OllamaAdapter(AIAdapter):
                 raise AIGenerationError(f"Error connecting to Ollama: {e}")
 
             except Exception as e:
+                # Log unexpected failure
+                from adapters.logging_utils import log_ai_interaction
+                log_ai_interaction(
+                    world_id=world_id,
+                    adapter_name=f"ollama_{self.model}",
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    raw_response=None,
+                    success=False,
+                    error_msg=f"Unexpected error: {e}",
+                )
                 self.failed_calls += 1
                 raise AIGenerationError(f"Unexpected error: {e}")
 
@@ -112,6 +158,7 @@ class OllamaAdapter(AIAdapter):
             dramatic_state=context.current_dramatic_state,
             forced_constraint=context.forced_constraint,
             player_choice=context.player_choice,
+            player_choice_tone=context.player_choice_tone,
             current_entity_states=context.current_entity_states or None,
             current_world_vars=context.current_world_vars or None,
         )
@@ -159,23 +206,17 @@ class OllamaAdapter(AIAdapter):
         # choices: if the model returned dicts instead of strings, extract the text
         if "choices" in data and data["choices"]:
             normalized_choices = []
-            normalized_previews = []
+            normalized_tones = []
             for item in data["choices"]:
                 if isinstance(item, dict):
                     choice_text = item.get("choice") or item.get("text") or str(item)
                     normalized_choices.append(choice_text)
-                    normalized_previews.append({
-                        "choice": choice_text,
-                        "tension_delta": item.get("tension_delta", 0),
-                        "hope_delta": item.get("hope_delta", 0),
-                        "chaos_delta": item.get("chaos_delta", 0),
-                        "tone": item.get("tone", "neutral"),
-                    })
+                    normalized_tones.append(item.get("tone", "neutral"))
                 else:
                     normalized_choices.append(str(item))
             data["choices"] = normalized_choices
-            if normalized_previews and not data.get("choice_dramatic_preview"):
-                data["choice_dramatic_preview"] = normalized_previews
+            if normalized_tones and not data.get("choice_tones"):
+                data["choice_tones"] = normalized_tones
 
         # summary: truncate if too long
         if "summary" in data and isinstance(data["summary"], str) and len(data["summary"]) > 200:
@@ -185,13 +226,12 @@ class OllamaAdapter(AIAdapter):
         if "narrative" not in data and "narrative_text" in data:
             data["narrative"] = data.pop("narrative_text")
 
-        # choice_dramatic_preview: clean invalid entries
-        if "choice_dramatic_preview" in data:
-            valid_previews = []
-            for p in data["choice_dramatic_preview"]:
-                if isinstance(p, dict) and "choice" in p:
-                    valid_previews.append(p)
-            data["choice_dramatic_preview"] = valid_previews
+        # choice_tones: ensure it's a list of strings
+        if "choice_tones" in data:
+            data["choice_tones"] = [str(t) for t in data["choice_tones"] if t]
+
+        # Backward compat: strip old choice_dramatic_preview if present
+        data.pop("choice_dramatic_preview", None)
 
         # entity_deltas: must be a list of dicts with correct fields
         if "entity_deltas" in data:

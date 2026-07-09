@@ -157,26 +157,13 @@ class NarrativeChoice:
     them and presents them. The player chooses one -> new commit -> new branch if
     there was already a child commit at this point.
 
-    dramatic_preview shows how we ESTIMATE the dramatic vector will change
-    if this option is chosen. It is an AI prediction,
-    not an engine guarantee.
+    tone_hint indicates the emotional flavor of the choice
+    (e.g., "confrontational", "diplomatic"). It is passed to the AI
+    on the next turn so the generated narrative honors the player's intent.
     """
     text:             str                    # The option text
-    dramatic_preview: dict[str, int]         = field(default_factory=dict)
     tone_hint:        str                    = ""   # "confrontational", "diplomatic", etc.
     estimated_depth_until_ending: int | None = None
-
-    def get_preview_str(self) -> str:
-        """Summary of the estimated dramatic impact to show the player."""
-        if not self.dramatic_preview:
-            return ""
-        parts = []
-        for meter, delta in self.dramatic_preview.items():
-            if delta != 0:
-                sign  = "+" if delta > 0 else ""
-                arrow = "^" if delta > 0 else "v"
-                parts.append(f"{arrow}{meter}{sign}{delta}")
-        return "  ".join(parts[:3])   # Show at most 3 to avoid cluttering the UI
 
     def __str__(self) -> str:
         return f"NarrativeChoice('{self.text[:40]}...')"

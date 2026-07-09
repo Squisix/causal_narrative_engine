@@ -38,6 +38,7 @@ class NarrativeContext:
 
     # Player decision (if any)
     player_choice: str | None = None
+    player_choice_tone: str | None = None
 
     # If there is a constraint from dramatic threshold
     forced_constraint: Any | None = None  # ForcedEventConstraint

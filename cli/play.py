@@ -98,17 +98,9 @@ def print_choices(choices):
     print(f"\n{BOLD}  Choose your path:{RESET}\n")
     for i, choice in enumerate(choices, 1):
         text = choice.get("text", "")
-        print(f"  {BOLD}{YELLOW}[{i}]{RESET} {text}")
-        preview = choice.get("dramatic_preview")
-        if preview:
-            parts = []
-            for key, val in preview.items():
-                if val and val != 0:
-                    color = GREEN if val > 0 else RED
-                    sign = "+" if val > 0 else ""
-                    parts.append(f"{color}{key} {sign}{val}{RESET}")
-            if parts:
-                print(f"      {DIM}{', '.join(parts)}{RESET}")
+        tone = choice.get("tone_hint")
+        tone_str = f"  {DIM}[{tone}]{RESET}" if tone else ""
+        print(f"  {BOLD}{YELLOW}[{i}]{RESET} {text}{tone_str}")
     print()
 
 

@@ -485,10 +485,7 @@ Si tu LLM retorna JSON, este es el schema esperado:
   "narrative": "Texto inmersivo de 150-250 palabras...",
   "summary": "Resumen causal de 1 oracion para el tronco",
   "choices": ["opcion A", "opcion B", "opcion C"],
-  "choice_dramatic_preview": [
-    {"choice": "opcion A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontacional"},
-    {"choice": "opcion B", "tension_delta": -5, "hope_delta": 5, "tone": "diplomatico"}
-  ],
+  "choice_tones": ["confrontacional", "diplomatico", "evasivo"],
   "entity_deltas": [
     {"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}
   ],

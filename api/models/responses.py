@@ -23,7 +23,6 @@ class DramaticStateResponse(BaseModel):
 class ChoiceResponse(BaseModel):
     """An available choice for the player."""
     text: str
-    dramatic_preview: Optional[dict[str, int]] = None
     tone_hint: Optional[str] = None
 
 
@@ -72,12 +71,10 @@ class NarrativeCommitResponse(BaseModel):
                 "choices": [
                     {
                         "text": "Confront Malachar directly",
-                        "dramatic_preview": {"tension": 15, "hope": -5, "chaos": 5},
                         "tone_hint": "confrontational"
                     },
                     {
                         "text": "Order a secret investigation",
-                        "dramatic_preview": {"tension": 5, "hope": 5, "chaos": 0},
                         "tone_hint": "cautious"
                     }
                 ],

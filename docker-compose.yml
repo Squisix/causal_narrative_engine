@@ -17,12 +17,18 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://cne_user:cne_password_dev@postgres:5432/cne_db
       - DEFAULT_AI_ADAPTER=ollama
-      - OLLAMA_BASE_URL=http://ollama:11434
+      # Para usar Ollama dentro de Docker (con problemas de SSL en Windows):
+      # - OLLAMA_BASE_URL=http://ollama:11434
+      # Para usar Ollama nativo en Windows Host (Recomendado, evita errores de SSL):
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma3:4b
+      - OLLAMA_TIMEOUT=300
       - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8000"
@@ -56,9 +62,10 @@ services:
     volumes:
       - ollama_data:/root/.ollama
       - ./scripts/ollama-entrypoint.sh:/entrypoint.sh
+      - .:/app_host:ro
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10

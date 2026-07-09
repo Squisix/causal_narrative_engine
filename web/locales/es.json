@@ -84,5 +84,15 @@
   "defaults.worldName": "Las Tierras Rotas",
   "defaults.worldContext": "Un mundo postapocaliptico donde la magia resurge entre las ruinas de una civilizacion perdida.",
   "defaults.protagonist": "Kael, un recolector que descubre poderes magicos",
-  "defaults.era": "Post-colapso, 300 anos despues"
+  "defaults.era": "Post-colapso, 300 anos despues",
+  "setup.antagonist": "Antagonista / Conflicto Central",
+  "setup.rules": "Reglas del Mundo",
+  "setup.constraints": "Restricciones Absolutas",
+  "setup.constraintsHint": "Ingresa restricciones separadas por comas (ej. No viajes en el tiempo, No resurrecciones)",
+  "setup.maxDepth": "Profundidad Narrativa Maxima",
+  "setup.maxDepthHint": "0 = profundidad ilimitada",
+  "setup.dramaticConfig": "Configuracion Dramatica Inicial",
+  "defaults.antagonist": "Malachar, el consejero corrupto",
+  "defaults.rules": "El mundo sigue sus propias leyes. La magia existe pero tiene un precio de sangre.",
+  "defaults.constraints": "No se permiten viajes en el tiempo, Los muertos no resucitan"
 }

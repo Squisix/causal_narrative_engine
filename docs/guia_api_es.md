@@ -227,7 +227,6 @@ Cada `ChoiceResponse` tiene texto, un preview dramatico, y un hint de tono:
 ```python
 class ChoiceResponse(BaseModel):
     text: str
-    dramatic_preview: Optional[dict[str, int]] = None
     tone_hint: Optional[str] = None
 ```
 

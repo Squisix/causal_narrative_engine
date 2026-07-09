@@ -755,6 +755,100 @@ header .version {
     font-style: italic;
 }
 
+/* ── New Setup Fields Styling ──────────────── */
+
+.field-hint {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: -2px;
+    margin-bottom: 8px;
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.dramatic-sliders {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.slider-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.slider-row input[type="range"] {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 4px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    border: none;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--accent-hover);
+}
+
+.slider-row input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+}
+
+.slider-row input[type="range"]::-moz-range-thumb:hover {
+    background: var(--accent-hover);
+}
+
+.slider-value {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text);
+    width: 28px;
+    text-align: right;
+}
+
 /* ── Responsive ─────────────────────────────── */
 
 @media (max-width: 768px) {

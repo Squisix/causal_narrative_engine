@@ -273,7 +273,6 @@ class ChoiceORM(Base):
     )
 
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    dramatic_preview: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     tone_hint: Mapped[str] = mapped_column(String(100), default="")
     estimated_depth_until_ending: Mapped[int | None] = mapped_column(Integer, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0)

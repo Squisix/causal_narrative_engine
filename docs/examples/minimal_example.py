@@ -57,17 +57,17 @@ def main():
         initial_choices=[
             NarrativeChoice(
                 text="Touch the crystal with both hands",
-                dramatic_preview={"tension": 10, "mystery": 15},
+
                 tone_hint="bold",
             ),
             NarrativeChoice(
                 text="Call Seraphina to examine it",
-                dramatic_preview={"tension": 0, "connection": 10},
+
                 tone_hint="cautious",
             ),
             NarrativeChoice(
                 text="Bury it again and walk away",
-                dramatic_preview={"tension": -5, "hope": -10},
+
                 tone_hint="fearful",
             ),
         ],
@@ -95,12 +95,12 @@ def main():
         choices=[
             NarrativeChoice(
                 text="Ask Seraphina to explain what a Bearer is",
-                dramatic_preview={"mystery": -10, "connection": 15},
+
                 tone_hint="curious",
             ),
             NarrativeChoice(
                 text="Try to use the magic immediately",
-                dramatic_preview={"tension": 20, "chaos": 10},
+
                 tone_hint="impulsive",
             ),
         ],
@@ -124,12 +124,12 @@ def main():
         choices=[
             NarrativeChoice(
                 text="Flee with Seraphina toward the mountains",
-                dramatic_preview={"tension": 5, "hope": 5},
+
                 tone_hint="prudent",
             ),
             NarrativeChoice(
                 text="Stay and face whatever comes",
-                dramatic_preview={"tension": 25, "hope": -15},
+
                 tone_hint="reckless",
             ),
         ],

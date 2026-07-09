@@ -238,7 +238,6 @@ class PostgreSQLRepository(NarrativeRepository):
             choice_orm = ChoiceORM(
                 commit_id=commit_id,
                 text=choice.text,
-                dramatic_preview=choice.dramatic_preview,
                 tone_hint=choice.tone_hint,
                 estimated_depth_until_ending=choice.estimated_depth_until_ending,
                 display_order=i,
@@ -255,7 +254,6 @@ class PostgreSQLRepository(NarrativeRepository):
         return [
             NarrativeChoice(
                 text=c.text,
-                dramatic_preview=c.dramatic_preview or {},
                 tone_hint=c.tone_hint or "",
                 estimated_depth_until_ending=c.estimated_depth_until_ending,
             )

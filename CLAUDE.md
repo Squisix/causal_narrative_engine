@@ -234,11 +234,7 @@ docker-compose.yml                 # PostgreSQL + Ollama
   "narrative": "Immersive text 150-250 words",
   "summary": "1-sentence causal summary for the trunk",
   "choices": ["option A", "option B", "option C"],
-  "choice_dramatic_preview": [
-    { "choice": "option A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontational" },
-    { "choice": "option B", "tension_delta": -5, "hope_delta": 5,   "tone": "diplomatic" },
-    { "choice": "option C", "tension_delta": 5,  "hope_delta": 10,  "tone": "unexpected" }
-  ],
+  "choice_tones": ["confrontational", "diplomatic", "unexpected"],
   "entity_deltas": [{"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}],
   "entity_creations": [
     {"entity_name": "Name", "entity_type": "character|artifact|faction|location",

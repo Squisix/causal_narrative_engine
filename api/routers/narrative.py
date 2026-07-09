@@ -197,7 +197,6 @@ async def _commit_to_response(commit, service: NarrativeServiceV2) -> NarrativeC
     choices = [
         ChoiceResponse(
             text=choice.text,
-            dramatic_preview=choice.dramatic_preview,
             tone_hint=choice.tone_hint,
         )
         for choice in commit_choices

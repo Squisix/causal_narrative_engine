@@ -69,6 +69,83 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="world-antagonist" data-i18n="setup.antagonist">Antagonist / Central Conflict</label>
+                        <input type="text" id="world-antagonist" data-i18n-value="defaults.antagonist" value="Malachar, the corrupt counselor">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="world-rules" data-i18n="setup.rules">World Rules</label>
+                        <textarea id="world-rules" rows="2" data-i18n-value="defaults.rules">The world follows its own laws. Magic exists but has a price in blood.</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="world-constraints" data-i18n="setup.constraints">Absolute Constraints</label>
+                        <span class="field-hint" data-i18n="setup.constraintsHint">Enter constraints separated by commas (e.g., No time travel, No resurrections)</span>
+                        <textarea id="world-constraints" rows="2" data-i18n-value="defaults.constraints">No time travel allowed, The dead do not resurrect</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="world-max-depth" data-i18n="setup.maxDepth">Maximum Narrative Depth</label>
+                        <span class="field-hint" data-i18n="setup.maxDepthHint">0 = unlimited depth</span>
+                        <input type="number" id="world-max-depth" value="0" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label data-i18n="setup.dramaticConfig">Initial Dramatic Configuration</label>
+                        <div class="dramatic-sliders">
+                            <div class="slider-group">
+                                <label for="slider-tension" data-i18n="meters.tension">Tension</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-tension" min="0" max="100" value="30" oninput="document.getElementById('val-tension').textContent = this.value">
+                                    <span class="slider-value" id="val-tension">30</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-hope" data-i18n="meters.hope">Hope</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-hope" min="0" max="100" value="60" oninput="document.getElementById('val-hope').textContent = this.value">
+                                    <span class="slider-value" id="val-hope">60</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-chaos" data-i18n="meters.chaos">Chaos</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-chaos" min="0" max="100" value="20" oninput="document.getElementById('val-chaos').textContent = this.value">
+                                    <span class="slider-value" id="val-chaos">20</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-rhythm" data-i18n="meters.rhythm">Rhythm</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-rhythm" min="0" max="100" value="50" oninput="document.getElementById('val-rhythm').textContent = this.value">
+                                    <span class="slider-value" id="val-rhythm">50</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-saturation" data-i18n="meters.saturation">Saturation</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-saturation" min="0" max="100" value="0" oninput="document.getElementById('val-saturation').textContent = this.value">
+                                    <span class="slider-value" id="val-saturation">0</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-connection" data-i18n="meters.connection">Connection</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-connection" min="0" max="100" value="40" oninput="document.getElementById('val-connection').textContent = this.value">
+                                    <span class="slider-value" id="val-connection">40</span>
+                                </div>
+                            </div>
+                            <div class="slider-group">
+                                <label for="slider-mystery" data-i18n="meters.mystery">Mystery</label>
+                                <div class="slider-row">
+                                    <input type="range" id="slider-mystery" min="0" max="100" value="50" oninput="document.getElementById('val-mystery').textContent = this.value">
+                                    <span class="slider-value" id="val-mystery">50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="adapter-type" data-i18n="setup.aiEngine">AI Engine</label>
                         <select id="adapter-type">
                             <option value="ollama" data-i18n="setup.adapters.ollama">Ollama (local, free)</option>

@@ -84,5 +84,15 @@
   "defaults.worldName": "The Broken Lands",
   "defaults.worldContext": "A post-apocalyptic world where magic resurges among the ruins of a lost civilization.",
   "defaults.protagonist": "Kael, a scavenger who discovers magical powers",
-  "defaults.era": "Post-collapse, 300 years later"
+  "defaults.era": "Post-collapse, 300 years later",
+  "setup.antagonist": "Antagonist / Central Conflict",
+  "setup.rules": "World Rules",
+  "setup.constraints": "Absolute Constraints",
+  "setup.constraintsHint": "Enter constraints separated by commas (e.g., No time travel, No resurrections)",
+  "setup.maxDepth": "Maximum Narrative Depth",
+  "setup.maxDepthHint": "0 = unlimited depth",
+  "setup.dramaticConfig": "Initial Dramatic Configuration",
+  "defaults.antagonist": "Malachar, the corrupt counselor",
+  "defaults.rules": "The world follows its own laws. Magic exists but has a price in blood.",
+  "defaults.constraints": "No time travel allowed, The dead do not resurrect"
 }

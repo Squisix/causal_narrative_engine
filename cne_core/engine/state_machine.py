@@ -60,9 +60,8 @@ class StoryAdvanceResult:
         if not self.is_ending:
             lines.append(f"\n[OPTIONS]:")
             for i, choice in enumerate(self.available_choices, 1):
-                preview = choice.get_preview_str()
-                preview_str = f"  [{preview}]" if preview else ""
-                lines.append(f"  {i}. {choice.text}{preview_str}")
+                tone_str = f"  [{choice.tone_hint}]" if choice.tone_hint else ""
+                lines.append(f"  {i}. {choice.text}{tone_str}")
 
         return "\n".join(lines)
 

@@ -112,6 +112,7 @@ def get_ollama_adapter() -> OllamaAdapter:
             model=settings.ollama_model,
             base_url=settings.ollama_base_url,
             temperature=settings.ollama_temperature,
+            timeout=settings.ollama_timeout,
         )
 
     return _ollama_adapter_instance
@@ -152,6 +153,7 @@ def get_ai_adapter(adapter_type: str = "mock", adapter_config: dict = None):
                 model=adapter_config.get("model", "gemma3:4b"),
                 base_url=adapter_config.get("base_url", "http://localhost:11434"),
                 temperature=adapter_config.get("temperature", 0.7),
+                timeout=adapter_config.get("timeout", 120.0),
             )
 
         return get_ollama_adapter()

@@ -5,6 +5,7 @@ Adapted for SQLAlchemy 2.0 async.
 """
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -18,6 +19,23 @@ from persistence.database import Base
 from persistence.models.world_orm import WorldORM, EntityORM
 from persistence.models.event_orm import EventORM, CausalEdgeORM, EntityDeltaORM, WorldVariableDeltaORM
 from persistence.models.commit_orm import CommitORM, BranchORM, DramaticStateORM, DramaticDeltaORM, ChoiceORM
+
+# Load .env file manually if it exists to get DATABASE_URL
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+if os.path.exists(dotenv_path):
+    with open(dotenv_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip()
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                if key and key not in os.environ:
+                    os.environ[key] = val
 
 # Alembic configuration
 config = context.config
@@ -37,7 +55,7 @@ def run_migrations_offline() -> None:
     Generates SQL without connecting to the DB.
     Useful for generating SQL scripts to run manually.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -64,7 +82,8 @@ async def run_async_migrations() -> None:
     This is necessary because we use asyncpg.
     """
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = config.get_main_option("sqlalchemy.url")
+    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    configuration["sqlalchemy.url"] = url
 
     connectable = async_engine_from_config(
         configuration,

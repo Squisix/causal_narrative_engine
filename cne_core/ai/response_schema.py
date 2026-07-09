@@ -10,11 +10,7 @@ Expected response example:
   "narrative": "Immersive text of 150-250 words...",
   "summary": "1-sentence causal summary",
   "choices": ["option A", "option B", "option C"],
-  "choice_dramatic_preview": [
-    {"choice": "option A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontational"},
-    {"choice": "option B", "tension_delta": -5, "hope_delta": 5, "tone": "diplomatic"},
-    {"choice": "option C", "tension_delta": 5, "hope_delta": 10, "tone": "unexpected"}
-  ],
+  "choice_tones": ["confrontational", "diplomatic", "evasive"],
   "entity_deltas": [
     {"entity_id": "uuid", "entity_name": "Lyra", "attribute": "health", "old_value": 100, "new_value": 85}
   ],
@@ -142,33 +138,6 @@ class WorldDeltaDict(BaseModel):
         )
 
 
-class ChoicePreview(BaseModel):
-    """
-    Preview of the estimated dramatic impact of an option.
-
-    This helps the player understand the potential consequences
-    of each decision before making it.
-    """
-    choice: str = Field(..., description="Option text")
-    tension_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in tension")
-    hope_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in hope")
-    chaos_delta: int = Field(default=0, ge=-50, le=50, description="Estimated change in chaos")
-    tone: str = Field(default="neutral", description="Tone of the option (confrontational, diplomatic, etc.)")
-
-    def to_narrative_choice(self):
-        """Converts to core NarrativeChoice."""
-        from cne_core.models.commit import NarrativeChoice
-        return NarrativeChoice(
-            text=self.choice,
-            dramatic_preview={
-                "tension": self.tension_delta,
-                "hope": self.hope_delta,
-                "chaos": self.chaos_delta,
-            },
-            tone_hint=self.tone,
-        )
-
-
 class NarrativeResponse(BaseModel):
     """
     Complete AI response.
@@ -200,9 +169,9 @@ class NarrativeResponse(BaseModel):
         description="Available options for the player (2-5 options)"
     )
 
-    choice_dramatic_preview: list[ChoicePreview] = Field(
+    choice_tones: list[str] = Field(
         default_factory=list,
-        description="Preview of the impact of each option"
+        description="Tone hint for each choice, parallel to the choices array (e.g., 'confrontational', 'diplomatic', 'evasive')"
     )
 
     # State deltas
@@ -244,25 +213,17 @@ class NarrativeResponse(BaseModel):
         description="Is this the end of the story?"
     )
 
-    @field_validator('choice_dramatic_preview')
+    @field_validator('choice_tones')
     @classmethod
-    def validate_preview_matches_choices(cls, v, info):
-        """Verifies that there is a preview for each choice."""
+    def validate_tones_match_choices(cls, v, info):
+        """Verifies that choice_tones length matches choices length, if provided."""
         if 'choices' in info.data:
             choices = info.data['choices']
             if len(v) > 0 and len(v) != len(choices):
                 raise ValueError(
-                    f"There must be {len(choices)} previews, one per option. "
+                    f"choice_tones must have {len(choices)} entries (one per choice). "
                     f"Found: {len(v)}"
                 )
-            # Verify that the texts match
-            if v:
-                preview_texts = {p.choice for p in v}
-                choice_texts = set(choices)
-                if preview_texts != choice_texts:
-                    raise ValueError(
-                        f"The option texts do not match between choices and preview"
-                    )
         return v
 
     @field_validator('narrative')
@@ -307,11 +268,11 @@ class NarrativeResponse(BaseModel):
         world_deltas = [d.to_world_delta() for d in self.world_deltas]
         dramatic_delta = self.dramatic_deltas.to_dramatic_delta()
 
-        if self.choice_dramatic_preview:
-            choices = [p.to_narrative_choice() for p in self.choice_dramatic_preview]
-        else:
-            from cne_core.models.commit import NarrativeChoice
-            choices = [NarrativeChoice(text=c) for c in self.choices]
+        from cne_core.models.commit import NarrativeChoice
+        choices = []
+        for i, choice_text in enumerate(self.choices):
+            tone = self.choice_tones[i] if i < len(self.choice_tones) else ""
+            choices.append(NarrativeChoice(text=choice_text, tone_hint=tone))
 
         return entity_deltas, entity_creations, world_deltas, dramatic_delta, choices
 
@@ -325,26 +286,7 @@ class NarrativeResponse(BaseModel):
                     "Order a secret investigation",
                     "Accept Malachar's 'help'"
                 ],
-                "choice_dramatic_preview": [
-                    {
-                        "choice": "Confront Malachar directly",
-                        "tension_delta": 15,
-                        "hope_delta": -5,
-                        "tone": "confrontational"
-                    },
-                    {
-                        "choice": "Order a secret investigation",
-                        "tension_delta": 5,
-                        "hope_delta": 5,
-                        "tone": "cautious"
-                    },
-                    {
-                        "choice": "Accept Malachar's 'help'",
-                        "tension_delta": -5,
-                        "hope_delta": -10,
-                        "tone": "submissive"
-                    }
-                ],
+                "choice_tones": ["confrontational", "cautious", "submissive"],
                 "entity_deltas": [],
                 "world_deltas": [],
                 "dramatic_deltas": {

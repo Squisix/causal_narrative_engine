@@ -185,11 +185,16 @@ class NarrativeServiceV2:
         engine = await self._get_or_create_engine(commit.world_id)
 
         # Verify the choice is valid (skip for custom player choices)
+        player_choice_tone = None
         if not custom_choice:
             commit_choices = await self.get_commit_choices(commit_id)
             valid_choices = [c.text for c in commit_choices]
             if choice not in valid_choices:
                 raise ValueError(f"Invalid choice. Valid: {valid_choices}")
+            for c in commit_choices:
+                if c.text == choice:
+                    player_choice_tone = c.tone_hint
+                    break
 
         # If a child with this same choice already exists, navigate to it instead of creating a new one
         existing_children = await self.repo.get_children_commits(commit_id)
@@ -217,6 +222,7 @@ class NarrativeServiceV2:
             current_world_vars=commit.world_state_snapshot or {},
             commit_chain=trunk,
             player_choice=choice,
+            player_choice_tone=player_choice_tone,
             forced_constraint=forced_constraint,
         )
 

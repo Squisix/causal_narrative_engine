@@ -18,7 +18,6 @@ from typing import Optional
 from cne_core.interfaces.ai_adapter import AIAdapter, NarrativeContext, NarrativeProposal
 from cne_core.ai.response_schema import (
     NarrativeResponse,
-    ChoicePreview,
     DramaticDeltaDict,
     EntityDeltaDict,
     WorldDeltaDict,
@@ -61,12 +60,38 @@ class MockAdapter(AIAdapter):
         """
         self.call_count += 1
 
+        system_prompt = "Mock system prompt (Deterministic)" if self.deterministic else "Mock system prompt (Random)"
+        user_prompt = f"Mock user prompt for depth {context.current_depth} with choice {context.player_choice}"
+        world_id = context.world_definition.id if hasattr(context.world_definition, "id") else "unknown"
+
         # If we are forcing errors, generate an invalid response
         if self.force_errors:
-            return self._generate_invalid_response(context)
+            proposal = self._generate_invalid_response(context)
+            from adapters.logging_utils import log_ai_interaction
+            log_ai_interaction(
+                world_id=world_id,
+                adapter_name="mock_adapter",
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                raw_response={"message": "Forced error mode enabled"},
+                success=False,
+                error_msg="Forced error mode enabled",
+            )
+            return proposal
 
         # Generate valid response
-        return self._generate_valid_response(context)
+        proposal = self._generate_valid_response(context)
+
+        from adapters.logging_utils import log_ai_interaction
+        log_ai_interaction(
+            world_id=world_id,
+            adapter_name="mock_adapter",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            raw_response=proposal.raw_response if proposal.raw_response else {},
+            success=True,
+        )
+        return proposal
 
     def _generate_valid_response(self, context: NarrativeContext) -> NarrativeProposal:
         """Generates a valid response using templates."""
@@ -88,7 +113,7 @@ class MockAdapter(AIAdapter):
 
         # Generate choices (2-4 options)
         num_choices = 3 if self.deterministic else random.randint(2, 4)
-        choices, choice_previews = self._generate_choices(context, num_choices)
+        choices, tones = self._generate_choices(context, num_choices)
 
         # Generate dramatic deltas (based on context)
         dramatic_deltas = self._generate_dramatic_deltas(context, is_forced)
@@ -105,7 +130,7 @@ class MockAdapter(AIAdapter):
             narrative=narrative,
             summary=summary,
             choices=choices,
-            choice_dramatic_preview=choice_previews,
+            choice_tones=tones,
             entity_deltas=entity_deltas,
             world_deltas=world_deltas,
             dramatic_deltas=dramatic_deltas,
@@ -174,30 +199,21 @@ class MockAdapter(AIAdapter):
         choice = context.player_choice if context.player_choice else "an action"
         return f"After {choice}, new events unfold and options emerge."
 
-    def _generate_choices(self, context: NarrativeContext, num: int) -> tuple[list[str], list[ChoicePreview]]:
-        """Generates choices and their previews."""
+    def _generate_choices(self, context: NarrativeContext, num: int) -> tuple[list[str], list[str]]:
+        """Generates choices and their tone hints."""
         choice_templates = [
-            ("Act with caution and observe", 5, 5, 0, "cautious"),
-            ("Take direct and immediate action", 15, -5, 5, "confrontational"),
-            ("Seek allies before proceeding", 5, 10, -5, "diplomatic"),
-            ("Explore non-obvious alternatives", 10, 0, 10, "creative"),
-            ("Wait and gather more information", -5, 5, -10, "patient"),
+            ("Act with caution and observe", "cautious"),
+            ("Take direct and immediate action", "confrontational"),
+            ("Seek allies before proceeding", "diplomatic"),
+            ("Explore non-obvious alternatives", "creative"),
+            ("Wait and gather more information", "patient"),
         ]
 
         selected = choice_templates[:num]
         choices = [c[0] for c in selected]
-        previews = [
-            ChoicePreview(
-                choice=c[0],
-                tension_delta=c[1],
-                hope_delta=c[2],
-                chaos_delta=c[3],
-                tone=c[4],
-            )
-            for c in selected
-        ]
+        tones = [c[1] for c in selected]
 
-        return choices, previews
+        return choices, tones
 
     def _generate_dramatic_deltas(self, context: NarrativeContext, is_forced: bool) -> DramaticDeltaDict:
         """Generates dramatic deltas based on context."""

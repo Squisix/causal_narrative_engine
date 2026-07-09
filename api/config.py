@@ -40,9 +40,13 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:4b"
     ollama_base_url: str = "http://localhost:11434"
     ollama_temperature: float = 0.7
+    ollama_timeout: float = 120.0
 
     # Default adapter ("mock", "anthropic", or "ollama")
     default_ai_adapter: str = "mock"
+
+    # AI Logging (logs/world_<world_id>.jsonl)
+    enable_ai_logging: bool = True
 
     # Redis (cache)
     redis_url: str | None = None

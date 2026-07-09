@@ -253,6 +253,22 @@ document.getElementById('setup-form').addEventListener('submit', async (e) => {
             tone: document.getElementById('world-tone').value,
             initial_entities: getEntities(),
             output_language: document.getElementById('world-language').value,
+            antagonist: document.getElementById('world-antagonist').value.trim() || undefined,
+            rules: document.getElementById('world-rules').value.trim() || undefined,
+            constraints: document.getElementById('world-constraints').value
+                .split(',')
+                .map(c => c.trim())
+                .filter(c => c.length > 0),
+            max_depth: parseInt(document.getElementById('world-max-depth').value, 10) || 0,
+            dramatic_config: {
+                tension: parseInt(document.getElementById('slider-tension').value, 10),
+                hope: parseInt(document.getElementById('slider-hope').value, 10),
+                chaos: parseInt(document.getElementById('slider-chaos').value, 10),
+                rhythm: parseInt(document.getElementById('slider-rhythm').value, 10),
+                saturation: parseInt(document.getElementById('slider-saturation').value, 10),
+                connection: parseInt(document.getElementById('slider-connection').value, 10),
+                mystery: parseInt(document.getElementById('slider-mystery').value, 10),
+            }
         };
 
         const worldRes = await fetch(`${API}/worlds`, {
@@ -424,16 +440,8 @@ function renderCommit(commit) {
         for (const choice of commit.choices) {
             html += `<button class="choice-btn" onclick="makeChoice('${escapeAttr(choice.text)}')">`;
             html += escapeHtml(choice.text);
-            if (choice.dramatic_preview) {
-                html += '<div class="choice-preview">';
-                for (const [key, val] of Object.entries(choice.dramatic_preview)) {
-                    if (val !== 0) {
-                        const cls = val > 0 ? 'delta-pos' : 'delta-neg';
-                        const sign = val > 0 ? '+' : '';
-                        html += `<span class="${cls}">${key} ${sign}${val}</span>`;
-                    }
-                }
-                html += '</div>';
+            if (choice.tone_hint) {
+                html += `<div class="choice-preview"><span class="tone-hint">${escapeHtml(choice.tone_hint)}</span></div>`;
             }
             html += '</button>';
         }

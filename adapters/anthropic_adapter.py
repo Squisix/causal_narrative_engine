@@ -180,6 +180,7 @@ class AnthropicAdapter(AIAdapter):
             dramatic_state=context.current_dramatic_state,
             forced_constraint=context.forced_constraint,
             player_choice=context.player_choice,
+            player_choice_tone=context.player_choice_tone,
             current_entity_states=context.current_entity_states or None,
             current_world_vars=context.current_world_vars or None,
         )

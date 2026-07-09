@@ -95,6 +95,10 @@ docs/.doctrees/
 # Secrets y configuración local
 config.local.json
 secrets.json
+*.crt
+*.pem
+*.cer
+zscaler*
 
 # Coverage reports
 .coverage.*

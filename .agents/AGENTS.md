@@ -158,9 +158,7 @@ The AI must return the following JSON structure (validated by ResponseValidator)
   "narrative": "Immersive narrative text of 150-250 words",
   "summary": "1-sentence causal summary of this chapter for the history trunk",
   "choices": ["option A", "option B", "option C"],
-  "choice_dramatic_preview": [
-    { "choice": "option A", "tension_delta": 15, "hope_delta": -10, "tone": "confrontational" }
-  ],
+  "choice_tones": ["confrontational", "diplomatic", "evasive"],
   "entity_deltas": [{"entity_id": "uuid", "attribute": "health", "old_value": 100, "new_value": 85}],
   "entity_creations": [
     {"entity_name": "Name", "entity_type": "character|artifact|faction|location",

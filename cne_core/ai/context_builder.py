@@ -54,6 +54,7 @@ class ContextBuilder:
         dramatic_state: dict[str, int],
         forced_constraint: Optional[ForcedEventConstraint] = None,
         player_choice: Optional[str] = None,
+        player_choice_tone: Optional[str] = None,
         current_entity_states: Optional[dict] = None,
         current_world_vars: Optional[dict] = None,
     ) -> str:
@@ -93,7 +94,7 @@ class ContextBuilder:
 
         # 6. Player choice
         if player_choice:
-            sections.append(self._build_choice_section(player_choice))
+            sections.append(self._build_choice_section(player_choice, player_choice_tone))
 
         # 7. Forced constraint
         if forced_constraint:
@@ -311,16 +312,18 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
-    def _build_choice_section(self, player_choice: str) -> str:
+    def _build_choice_section(self, player_choice: str, player_choice_tone: Optional[str] = None) -> str:
         """Section with the player's taken choice."""
+        tone_str = f" (tone: {player_choice_tone})" if player_choice_tone else ""
         lines = [
             "=" * 60,
             "PLAYER CHOICE",
             "=" * 60,
             "",
-            f'The player selected: "{player_choice}"',
+            f'The player selected: "{player_choice}"{tone_str}',
             "",
             "Your task: Write the narrative resulting from this decision.",
+            "Honor the emotional tone the player chose for their action.",
         ]
         return "\n".join(lines)
 
@@ -360,11 +363,7 @@ REQUIRED SCHEMA FORMAT:
   "narrative": "Immersive narrative text of 150-250 words describing what happens, written in {world.output_language}",
   "summary": "1-sentence causal summary for the history trunk, written in {world.output_language}",
   "choices": ["choice 1 in {world.output_language}", "choice 2 in {world.output_language}", "choice 3 in {world.output_language}"],
-  "choice_dramatic_preview": [
-    {{"choice": "choice 1", "tension_delta": 15, "hope_delta": -5, "tone": "confrontational"}},
-    {{"choice": "choice 2", "tension_delta": 5, "hope_delta": 10, "tone": "diplomatic"}},
-    {{"choice": "choice 3", "tension_delta": -5, "hope_delta": 0, "tone": "evasive"}}
-  ],
+  "choice_tones": ["confrontational", "diplomatic", "evasive"],
   "entity_deltas": [
     {{"entity_id": "uuid", "entity_name": "Name", "attribute": "attribute", "old_value": X, "new_value": Y}}
   ],
